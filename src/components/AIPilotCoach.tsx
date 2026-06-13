@@ -25,7 +25,7 @@ export const AIPilotCoach: React.FC<AIPilotCoachProps> = ({
     {
       id: 'welcome',
       sender: 'support',
-      text: "👋 G'day! I am your Bolt AI Support Co-pilot and Dispatch Coach. Ask me how to find peak surges, maximize passenger tips, or manage safe routing!",
+      text: "👋 G'day! I am your Swift AI Support Co-pilot and Dispatch Coach. Ask me how to find peak surges, maximize passenger tips, or manage safe routing!",
       timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
     },
   ]);
@@ -107,7 +107,7 @@ export const AIPilotCoach: React.FC<AIPilotCoachProps> = ({
     "🔥 Where are the biggest surge areas right now?",
     "⭐ How can I raise my driver ratings and tips?",
     "⚡ What's the best strategy to maximize fuel efficiency?",
-    "💼 How does Bolt balance cash-out work?",
+    "💼 How does Swift balance cash-out work?",
   ];
 
   if (!isOpen) return null;
@@ -122,7 +122,7 @@ export const AIPilotCoach: React.FC<AIPilotCoachProps> = ({
             <Sparkles className="w-4 h-4 text-slate-950 fill-slate-950" />
           </div>
           <div>
-            <h3 className="text-white text-[13px] font-extrabold leading-tight">Bolt AI Dispatch Officer</h3>
+            <h3 className="text-white text-[13px] font-extrabold leading-tight">Swift AI Dispatch Officer</h3>
             <span className="text-[9px] text-emerald-400 block font-medium animate-pulse">Connected to Copilot</span>
           </div>
         </div>

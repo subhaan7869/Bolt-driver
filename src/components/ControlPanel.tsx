@@ -272,7 +272,7 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
       <div className="flex items-center gap-1.5 text-[9px] text-gray-500 bg-slate-950/20 p-2.5 rounded-lg border border-slate-850/40">
         <ShieldCheck className="w-4.5 h-4.5 text-emerald-500" />
         <span className="leading-tight">
-          This simulation behaves identically to the actual Bolt driver framework standard, including GPS routes, state transitions, and fare calculators.
+          This simulation behaves identically to the actual Swift driver framework standard, including GPS routes, state transitions, and fare calculators.
         </span>
       </div>
 

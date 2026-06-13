@@ -61,7 +61,7 @@ export const EarningsDrawer: React.FC<EarningsDrawerProps> = ({
       <div className="flex items-center justify-between p-4 border-b border-slate-900 bg-slate-900/40">
         <div className="flex items-center gap-2">
           <TrendingUp className="w-5 h-5 text-emerald-400" />
-          <h3 className="text-white text-[15px] font-extrabold">Bolt Balance & Analytics</h3>
+          <h3 className="text-white text-[15px] font-extrabold">Swift Balance & Analytics</h3>
         </div>
         <button
           id="close-earnings-button"
@@ -239,7 +239,7 @@ export const EarningsDrawer: React.FC<EarningsDrawerProps> = ({
                   <div className="flex-1 min-w-0 pr-2">
                     <div className="flex items-center gap-1.5 mb-1">
                       <span className="bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-[9px] px-1.5 py-0.2 rounded font-mono">
-                        Bolt Base
+                        Swift Base
                       </span>
                       <span className="text-[9px] text-gray-500 font-mono">
                         {trip.timestamp}

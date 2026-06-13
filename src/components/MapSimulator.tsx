@@ -38,7 +38,7 @@ export interface HotZone {
 }
 
 const SURGE_ZONES: HotZone[] = [
-  { id: 'victoria-island', name: 'Soho & West End', x: 200, y: 120, radius: 75, multiplier: 1.8, color: 'rgba(34, 197, 94, 0.15)' }, // Bolt Green glow
+  { id: 'victoria-island', name: 'Soho & West End', x: 200, y: 120, radius: 75, multiplier: 1.8, color: 'rgba(34, 197, 94, 0.15)' }, // Swift Green glow
   { id: 'lekki-phase1', name: 'Mayfair', x: 340, y: 420, radius: 80, multiplier: 2.2, color: 'rgba(34, 197, 94, 0.2)' }, // Surge green
   { id: 'ikeja', name: 'City of London', x: 80, y: 280, radius: 65, multiplier: 1.4, color: 'rgba(34, 197, 94, 0.12)' }, 
   { id: 'surulere', name: 'Kensington', x: 80, y: 70, radius: 55, multiplier: 1.2, color: 'rgba(34, 197, 94, 0.1)' },
@@ -159,7 +159,7 @@ export const MapSimulator: React.FC<MapSimulatorProps> = ({
           Oxford Street
         </text>
 
-        {/* Surge Heatmap Spots (glowing neon circles - Bolt standard!) */}
+        {/* Surge Heatmap Spots (glowing neon circles - Swift standard!) */}
         {isOnline && activeSurges.map((zone) => {
           const showMultiplier = zone.multiplier > 1.0;
           return (
@@ -168,7 +168,7 @@ export const MapSimulator: React.FC<MapSimulatorProps> = ({
               className="cursor-pointer group select-none"
               onClick={() => onSpawnRideFromZone?.(zone.multiplier, zone.name, { x: zone.x, y: zone.y })}
             >
-              {/* Pulsing Surge Zone Ring (Greenish/Yellow for Bolt) */}
+              {/* Pulsing Surge Zone Ring (Greenish/Yellow for Swift) */}
               <circle
                 cx={zone.x}
                 cy={zone.y}
@@ -315,7 +315,7 @@ export const MapSimulator: React.FC<MapSimulatorProps> = ({
       {!isOnline && (
         <div className="absolute inset-0 bg-white/95 flex flex-col items-center justify-center p-4 text-center">
           <Navigation className="w-8 h-8 text-[#13AA52] mb-1.5 animate-bounce" />
-          <h4 className="text-gray-950 text-sm font-black">Bolt Driver Offline</h4>
+          <h4 className="text-gray-950 text-sm font-black">Swift Driver Offline</h4>
           <p className="text-gray-500 text-[11px] max-w-[240px] leading-tight">
             Please tap the <span className="font-extrabold text-[#13AA52]">+ Go Online</span> button below to start simulating requests.
           </p>

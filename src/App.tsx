@@ -9,7 +9,7 @@ import {
 import { 
   Navigation, Star, Zap, Clock, Landmark, Sparkles, MessageSquare, 
   AlertTriangle, CheckCircle, Smartphone, Wifi, Battery, Menu, Bell, 
-  ChevronRight, Car, HelpCircle, Settings, LogOut, Check, ArrowRight, X, Phone, User, Calendar
+  ChevronRight, Car, HelpCircle, Settings, LogOut, Check, ArrowRight, X, Phone, User, Calendar, Coffee
 } from 'lucide-react';
 
 // Preset mock matches matching the London UK screenshots precisely!
@@ -152,6 +152,7 @@ export default function App() {
   };
 
   const [isOnline, setIsOnline] = useState<boolean>(true);
+  const [isOnBreak, setIsOnBreak] = useState<boolean>(false);
   const [surgeLevel, setSurgeLevel] = useState<'low' | 'medium' | 'high'>('high');
   const [simSpeed, setSimSpeed] = useState<number>(2);
   const [batteryLevel, setBatteryLevel] = useState<number>(71);
@@ -180,7 +181,7 @@ export default function App() {
       id: 'init-1',
       timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
       type: 'info',
-      message: '⚡ Bolt telemetric cores initialized. Standard Port 3000 running.',
+      message: '⚡ Swift telemetric cores initialized. Standard Port 3000 running.',
     },
     {
       id: 'init-2',
@@ -236,6 +237,7 @@ export default function App() {
   const handleSetOnline = (online: boolean) => {
     playSoundEffect('tap');
     setIsOnline(online);
+    setIsOnBreak(false); // Clear break state on status change
     if (online) {
       appendLog(`Driver status changed to • Online in ${mode.toUpperCase()} dispatcher.`, 'success');
     } else {
@@ -259,6 +261,11 @@ export default function App() {
     if (!isOnline) {
       playSoundEffect('warn');
       appendLog('Simulation rejected: Set status to • Online first.', 'warn');
+      return;
+    }
+    if (isOnBreak) {
+      playSoundEffect('warn');
+      appendLog('Simulation rejected: Cannot receive dispatch offers while on Coffee Break ☕.', 'warn');
       return;
     }
     if (tripProgress.stage !== 'idle') {
@@ -354,7 +361,7 @@ export default function App() {
   // Ambient automatic periodic simulations
   useEffect(() => {
     let interval: NodeJS.Timeout | null = null;
-    if (isOnline) {
+    if (isOnline && !isOnBreak) {
       interval = setInterval(() => {
         if (tripProgress.stage === 'idle') {
           // 8% chance to trigger ambient match every 4 seconds
@@ -370,7 +377,7 @@ export default function App() {
     return () => {
       if (interval) clearInterval(interval);
     };
-  }, [isOnline, tripProgress.stage, handleSpawnMockRide]);
+  }, [isOnline, isOnBreak, tripProgress.stage, handleSpawnMockRide]);
 
   // Offer tick countdown & Nav driving loop
   useEffect(() => {
@@ -610,13 +617,8 @@ export default function App() {
         </div>
 
         {/* Simulated status bar */}
-        <div className="h-7 px-6 bg-white flex items-end justify-between text-[11px] text-zinc-900 select-none shrink-0 font-extrabold z-20 pb-1.5 pt-1.5">
-          <span>{currentTimeStr}</span>
-          <div className="flex items-center gap-1.5">
-            <Wifi className="w-3.5 h-3.5 text-zinc-900" />
-            <span className="text-[9px] font-mono leading-none tracking-tight">{batteryLevel}%</span>
-            <Battery className={`w-4 h-4 ${batteryLevel <= 20 ? 'text-red-500 fill-red-500 animate-pulse' : 'text-zinc-900 fill-zinc-900'}`} />
-          </div>
+        <div className="h-7 px-6 bg-white flex items-end justify-end text-[11px] text-zinc-900 select-none shrink-0 font-extrabold z-20 pb-1.5 pt-1.5">
+          <Wifi className="w-3.5 h-3.5 text-zinc-900" />
         </div>
 
         {/* INTERNAL PHONE SCREEN PORTAL */}
@@ -626,7 +628,7 @@ export default function App() {
               {activeTab === 'home' && (
                 <div className="flex-1 flex flex-col relative overflow-hidden">
                   
-                  {/* APP UPPER SHELF BAR (Bolt Header) */}
+                  {/* APP UPPER SHELF BAR (Swift Header) */}
                   <nav className="h-11 bg-white px-3 border-b border-gray-100 flex items-center justify-between shrink-0 select-none z-10 shadow-sm">
                     <div className="flex items-center gap-1.5">
                       <button
@@ -636,7 +638,7 @@ export default function App() {
                         <Menu className="w-3.5 h-3.5" />
                       </button>
                       <span className="text-sm font-black font-sans tracking-tight text-gray-900 flex items-baseline gap-0.5">
-                        {mode === 'food' ? 'Bolt Food' : 'Bolt Driver'}
+                        {mode === 'food' ? 'Swift Eats' : 'Swift Driver'}
                       </span>
                     </div>
 
@@ -734,7 +736,7 @@ export default function App() {
                             </div>
                           </div>
 
-                          {/* Bolt menu options */}
+                          {/* Swift menu options */}
                           <div className="flex flex-col divide-y divide-gray-100 border-t border-gray-50 mt-1">
                             {mode === 'taxi' ? (
                               <>
@@ -788,34 +790,71 @@ export default function App() {
                           </div>
                         </div>
                       ) : (
-                        /* Online seeking list cards */
-                        <div className="flex flex-col gap-2 animate-in fade-in duration-200">
-                          <div className="bg-[#eefbf4] border border-[#d3f5df] rounded-xl p-2.5 flex items-center justify-between">
-                            <div className="flex items-center gap-2">
-                              <Zap className="w-4 h-4 text-[#13AA52] fill-[#13AA52]/10" />
-                              <div>
-                                <span className="text-[11px] font-bold text-[#0c6b34] block">Auto-Accept Active</span>
-                                <span className="text-[8.5px] text-[#2c8d52] block leading-none">Simulator matches instantly</span>
+                          /* Online seeking list cards */
+                          <div className="flex flex-col gap-2 animate-in fade-in duration-200">
+                            <div className="bg-[#eefbf4] border border-[#d3f5df] rounded-xl p-2.5 flex items-center justify-between">
+                              <div className="flex items-center gap-2">
+                                <Zap className="w-4 h-4 text-[#13AA52] fill-[#13AA52]/10" />
+                                <div>
+                                  <span className="text-[11px] font-bold text-[#0c6b34] block">Auto-Accept Active</span>
+                                  <span className="text-[8.5px] text-[#2c8d52] block leading-none">Simulator matches instantly</span>
+                                </div>
                               </div>
+                              <button
+                                onClick={() => { playSoundEffect('tap'); setAutoAccept(!autoAccept); }}
+                                className={`text-[8px] font-black px-2.5 py-1 rounded transition-colors ${
+                                  autoAccept ? 'bg-[#13AA52] text-white' : 'bg-gray-200 text-gray-500'
+                                }`}
+                              >
+                                {autoAccept ? 'ON' : 'OFF'}
+                              </button>
                             </div>
-                            <button
-                              onClick={() => { playSoundEffect('tap'); setAutoAccept(!autoAccept); }}
-                              className={`text-[8px] font-black px-2.5 py-1 rounded transition-colors ${
-                                autoAccept ? 'bg-[#13AA52] text-white' : 'bg-gray-200 text-gray-500'
-                              }`}
-                            >
-                              {autoAccept ? 'ON' : 'OFF'}
-                            </button>
+                            
+                            {/* BREAK TOGGLE ROW */}
+                            <div className={`border rounded-xl p-2.5 flex items-center justify-between transition-all duration-300 ${
+                              isOnBreak ? 'bg-amber-50 border-amber-200 shadow-sm' : 'bg-zinc-50 border-zinc-200 hover:bg-zinc-100'
+                            }`}>
+                              <div className="flex items-center gap-2">
+                                <Coffee className={`w-4 h-4 ${isOnBreak ? 'text-amber-500 animate-bounce' : 'text-gray-500'}`} />
+                                <div className="text-left">
+                                  <span className={`text-[11px] font-extrabold block leading-tight ${isOnBreak ? 'text-amber-700' : 'text-zinc-700'}`}>
+                                    {isOnBreak ? 'On Coffee Break' : 'Take a Break'}
+                                  </span>
+                                  <span className="text-[8.5px] text-zinc-400 block leading-none mt-0.5">
+                                    {isOnBreak ? 'Matching paused. Auto-spawner halted.' : 'Temporarily pause new order dispatch'}
+                                  </span>
+                                </div>
+                              </div>
+                              <button
+                                onClick={() => {
+                                  playSoundEffect('tap');
+                                  const nextBreak = !isOnBreak;
+                                  setIsOnBreak(nextBreak);
+                                  appendLog(nextBreak ? '☕ Driver went on a Coffee Break. Dispatch matched queue is paused.' : '⚡ Driver returned from Break. Re-entered dispatch match queue.', nextBreak ? 'warn' : 'success');
+                                }}
+                                className={`text-[8px] font-black px-3 py-1.5 rounded transition-all cursor-pointer ${
+                                  isOnBreak ? 'bg-amber-500 text-white hover:bg-amber-600' : 'bg-zinc-200 text-zinc-650 hover:bg-zinc-300'
+                                }`}
+                              >
+                                {isOnBreak ? 'RESUME' : 'PAUSE'}
+                              </button>
+                            </div>
+
+                            {!isOnBreak ? (
+                              <div className="text-center py-2.5">
+                                <span className="text-[9.5px] text-gray-400 uppercase font-black tracking-widest block leading-none">Queued matching</span>
+                                <span className="text-[11px] text-gray-600 block mt-1">Driving streets of London, UK ...</span>
+                              </div>
+                            ) : (
+                              <div className="text-center py-4 bg-amber-50/50 border border-dashed border-amber-200 rounded-xl my-1">
+                                <span className="text-[9.5px] text-amber-600 uppercase font-black tracking-widest block leading-none">Dispatcher Paused</span>
+                                <span className="text-[11px] text-amber-700 block mt-1 font-bold">Enjoying tea & biscuits in London 🇬🇧</span>
+                              </div>
+                            )}
                           </div>
-                          
-                          <div className="text-center py-2.5">
-                            <span className="text-[9.5px] text-gray-400 uppercase font-black tracking-widest block leading-none">Queued matching</span>
-                            <span className="text-[11px] text-gray-600 block mt-1">Driving streets of London, UK ...</span>
-                          </div>
-                        </div>
-                      )}
-                    </div>
-                  ) : (
+                        )}
+                      </div>
+                    ) : (
                     /* IN-TRIP ACTIVE HUD (Taxi & Food counter-assets) */
                     tripProgress.stage !== 'offering' && (
                       <div className="bg-white border-t border-gray-100 p-3.5 shrink-0 flex flex-col gap-3.5 z-10 shadow-lg animate-in slide-in-from-bottom duration-300">
@@ -877,7 +916,7 @@ export default function App() {
                           </div>
                         </div>
 
-                        {/* CUSTOM SLIDE TO ACTION TRACK (Exactly styled like real Bolt Slider button!) */}
+                        {/* CUSTOM SLIDE TO ACTION TRACK (Exactly styled like real Swift Slider button!) */}
                         <div className="relative">
                           <button
                             onClick={handleSlideUnlock}
@@ -909,12 +948,12 @@ export default function App() {
                   {tripProgress.stage === 'offering' && tripProgress.currentRide && (
                     <div className="absolute inset-0 bg-white/95 backdrop-blur-sm z-50 flex flex-col justify-end p-3 animate-in fade-in duration-200">
                       
-                      {/* Incoming offer details card (Light theme from Bolt screenshot!) */}
+                      {/* Incoming offer details card (Light theme from Swift screenshot!) */}
                       <div className="bg-white border border-gray-100 rounded-3xl p-4 shadow-2xl flex flex-col gap-4 select-none animate-in slide-in-from-bottom duration-350">
                         {/* Upper Header info */}
                         <div className="flex items-center justify-between">
                           <span className="bg-[#13AA52] text-white text-[10px] uppercase font-black px-2.5 py-0.5 rounded-full font-sans tracking-wider-lg leading-none">
-                            {mode === 'food' ? 'Bolt Food' : 'Bolt'}
+                            {mode === 'food' ? 'Swift Eats' : 'Swift'}
                           </span>
                           
                           {/* Rating Pill matches screenshot! */}
@@ -1231,7 +1270,7 @@ export default function App() {
                       </span>
                     </button>
 
-                    <button onClick={() => { playSoundEffect('tap'); alert("Bolt Help center online: Standard dispatcher supports active."); }} className="flex items-center justify-between py-2.5 hover:bg-gray-50 transition px-1.5">
+                    <button onClick={() => { playSoundEffect('tap'); alert("Swift Help center online: Standard dispatcher supports active."); }} className="flex items-center justify-between py-2.5 hover:bg-gray-50 transition px-1.5">
                       <div className="flex items-center gap-2.5">
                         <HelpCircle className="w-4 h-4 text-gray-400" />
                         <span>Help & support</span>
@@ -1389,10 +1428,10 @@ export default function App() {
                       </button>
                     </div>
 
-                    <button onClick={() => alert("Bolt Driver Simulator v3.0 London Localized Version.")} className="flex items-center justify-between py-2.5 hover:bg-gray-50 transition px-1.5">
+                    <button onClick={() => alert("Swift Driver Simulator v3.0 London Localized Version.")} className="flex items-center justify-between py-2.5 hover:bg-gray-50 transition px-1.5">
                       <div className="flex items-center gap-2.5">
                         <Settings className="w-4 h-4 text-gray-400" />
-                        <span>About Bolt Driver</span>
+                        <span>About Swift Driver</span>
                       </div>
                       <span className="text-gray-400 text-[9px] font-mono">v3.0</span>
                     </button>
@@ -1483,7 +1522,7 @@ export default function App() {
                 </div>
               )}
 
-              {/* PERSISTENT TAB NAVBAR NAVIGATION AT THE BOTTOM (Matches Bolt screenshot precisely!) */}
+              {/* PERSISTENT TAB NAVBAR NAVIGATION AT THE BOTTOM (Matches Swift layout precisely!) */}
               <div className="h-12 bg-white border-t border-gray-100 flex items-center justify-around shrink-0 z-20">
                 <button
                   onClick={() => { playSoundEffect('tap'); setActiveTab('home'); }}

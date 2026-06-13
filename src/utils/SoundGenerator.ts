@@ -1,4 +1,4 @@
-// Web Audio API Sound Generator for Bolt Driver App Simulator
+// Web Audio API Sound Generator for Swift Driver App Simulator
 // Avoids external asset dependencies and ensures instant performance.
 
 let audioCtx: AudioContext | null = null;
@@ -38,7 +38,7 @@ export const playIncomingRideSound = () => {
       osc.stop(time + duration);
     };
 
-    // Fast triple-pulse matching Bolt/Uber request alarms
+    // Fast triple-pulse matching Swift request alarms
     playTone(now, 587.33, 0.15); // D5
     playTone(now + 0.1, 783.99, 0.15); // G5
     playTone(now + 0.2, 587.33, 0.15); // D5

@@ -47,7 +47,7 @@ async function startServer() {
         } else if (msgLower.includes('cancellation') || msgLower.includes('acceptance')) {
           reply = `📊 Drive Performance: Your Acceptance Rate is ${driverStats?.acceptanceRate || 95}% and Cancellation is ${driverStats?.cancellationRate || 2}%. Avoid declining too many consecutive rides to maintain early priority booking.`;
         } else {
-          reply = "👋 Welcome to Bolt Support Pilot! Ask me quick tips, e.g., 'where are the hot zones?', 'how do I cash out?', or 'how to improve ratings?'. To unlock unlimited real-world AI reasoning, make sure to add your GEMINI_API_KEY in the Secrets panel!";
+          reply = "👋 Welcome to Swift Support Pilot! Ask me quick tips, e.g., 'where are the hot zones?', 'how do I cash out?', or 'how to improve ratings?'. To unlock unlimited real-world AI reasoning, make sure to add your GEMINI_API_KEY in the Secrets panel!";
         }
 
         res.json({
@@ -61,7 +61,7 @@ async function startServer() {
 
     try {
       const statsContext = driverStats ? `
-      The driver's current Bolt statistics are:
+      The driver's current Swift statistics are:
       - Star Rating: ${driverStats.rating} / 5
       - Acceptance Rate: ${driverStats.acceptanceRate}%
       - Cancellation Rate: ${driverStats.cancellationRate}%
@@ -71,8 +71,8 @@ async function startServer() {
       ` : '';
 
       const prompt = `
-      You are the official "Bolt Driver AI Co-host & Dispatch Assistant". 
-      Your job is to provide cheerful, highly practical, and motivating answers to Bolt taxi drivers who are simulating or carrying out client rides. 
+      You are the official "Swift Driver AI Co-host & Dispatch Assistant". 
+      Your job is to provide cheerful, highly practical, and motivating answers to Swift taxi drivers who are simulating or carrying out client rides. 
       Speak in a friendly, supportive tone like an expert dispatcher or driver coach.
       
       ${statsContext}
@@ -99,7 +99,7 @@ async function startServer() {
     } catch (error: any) {
       console.error('Gemini API call failed, using fallback:', error);
       res.json({
-        text: "🚨 (Connection Timeout fallback) Hey driver, Bolt dispatch servers are busy right now. Make sure to drive safely and check your current heat coordinates on the surge map overlay!",
+        text: "🚨 (Connection Timeout fallback) Hey driver, Swift dispatch servers are busy right now. Make sure to drive safely and check your current heat coordinates on the surge map overlay!",
         sender: 'support',
         timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
       });
@@ -122,7 +122,7 @@ async function startServer() {
   }
 
   app.listen(PORT, '0.0.0.0', () => {
-    console.log(`Express Bolt Simulator Server is running at http://0.0.0.0:${PORT}`);
+    console.log(`Express Swift Simulator Server is running at http://0.0.0.0:${PORT}`);
   });
 }
 

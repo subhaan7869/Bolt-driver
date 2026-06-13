@@ -18,7 +18,7 @@ export const RideOfferAlert: React.FC<RideOfferAlertProps> = ({
   timeRemaining,
   totalTime,
 }) => {
-  // Play simulated Bolt ride beep/chime in interval while showing the alert
+  // Play simulated Swift ride beep/chime in interval while showing the alert
   useEffect(() => {
     playIncomingRideSound();
     const interval = setInterval(() => {
@@ -37,7 +37,7 @@ export const RideOfferAlert: React.FC<RideOfferAlertProps> = ({
         <div className="inline-flex items-center gap-1.5 bg-emerald-500/10 border border-emerald-500/20 px-3 py-1 rounded-full mb-2">
           <span className="w-2 h-2 rounded-full bg-emerald-400 animate-ping" />
           <span className="text-[11px] font-semibold text-emerald-400 uppercase tracking-widest font-mono">
-            New Bolt Request
+            New Swift Request
           </span>
         </div>
         <h3 className="text-white text-lg font-bold">Incoming Ride Offer</h3>
