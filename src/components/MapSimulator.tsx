@@ -18,13 +18,13 @@ export interface StreetPath {
 }
 
 const CITY_STREETS: StreetPath[] = [
-  { id: 'highway-loop', name: 'Alhaji Adeola Avenue', d: 'M 40,40 L 360,40 L 360,460 L 40,460 Z' },
-  { id: 'central-ave', name: 'Ahmadu Bello Way', d: 'M 200,10 L 200,490' },
-  { id: 'liberty-st', name: 'Admiralty Way', d: 'M 10,250 L 390,250' },
-  { id: 'broadway-drive', name: 'Inneh Crescent', d: 'M 10,120 L 390,120' },
-  { id: 'market-rd', name: 'Adeola Odeku Street', d: 'M 10,380 L 390,380' },
-  { id: 'park-way', name: 'Allen Avenue', d: 'M 100,10 L 100,490' },
-  { id: 'diagonal-express', name: 'Gbagada Expressway', d: 'M 40,40 L 360,460' },
+  { id: 'highway-loop', name: 'Piccadilly Circus', d: 'M 40,40 L 360,40 L 360,460 L 40,460 Z' },
+  { id: 'central-ave', name: 'Regent Street', d: 'M 200,10 L 200,490' },
+  { id: 'liberty-st', name: 'Oxford Street', d: 'M 10,250 L 390,250' },
+  { id: 'broadway-drive', name: 'Shaftesbury Avenue', d: 'M 10,120 L 390,120' },
+  { id: 'market-rd', name: 'The Mall', d: 'M 10,380 L 390,380' },
+  { id: 'park-way', name: 'Park Lane', d: 'M 100,10 L 100,490' },
+  { id: 'diagonal-express', name: 'Hyde Park Garden Road', d: 'M 40,40 L 360,460' },
 ];
 
 export interface HotZone {
@@ -38,10 +38,10 @@ export interface HotZone {
 }
 
 const SURGE_ZONES: HotZone[] = [
-  { id: 'victoria-island', name: 'Victoria Island', x: 200, y: 120, radius: 75, multiplier: 1.8, color: 'rgba(34, 197, 94, 0.15)' }, // Bolt Green glow
-  { id: 'lekki-phase1', name: 'Lekki Phase 1', x: 340, y: 420, radius: 80, multiplier: 2.2, color: 'rgba(34, 197, 94, 0.2)' }, // Surge green
-  { id: 'ikeja', name: 'Ikeja Gra', x: 80, y: 280, radius: 65, multiplier: 1.4, color: 'rgba(34, 197, 94, 0.12)' }, 
-  { id: 'surulere', name: 'Surulere Core', x: 80, y: 70, radius: 55, multiplier: 1.2, color: 'rgba(34, 197, 94, 0.1)' },
+  { id: 'victoria-island', name: 'Soho & West End', x: 200, y: 120, radius: 75, multiplier: 1.8, color: 'rgba(34, 197, 94, 0.15)' }, // Bolt Green glow
+  { id: 'lekki-phase1', name: 'Mayfair', x: 340, y: 420, radius: 80, multiplier: 2.2, color: 'rgba(34, 197, 94, 0.2)' }, // Surge green
+  { id: 'ikeja', name: 'City of London', x: 80, y: 280, radius: 65, multiplier: 1.4, color: 'rgba(34, 197, 94, 0.12)' }, 
+  { id: 'surulere', name: 'Kensington', x: 80, y: 70, radius: 55, multiplier: 1.2, color: 'rgba(34, 197, 94, 0.1)' },
 ];
 
 export const MapSimulator: React.FC<MapSimulatorProps> = ({
@@ -113,13 +113,13 @@ export const MapSimulator: React.FC<MapSimulatorProps> = ({
         {/* Lagos Lagoon Water Body */}
         <rect x="230" y="275" width="130" height="95" rx="16" fill="#cde4f7" />
         <text x="295" y="325" fill="#4ea5e9" className="text-[10px] font-sans font-semibold tracking-wide opacity-80 text-center" textAnchor="middle">
-          Lagos Lagoon
+          River Thames
         </text>
 
         {/* Kuramo Parkland */}
         <rect x="65" y="145" width="80" height="85" rx="12" fill="#d9ebd9" />
         <text x="105" y="190" fill="#2e7d32" className="text-[10px] font-sans font-semibold tracking-wide opacity-70 text-center" textAnchor="middle">
-          Kuramo Park
+          Hyde Park
         </text>
 
         {/* Draw Streets - Gray background casing */}
@@ -150,13 +150,13 @@ export const MapSimulator: React.FC<MapSimulatorProps> = ({
 
         {/* Street Name Labels */}
         <text x="160" y="45" fill="#718096" className="text-[8px] font-sans opacity-70 font-bold tracking-wide">
-          Alhaji Adeola Ave
+          Piccadilly
         </text>
         <text x="205" y="220" fill="#718096" className="text-[8px] font-sans opacity-70 font-bold tracking-wide rotate-90 origin-[205px_220px]">
-          Ahmadu Bello Way
+          Regent Street
         </text>
         <text x="25" y="245" fill="#718096" className="text-[8px] font-sans opacity-70 font-bold tracking-wide">
-          Admiralty Way
+          Oxford Street
         </text>
 
         {/* Surge Heatmap Spots (glowing neon circles - Bolt standard!) */}

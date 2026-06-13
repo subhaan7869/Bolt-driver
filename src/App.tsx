@@ -12,15 +12,15 @@ import {
   ChevronRight, Car, HelpCircle, Settings, LogOut, Check, ArrowRight, X, Phone, User, Calendar
 } from 'lucide-react';
 
-// Preset mock matches matching the Lagos Nigeria screenshots precisely!
+// Preset mock matches matching the London UK screenshots precisely!
 const TAXI_MOCK_RIDES: any[] = [
   {
     id: 'taxi-1',
     passengerName: 'Mark Sterling',
     passengerRating: 4.9,
-    pickupAddress: 'Victoria Island, Lagos / Ahmadu Bello Way',
-    dropoffAddress: 'Lekki Phase 1, Lagos / Admiralty Way',
-    fare: 1250,
+    pickupAddress: 'Piccadilly Circus / Regent Street',
+    dropoffAddress: 'Mayfair / Oxford Street',
+    fare: 14.50,
     distance: 4.2,
     pickupCoordinate: { x: 200, y: 120 }, 
     dropoffCoordinate: { x: 340, y: 420 }, 
@@ -30,9 +30,9 @@ const TAXI_MOCK_RIDES: any[] = [
     id: 'taxi-2',
     passengerName: 'Sarah Bennet',
     passengerRating: 4.8,
-    pickupAddress: 'Sheraton Hotel, Ikeja / Allen Avenue',
-    dropoffAddress: 'Gbagada Phase 2 / Alhaji Adeola Ave',
-    fare: 3400,
+    pickupAddress: 'City of London / Threadneedle St',
+    dropoffAddress: 'Hyde Park Garden Road / Piccadilly',
+    fare: 32.20,
     distance: 14.8,
     pickupCoordinate: { x: 80, y: 280 }, 
     dropoffCoordinate: { x: 100, y: 70 }, 
@@ -42,9 +42,9 @@ const TAXI_MOCK_RIDES: any[] = [
     id: 'taxi-3',
     passengerName: 'David Miller',
     passengerRating: 4.95,
-    pickupAddress: 'MMA International Airport Terminal 2',
-    dropoffAddress: 'Eko Hotels, Victoria Island',
-    fare: 7800,
+    pickupAddress: 'London Heathrow Airport (LHR) Terminal 5',
+    dropoffAddress: 'The Savoy Hotel, Strand, West End',
+    fare: 54.00,
     distance: 26.5,
     pickupCoordinate: { x: 80, y: 280 }, 
     dropoffCoordinate: { x: 200, y: 120 }, 
@@ -57,27 +57,27 @@ const FOOD_MOCK_RIDES: any[] = [
     id: 'food-1',
     passengerName: 'James Okafor',
     passengerRating: 4.88,
-    pickupAddress: 'Chicken Republic, Adeola Odeku St, Victoria Island',
-    dropoffAddress: '23 Allen Avenue, Ikeja, Lagos',
-    fare: 1250,
+    pickupAddress: "Nando's, Piccadilly Circus, London",
+    dropoffAddress: 'Mayfair Presidential Residences, London',
+    fare: 6.80,
     distance: 0.5,
     pickupCoordinate: { x: 200, y: 380 }, 
     dropoffCoordinate: { x: 100, y: 460 }, 
     estimatedMinutes: 3,
-    foodItem: '1 x Smoky Jollof Rice & Chicken',
+    foodItem: '1 x Peri-Peri Chicken with Regular Chips & Fanta',
   },
   {
     id: 'food-2',
     passengerName: 'Clara Oswald',
     passengerRating: 4.9,
-    pickupAddress: 'The Place Restaurant, Lekki Admiralty Way',
-    dropoffAddress: 'Block 12, Kuramo Residence Beach Park',
-    fare: 2100,
+    pickupAddress: 'Gourmet Burger Kitchen, Oxford Street',
+    dropoffAddress: 'Kensington Garden Apartments, London',
+    fare: 11.50,
     distance: 3.4,
     pickupCoordinate: { x: 340, y: 250 }, 
     dropoffCoordinate: { x: 105, y: 190 }, 
     estimatedMinutes: 9,
-    foodItem: '2 x Beef Suya Burgers + Golden Fries',
+    foodItem: '2 x Bacon Guild Cheeseburgers + Truffle Fries',
   }
 ];
 
@@ -85,22 +85,22 @@ const INITIAL_TAXI_STATS: DriverStats = {
   rating: 4.9,
   acceptanceRate: 98,
   cancellationRate: 1,
-  todayEarnings: 15600,
-  weeklyEarnings: 82400,
+  todayEarnings: 156.40,
+  weeklyEarnings: 824.50,
   hoursOnline: 3.75, // 3h 45m
   completedTripsCount: 4,
-  balance: 15600,
+  balance: 156.40,
 };
 
 const INITIAL_FOOD_STATS: DriverStats = {
   rating: 5.0,
   acceptanceRate: 100,
   cancellationRate: 0,
-  todayEarnings: 8450,
-  weeklyEarnings: 51200,
+  todayEarnings: 84.20,
+  weeklyEarnings: 512.60,
   hoursOnline: 2.5, // 2h 30m
   completedTripsCount: 3,
-  balance: 8450,
+  balance: 84.20,
 };
 
 export default function App() {
@@ -186,7 +186,7 @@ export default function App() {
       id: 'init-2',
       timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
       type: 'info',
-      message: 'Nigeria Dispatch Server connected: Lagos (Victoria Island, Lekki). Currency: Naira (₦).',
+      message: 'UK Dispatch Server connected: London (Westminster, Mayfair). Currency: British Pounds (£).',
     }
   ]);
 
@@ -274,8 +274,8 @@ export default function App() {
       else if (type === 'high-tip') {
         preset = {
           ...TAXI_MOCK_RIDES[0],
-          passengerName: 'Chief Adebayo',
-          fare: 5100,
+          passengerName: 'Sir William',
+          fare: 35.50,
           distance: 11.2,
           estimatedMinutes: 20
         };
@@ -285,11 +285,11 @@ export default function App() {
       else if (type === 'airport' || type === 'high-tip') {
         preset = {
           ...FOOD_MOCK_RIDES[0],
-          passengerName: 'Nkechi Bello',
-          fare: 1850,
+          passengerName: 'Lady Beatrice',
+          fare: 19.80,
           distance: 1.2,
           estimatedMinutes: 5,
-          foodItem: '4 x Jollof Rice Special + Grill Fish (Premium Banquet)'
+          foodItem: '4 x Premium Fish & Chips with Mushy Peas (Royal Catch)'
         };
       }
     }
@@ -299,7 +299,7 @@ export default function App() {
       ...preset,
       id: `ride-${Date.now()}`,
       surgeMultiplier: multiplier,
-      tipAmount: type === 'high-tip' ? 1000 : Math.random() > 0.5 ? 500 : 0,
+      tipAmount: type === 'high-tip' ? 6.50 : Math.random() > 0.5 ? 2.50 : 0,
     };
 
     setTripProgress({
@@ -328,13 +328,13 @@ export default function App() {
       passengerName: template.passengerName,
       passengerRating: template.passengerRating,
       pickupAddress: `${areaName} Core`,
-      dropoffAddress: `Admiralty Phase 2, Lekki`,
-      fare: Math.ceil(template.fare * multiplier),
+      dropoffAddress: `Oxford Street East, London`,
+      fare: +(template.fare * multiplier).toFixed(2),
       distance: +(template.distance * 1.2).toFixed(1),
       surgeMultiplier: multiplier,
       pickupCoordinate: coords,
       dropoffCoordinate: dropoffCo,
-      tipAmount: Math.random() > 0.5 ? 500 : 0,
+      tipAmount: Math.random() > 0.5 ? 2.50 : 0,
       estimatedMinutes: Math.ceil(template.estimatedMinutes * 1.1),
     };
 
@@ -526,7 +526,7 @@ export default function App() {
         hoursOnline: +(s.hoursOnline + 0.4).toFixed(2),
       }));
 
-      appendLog(`💰 FARE COMPLETED! Earned ₦${baseFee.toLocaleString()} + ₦${tipAmount.toLocaleString()} Tip from ${currentRide.passengerName}!`, 'earnings');
+      appendLog(`💰 FARE COMPLETED! Earned £${baseFee.toFixed(2)} + £${tipAmount.toFixed(2)} Tip from ${currentRide.passengerName}!`, 'earnings');
 
       setTripProgress({
         stage: 'idle',
@@ -593,72 +593,34 @@ export default function App() {
     const sweepSum = stats.balance;
     setStats(s => ({ ...s, balance: 0 }));
     playSoundEffect('complete');
-    appendLog(`swept payout of ₦${sweepSum.toLocaleString()} into registered Access Bank Plc routing.`, 'success');
-    alert(`🎉 Payout Swept!\n₦${sweepSum.toLocaleString()} has been transferred instantly into Access Bank Routing.\nBalance is now ₦0.`);
+    appendLog(`swept payout of £${sweepSum.toFixed(2)} into registered Barclays Bank Plc routing.`, 'success');
+    alert(`🎉 Payout Swept!\n£${sweepSum.toFixed(2)} has been transferred instantly into Barclays Bank Routing.\nBalance is now £0.00.`);
   };
 
   return (
-    <div className="min-h-screen bg-slate-950 text-gray-100 flex flex-col md:p-6 p-2 font-sans overflow-x-hidden antialiased select-none">
+    <div className="fixed inset-0 bg-zinc-950 flex flex-col items-center justify-center font-sans select-none overflow-hidden touch-none">
       
-      {/* GLOBAL COSMIC SITE HEADER */}
-      <header className="max-w-6xl mx-auto w-full flex items-center justify-between border-b border-slate-900 pb-4 mb-6">
-        <div className="flex items-center gap-3">
-          <div className="w-10 h-10 bg-[#13AA52] rounded-xl flex items-center justify-center text-white font-black text-xl shadow-lg shadow-emerald-500/15">
-            B
-          </div>
-          <div>
-            <h1 className="text-base font-extrabold tracking-tight text-white flex items-center gap-1.5">
-              Bolt Driver Simulator <span className="text-[10px] bg-emerald-500/10 text-[#13AA52] px-2 py-0.5 rounded-full border border-emerald-400/20 font-mono">₦ NIRE-LAGOS v3.0</span>
-            </h1>
-            <p className="text-[11px] text-gray-400">
-              Unyielding high-fidelity mockups reproducing Bolt Driver screens (Taxi & Food counter-assets)
-            </p>
-          </div>
-        </div>
-
-        {/* Global stats indicators */}
-        <div className="hidden sm:flex items-center gap-2">
-          <div className="bg-slate-900 px-3 py-1 bg-gradient-to-r from-slate-900 to-slate-850 rounded-lg border border-slate-800 text-center">
-            <span className="text-[8px] text-gray-500 block uppercase font-bold tracking-wider">Lagos Surge</span>
-            <span className="text-[11px] font-mono font-bold text-[#13AA52]">{surgeLevel === 'high' ? '2.2x High 🔥' : 'Stable'}</span>
-          </div>
-          <div className="bg-slate-900 px-3 py-1 bg-gradient-to-r from-slate-900 to-slate-850 rounded-lg border border-slate-800 text-center">
-            <span className="text-[8px] text-gray-500 block uppercase font-bold tracking-wider">Driver Mode</span>
-            <span className="text-[11px] font-sans font-bold text-sky-400 uppercase">{mode} Sim</span>
-          </div>
-        </div>
-      </header>
-
-      {/* PARENT CONTAINER WORKSPACE */}
-      <main className="max-w-6xl mx-auto w-full grid grid-cols-1 lg:grid-cols-12 gap-6 items-start flex-1">
+      {/* Smartphone Hardware Frame Body Shell */}
+      <div className="w-full h-full md:max-w-[390px] md:h-[844px] md:rounded-[50px] md:shadow-[0_25px_60px_rgba(0,0,0,0.85)] md:border-[11px] md:border-zinc-800 bg-white relative flex flex-col overflow-hidden">
         
-        {/* LEFT COLUMN: SIMULATED APP PREVIEW (Cols 5) */}
-        <section className="lg:col-span-5 flex flex-col items-center justify-center order-2 lg:order-1 self-stretch">
-          
-          {/* Smartphone Hardware Body Shell */}
-          <div className="relative w-[345px] h-[670px] bg-slate-900 rounded-[50px] p-2.5 shadow-[0_0_60px_rgba(0,0,0,0.85)] border-[6px] border-slate-800 flex flex-col items-stretch overflow-hidden">
-            
-            {/* Top Ear Camera Spill Notch bar */}
-            <div className="absolute top-0 left-1/2 -translate-x-1/2 w-36 h-6.5 bg-slate-900 rounded-b-2xl z-55 flex items-center justify-center gap-1">
-              <span className="w-1.5 h-1.5 rounded-full bg-black/80" /> 
-              <span className="w-10 h-0.5 bg-gray-800 rounded" /> 
-            </div>
+        {/* Top Camera Notch bar */}
+        <div className="hidden md:flex absolute top-0 left-1/2 -translate-x-1/2 w-40 h-6.5 bg-zinc-950 rounded-b-2xl z-55 items-center justify-center gap-1.5 pointer-events-none">
+          <span className="w-1.5 h-1.5 rounded-full bg-black/80" /> 
+          <span className="w-12 h-0.5 bg-zinc-805 rounded" /> 
+        </div>
 
-            {/* Simulated status bar */}
-            <div className="h-6 px-5 bg-white flex items-end justify-between text-[10.5px] text-gray-900 select-none shrink-0 font-bold z-20 pb-0.5">
-              <span>{currentTimeStr}</span>
-              <div className="flex items-center gap-1.5">
-                <Wifi className="w-3 h-3 text-gray-900 fill-gray-900" />
-                <span className="text-[8.5px] uppercase tracking-tighter">LTE</span>
-                <div className="flex items-center gap-0.5">
-                  <Battery className={`w-3.5 h-3.5 ${batteryLevel <= 20 ? 'text-red-500 fill-red-500 animate-pulse' : 'text-gray-900 fill-gray-900'}`} />
-                  <span className="font-mono text-[8.5px]">{batteryLevel}%</span>
-                </div>
-              </div>
-            </div>
+        {/* Simulated status bar */}
+        <div className="h-7 px-6 bg-white flex items-end justify-between text-[11px] text-zinc-900 select-none shrink-0 font-extrabold z-20 pb-1.5 pt-1.5">
+          <span>{currentTimeStr}</span>
+          <div className="flex items-center gap-1.5">
+            <Wifi className="w-3.5 h-3.5 text-zinc-900" />
+            <span className="text-[9px] font-mono leading-none tracking-tight">{batteryLevel}%</span>
+            <Battery className={`w-4 h-4 ${batteryLevel <= 20 ? 'text-red-500 fill-red-500 animate-pulse' : 'text-zinc-900 fill-zinc-900'}`} />
+          </div>
+        </div>
 
-            {/* INTERNAL PHONE SCREEN PORTAL */}
-            <div className="flex-1 bg-white flex flex-col overflow-hidden relative select-none text-gray-900">
+        {/* INTERNAL PHONE SCREEN PORTAL */}
+        <div className="flex-1 bg-white flex flex-col overflow-hidden relative select-none text-gray-900">
               
               {/* 1. HOME TAB COMPONENT VIEW */}
               {activeTab === 'home' && (
@@ -717,7 +679,7 @@ export default function App() {
                         </div>
                         <div className="text-center flex-1">
                           <span className="text-[7.5px] text-gray-400 uppercase font-bold block leading-none">Salary Today</span>
-                          <span className="text-[11px] font-extrabold font-mono text-[#13AA52]">₦{stats.todayEarnings.toLocaleString()}</span>
+                          <span className="text-[11px] font-extrabold font-mono text-[#13AA52]">£{stats.todayEarnings.toFixed(2)}</span>
                         </div>
                       </div>
                     )}
@@ -744,7 +706,7 @@ export default function App() {
                           <div className="flex items-baseline justify-between">
                             <span className="text-[10px] text-gray-400 font-bold uppercase tracking-wider">Earnings today</span>
                             <span className="text-xl font-black text-gray-900 font-mono">
-                              ₦{stats.todayEarnings.toLocaleString()}
+                              £{stats.todayEarnings.toFixed(2)}
                             </span>
                           </div>
 
@@ -848,7 +810,7 @@ export default function App() {
                           
                           <div className="text-center py-2.5">
                             <span className="text-[9.5px] text-gray-400 uppercase font-black tracking-widest block leading-none">Queued matching</span>
-                            <span className="text-[11px] text-gray-600 block mt-1">Driving streets of Lagos, Nigeria ...</span>
+                            <span className="text-[11px] text-gray-600 block mt-1">Driving streets of London, UK ...</span>
                           </div>
                         </div>
                       )}
@@ -964,7 +926,7 @@ export default function App() {
                         {/* Pricing section and fees */}
                         <div className="text-center pt-2">
                           <h2 className="text-3xl font-black text-gray-900 font-mono tracking-tight leading-none mb-1">
-                            ₦{Math.ceil(tripProgress.currentRide.fare * tripProgress.currentRide.surgeMultiplier).toLocaleString()}
+                            £{(tripProgress.currentRide.fare * tripProgress.currentRide.surgeMultiplier).toFixed(2)}
                           </h2>
                           <span className="text-[10px] text-gray-400 font-semibold uppercase block leading-none">
                             including simulated fees
@@ -1096,7 +1058,7 @@ export default function App() {
                   <div className="py-4 text-center">
                     <span className="text-[10px] text-gray-400 font-bold uppercase block leading-none tracking-wider">Today</span>
                     <h2 className="text-4xl font-black text-gray-900 font-mono tracking-tight mt-1.5">
-                      ₦{stats.todayEarnings.toLocaleString()}
+                      £{stats.todayEarnings.toFixed(2)}
                     </h2>
                   </div>
 
@@ -1127,15 +1089,15 @@ export default function App() {
                     <div className="bg-gray-50 border border-gray-100 rounded-xl p-3 flex flex-col gap-2.5">
                       <div className="flex items-center justify-between">
                         <span>Base fare collected</span>
-                        <span className="font-extrabold text-gray-900 font-mono">₦{stats.todayEarnings.toLocaleString()}</span>
+                        <span className="font-extrabold text-gray-900 font-mono">£{stats.todayEarnings.toFixed(2)}</span>
                       </div>
                       <div className="flex items-center justify-between">
-                        <span>Lagos City Bonuses</span>
-                        <span className="font-extrabold text-[#13AA52] font-mono">+₦{(mode === 'taxi' ? 2000 : 800).toLocaleString()}</span>
+                        <span>London Bonnet Bonuses</span>
+                        <span className="font-extrabold text-[#13AA52] font-mono">+£{(mode === 'taxi' ? 15.00 : 6.50).toFixed(2)}</span>
                       </div>
                       <div className="flex items-center justify-between border-t border-gray-150 pt-2 font-black text-gray-900 text-[12px]">
                         <span>Total simulated gross</span>
-                        <span className="font-mono text-[#13AA52]">₦{(stats.todayEarnings + (mode === 'taxi' ? 2000 : 800)).toLocaleString()}</span>
+                        <span className="font-mono text-[#13AA52]">£{(stats.todayEarnings + (mode === 'taxi' ? 15.00 : 6.50)).toFixed(2)}</span>
                       </div>
                     </div>
 
@@ -1155,7 +1117,7 @@ export default function App() {
                                 <span className="text-[8.5px] text-gray-400 block font-mono mt-0.5">{t.timestamp}</span>
                               </div>
                               <span className="font-mono font-black text-[#13AA52] text-xs">
-                                +₦{Math.ceil((t.fare * t.surgeMultiplier) + t.tip).toLocaleString()}
+                                +£{((t.fare * t.surgeMultiplier) + t.tip).toFixed(2)}
                               </span>
                             </div>
                           ))}
@@ -1177,7 +1139,7 @@ export default function App() {
                   <div className="bg-gradient-to-br from-[#13AA52] to-[#0d823d] rounded-2xl p-4 text-white relative shadow-md">
                     <span className="text-[10px] text-emerald-100 font-bold uppercase tracking-wider block">Cash out balance</span>
                     <h2 className="text-3xl font-black font-mono tracking-tight mt-1 leading-none">
-                      ₦{stats.balance.toLocaleString()}
+                      £{stats.balance.toFixed(2)}
                     </h2>
                     
                     <p className="text-[9px] text-emerald-100/80 leading-normal mt-2.5">
@@ -1197,7 +1159,7 @@ export default function App() {
                     <div className="bg-gray-50 border border-gray-100 rounded-xl p-3 text-[11px] text-gray-600 flex flex-col gap-2">
                       <div className="flex justify-between font-bold">
                         <span>Institution Bank</span>
-                        <span className="text-gray-900">Access Bank Plc</span>
+                        <span className="text-gray-900">Barclays Bank Plc</span>
                       </div>
                       <div className="flex justify-between">
                         <span>Account Holder</span>
@@ -1275,45 +1237,159 @@ export default function App() {
                         <span>Help & support</span>
                       </div>
                       <ChevronRight className="w-3.5 h-3.5 text-gray-300" />
-                    </button>
-
-                    {/* Simulation Parameters Switcher */}
-                    <div className="py-2.5 px-1.5 flex flex-col gap-2">
-                      <div className="flex items-center gap-2 mr-1">
+                    </button>                    {/* Simulation Parameters Switcher */}
+                    <div className="py-3.5 px-2.5 flex flex-col gap-3.5 bg-zinc-50 rounded-2xl my-3.5 border border-zinc-100 shadow-sm text-left">
+                      <div className="flex items-center gap-2">
                         <Settings className="w-4 h-4 text-[#13AA52]" />
-                        <span>Simulator Preferences</span>
+                        <span className="font-extrabold uppercase text-[10px] tracking-wider text-[#13AA52]">Simulator admin core</span>
                       </div>
                       
                       {/* Mode picker (Taxi vs Food!) */}
-                      <div className="grid grid-cols-2 gap-2 mt-1">
-                        <button
-                          onClick={() => { playSoundEffect('tap'); setMode('taxi'); }}
-                          className={`py-1.5 rounded-lg text-center text-[10px] font-black tracking-wide cursor-pointer transition ${
-                            mode === 'taxi' ? 'bg-[#13AA52] text-white shadow-sm' : 'bg-gray-100 text-gray-500 hover:bg-gray-200'
-                          }`}
-                        >
-                          🚕 TAXI MODE
-                        </button>
-                        <button
-                          onClick={() => { playSoundEffect('tap'); setMode('food'); }}
-                          className={`py-1.5 rounded-lg text-center text-[10px] font-black tracking-wide cursor-pointer transition ${
-                            mode === 'food' ? 'bg-[#13AA52] text-white shadow-sm' : 'bg-gray-100 text-gray-500 hover:bg-gray-200'
-                          }`}
-                        >
-                          🍕 FOOD MODE
-                        </button>
+                      <div>
+                        <span className="text-[9px] text-zinc-400 font-bold block mb-1">SERVICE MODE</span>
+                        <div className="grid grid-cols-2 gap-1.5">
+                          <button
+                            onClick={() => { playSoundEffect('tap'); setMode('taxi'); }}
+                            className={`py-1 rounded-lg text-center text-[9.5px] font-black tracking-wide cursor-pointer transition ${
+                              mode === 'taxi' ? 'bg-[#13AA52] text-white shadow-sm' : 'bg-zinc-200 text-zinc-600 hover:bg-zinc-250'
+                            }`}
+                          >
+                            🚕 TAXI MODE
+                          </button>
+                          <button
+                            onClick={() => { playSoundEffect('tap'); setMode('food'); }}
+                            className={`py-1 rounded-lg text-center text-[9.5px] font-black tracking-wide cursor-pointer transition ${
+                              mode === 'food' ? 'bg-[#13AA52] text-white shadow-sm' : 'bg-zinc-200 text-zinc-600 hover:bg-zinc-250'
+                            }`}
+                          >
+                            🍕 FOOD MODE
+                          </button>
+                        </div>
                       </div>
 
-                      {/* Sound fx toggle button inside settings */}
+                      {/* Trigger matches spawner */}
+                      <div>
+                        <span className="text-[9px] text-zinc-400 font-bold block mb-1">FORCE MATCH OFFERS</span>
+                        <div className="grid grid-cols-2 gap-1">
+                          <button
+                            disabled={!isOnline || tripProgress.stage !== 'idle'}
+                            onClick={() => { playSoundEffect('tap'); handleSpawnMockRide('short'); }}
+                            className="bg-zinc-800 text-white hover:bg-zinc-700 disabled:opacity-30 disabled:cursor-not-allowed text-[8.5px] py-1.5 rounded-lg font-bold text-center active:scale-95 transition"
+                          >
+                            Short Trip
+                          </button>
+                          <button
+                            disabled={!isOnline || tripProgress.stage !== 'idle'}
+                            onClick={() => { playSoundEffect('tap'); handleSpawnMockRide('long'); }}
+                            className="bg-zinc-800 text-white hover:bg-zinc-700 disabled:opacity-30 disabled:cursor-not-allowed text-[8.5px] py-1.5 rounded-lg font-bold text-center active:scale-95 transition"
+                          >
+                            Long Commute
+                          </button>
+                          <button
+                            disabled={!isOnline || tripProgress.stage !== 'idle'}
+                            onClick={() => { playSoundEffect('tap'); handleSpawnMockRide('airport'); }}
+                            className="bg-[#13AA52] text-white hover:bg-[#0f8f44] disabled:opacity-30 disabled:cursor-not-allowed text-[8.5px] py-1.5 rounded-lg font-extrabold text-center active:scale-95 transition"
+                          >
+                            Airport Class
+                          </button>
+                          <button
+                            disabled={!isOnline || tripProgress.stage !== 'idle'}
+                            onClick={() => { playSoundEffect('tap'); handleSpawnMockRide('high-tip'); }}
+                            className="bg-[#13AA52]/10 text-[#13AA52] border border-[#13AA52]/30 hover:bg-[#13AA52]/20 disabled:opacity-30 disabled:cursor-not-allowed text-[8.5px] py-1.5 rounded-lg font-black text-center active:scale-95 transition"
+                          >
+                            Rich Tip 💎
+                          </button>
+                        </div>
+                      </div>
+
+                      {/* Surge selectors */}
+                      <div>
+                        <span className="text-[9px] text-zinc-400 font-bold block mb-1">SURGENT HEAT FORCE</span>
+                        <div className="grid grid-cols-3 gap-1">
+                          {['low', 'medium', 'high'].map(l => (
+                            <button
+                              key={l}
+                              onClick={() => { playSoundEffect('tap'); setSurgeLevel(l as any); }}
+                              className={`py-1 rounded text-[8.5px] font-extrabold uppercase transition ${
+                                surgeLevel === l ? 'bg-[#13AA52] text-white font-black' : 'bg-zinc-200 text-zinc-600 hover:bg-zinc-250'
+                              }`}
+                            >
+                              {l === 'high' ? '🔥 2.2x High' : l === 'medium' ? '⚡ 1.4x Mid' : '🍃 1.0x Low'}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+
+                      {/* Warp Speed */}
+                      <div>
+                        <div className="flex justify-between items-center mb-1">
+                          <span className="text-[9px] text-zinc-400 font-bold block">DRIVE RECTITUDE WARP</span>
+                          <span className="text-[8.5px] font-mono text-[#13AA52] font-black">{simSpeed}x speed</span>
+                        </div>
+                        <div className="grid grid-cols-4 gap-1">
+                          {[1, 2, 5, 10].map(s => (
+                            <button
+                              key={s}
+                              onClick={() => { playSoundEffect('tap'); setSimSpeed(s); }}
+                              className={`py-1 text-[8.5px] rounded font-mono font-bold transition ${
+                                simSpeed === s ? 'bg-[#13AA52] text-white font-black animate-pulse' : 'bg-zinc-200 text-zinc-600 hover:bg-zinc-250'
+                              }`}
+                            >
+                              {s}x
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+
+                      {/* Charge percentage */}
+                      <div>
+                        <div className="flex justify-between items-center mb-0.5">
+                          <span className="text-[9px] text-zinc-400 font-bold block">DEVICE CHARGE STATE</span>
+                          <span className="text-[8.5px] font-mono font-bold text-zinc-700">{batteryLevel}%</span>
+                        </div>
+                        <input
+                          type="range"
+                          min="5"
+                          max="100"
+                          value={batteryLevel}
+                          onChange={e => setBatteryLevel(parseInt(e.target.value))}
+                          className="w-full h-1 bg-zinc-200 rounded appearance-none cursor-pointer accent-[#13AA52]"
+                        />
+                      </div>
+
+                      {/* Telemetry scrolling logs inside Profile tab */}
+                      <div>
+                        <div className="flex justify-between items-center mb-1">
+                          <span className="text-[9px] text-zinc-400 font-bold block">LIVE DISPATCH TELEMETRY FEED</span>
+                          <button onClick={() => setLogs([])} className="text-zinc-400 hover:text-red-500 text-[8px] leading-none uppercase font-extrabold">
+                            Clear
+                          </button>
+                        </div>
+                        <div className="bg-zinc-950 rounded-xl p-2.5 font-mono text-[8px] text-zinc-400 h-24 overflow-y-auto block select-text leading-tight border border-zinc-900 w-full max-w-full">
+                          {logs.length === 0 ? (
+                            <span className="text-zinc-600">No events connected. Waiting...</span>
+                          ) : (
+                            logs.slice().reverse().map(l => (
+                              <div key={l.id} className="truncate select-text">
+                                <span className="text-zinc-650">[{l.timestamp}]</span> <span className={
+                                  l.type === 'success' ? 'text-emerald-400' : l.type === 'warn' ? 'text-yellow-400' : l.type === 'earnings' ? 'text-purple-400 font-bold' : 'text-zinc-300'
+                                }>{l.message}</span>
+                              </div>
+                            ))
+                          )}
+                        </div>
+                      </div>
+
+                      {/* Sound fx check */}
                       <button
                         onClick={() => { setSoundEnabled(!soundEnabled); playTapSound(); }}
-                        className="w-full py-1 border border-gray-150 rounded text-center text-[9px] text-gray-500 font-bold active:bg-gray-50"
+                        className="w-full py-1.5 mt-0.5 border border-zinc-200 bg-white hover:bg-zinc-50 rounded text-center text-[9px] text-zinc-500 font-bold transition-colors"
                       >
-                        Sound Chimes: {soundEnabled ? '🔔 ENABLED' : '🔕 MUTED'}
+                        Audio Chimes: {soundEnabled ? '🔔 ACTIVE' : '🔕 MUTED'}
                       </button>
                     </div>
 
-                    <button onClick={() => alert("Bolt Driver Simulator v3.0 Lagos Localized Version.")} className="flex items-center justify-between py-2.5 hover:bg-gray-50 transition px-1.5">
+                    <button onClick={() => alert("Bolt Driver Simulator v3.0 London Localized Version.")} className="flex items-center justify-between py-2.5 hover:bg-gray-50 transition px-1.5">
                       <div className="flex items-center gap-2.5">
                         <Settings className="w-4 h-4 text-gray-400" />
                         <span>About Bolt Driver</span>
@@ -1358,7 +1434,7 @@ export default function App() {
                     <div className="text-center font-bold">
                       <span className="text-[10px] text-gray-400 uppercase tracking-wide block leading-none">Your earnings</span>
                       <span className="text-2xl font-black text-gray-900 font-mono block mt-1 leading-none">
-                        ₦{justCompletedTrip.fare.toLocaleString()}
+                        £{justCompletedTrip.fare.toFixed(2)}
                       </span>
                       <span className="text-[8.5px] text-gray-400 block leading-none mt-1">including fees</span>
                     </div>
@@ -1366,21 +1442,21 @@ export default function App() {
                     <div className="flex flex-col gap-2.5 text-[11px] text-gray-600 border-t border-gray-150 pt-3.5">
                       <div className="flex justify-between">
                         <span>Base fare</span>
-                        <span className="font-bold text-gray-900 font-mono">₦{Math.ceil(justCompletedTrip.fare * 0.75).toLocaleString()}</span>
+                        <span className="font-bold text-gray-900 font-mono">£{(justCompletedTrip.fare * 0.75).toFixed(2)}</span>
                       </div>
                       <div className="flex justify-between">
                         <span>Distance & Time ({justCompletedTrip.surgeMultiplier}x surge)</span>
-                        <span className="font-bold text-gray-900 font-mono">₦{Math.ceil(justCompletedTrip.fare * 0.25).toLocaleString()}</span>
+                        <span className="font-bold text-gray-900 font-mono">£{(justCompletedTrip.fare * 0.25).toFixed(2)}</span>
                       </div>
                       {justCompletedTrip.tip > 0 && (
                         <div className="flex justify-between text-[#13AA52] font-black">
                           <span>💎 Passenger Tip</span>
-                          <span className="font-mono">+₦{justCompletedTrip.tip.toLocaleString()}</span>
+                          <span className="font-mono">+£{justCompletedTrip.tip.toFixed(2)}</span>
                         </div>
                       )}
                       <div className="flex justify-between font-black text-gray-900 text-sm border-t border-gray-150 pt-2.5">
                         <span>Total Payout</span>
-                        <span className="font-mono text-[#13AA52]">₦{(justCompletedTrip.fare + justCompletedTrip.tip).toLocaleString()}</span>
+                        <span className="font-mono text-[#13AA52]">£{(justCompletedTrip.fare + justCompletedTrip.tip).toFixed(2)}</span>
                       </div>
                     </div>
                   </div>
@@ -1453,203 +1529,11 @@ export default function App() {
             </div>
 
             {/* Simulated Smartphone bottom screen safearea pill */}
-            <div className="h-5.5 bg-white flex items-center justify-center shrink-0 rounded-b-[42px] select-none">
-              <span className="w-24 h-1 bg-gray-300 rounded-full mb-1" />
+            <div className="hidden md:flex h-5.5 bg-white items-center justify-center shrink-0 rounded-b-[42px] select-none pb-1">
+              <span className="w-24 h-1 bg-gray-300 rounded-full" />
             </div>
 
           </div>
-          
-        </section>
-
-        {/* RIGHT COLUMN: SIMULATOR CONTROL DECK CONSOLE Panel (Cols 7) */}
-        <section className="lg:col-span-7 flex flex-col gap-4 self-stretch justify-start">
-          
-          <div className="bg-slate-900 border border-slate-800 rounded-2xl p-5 shadow-2xl flex flex-col gap-5 select-none text-gray-200">
-            {/* Header */}
-            <div className="flex items-center justify-between border-b border-slate-800 pb-3">
-              <div className="flex items-center gap-2">
-                <Settings className="w-4.5 h-4.5 text-[#13AA52]" />
-                <h2 className="text-xs font-black text-white uppercase tracking-wider">
-                  Interactive Simulator Control Deck
-                </h2>
-              </div>
-              <span className="bg-[#13AA52]/10 text-[#13AA52] border border-emerald-500/20 px-2 py-0.5 rounded text-[8.5px] font-mono leading-none">
-                SIM_ACTIVE
-              </span>
-            </div>
-
-            {/* Active Driver mode togglers */}
-            <div className="grid grid-cols-2 gap-3.5 bg-slate-950/40 p-3 rounded-xl border border-slate-850">
-              <div>
-                <span className="text-xs font-bold text-white block">Interactive Mode</span>
-                <span className="text-[9.5px] text-gray-400 block mt-0.5 leading-normal">
-                  Toggle counter-asset layout profiles
-                </span>
-              </div>
-              <div className="flex items-center justify-end gap-1.5">
-                <button
-                  onClick={() => { playSoundEffect('tap'); setMode('taxi'); }}
-                  className={`px-3 py-1.5 rounded-lg text-[9.5px] font-extrabold transition ${
-                    mode === 'taxi' ? 'bg-[#13AA52] text-white' : 'bg-slate-800 text-gray-400 hover:bg-slate-750'
-                  }`}
-                >
-                  🚕 TAXI
-                </button>
-                <button
-                  onClick={() => { playSoundEffect('tap'); setMode('food'); }}
-                  className={`px-3 py-1.5 rounded-lg text-[9.5px] font-extrabold transition ${
-                    mode === 'food' ? 'bg-[#13AA52] text-white' : 'bg-slate-800 text-gray-400 hover:bg-slate-750'
-                  }`}
-                >
-                  🍕 FOOD
-                </button>
-              </div>
-            </div>
-
-            {/* Ride Spawner match */}
-            <div className="flex flex-col gap-2">
-              <span className="text-xs font-bold text-white uppercase tracking-wider block">match spawner core</span>
-              <p className="text-[9.5px] text-gray-400 leading-normal">
-                Immediately trigger an incoming route match on the simulated phone screen! Mode corresponds.
-              </p>
-
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 mt-1">
-                <button
-                  disabled={!isOnline || tripProgress.stage !== 'idle'}
-                  onClick={() => { playSoundEffect('tap'); handleSpawnMockRide('short'); }}
-                  className="bg-slate-800 hover:bg-slate-750 disabled:opacity-40 text-gray-200 border border-slate-700 hover:border-slate-600 disabled:cursor-not-allowed font-bold text-[10.5px] py-2 rounded-lg transition text-center shadow"
-                >
-                  Short Trip
-                </button>
-                
-                <button
-                  disabled={!isOnline || tripProgress.stage !== 'idle'}
-                  onClick={() => { playSoundEffect('tap'); handleSpawnMockRide('long'); }}
-                  className="bg-slate-800 hover:bg-slate-750 disabled:opacity-40 text-gray-200 border border-slate-700 hover:border-slate-600 disabled:cursor-not-allowed font-bold text-[10.5px] py-2 rounded-lg transition text-center shadow"
-                >
-                  Long Commute
-                </button>
-
-                <button
-                  disabled={!isOnline || tripProgress.stage !== 'idle'}
-                  onClick={() => { playSoundEffect('tap'); handleSpawnMockRide('airport'); }}
-                  className="bg-[#13AA52] hover:bg-[#0f8f44] disabled:bg-slate-800 disabled:opacity-40 text-white font-black text-[10.5px] py-2 rounded-lg transition text-center shadow-lg"
-                >
-                  Airport Class
-                </button>
-
-                <button
-                  disabled={!isOnline || tripProgress.stage !== 'idle'}
-                  onClick={() => { playSoundEffect('tap'); handleSpawnMockRide('high-tip'); }}
-                  className="bg-slate-800 hover:bg-slate-750 disabled:opacity-40 text-amber-400 border border-slate-700 hover:border-slate-600 disabled:cursor-not-allowed font-bold text-[10.5px] py-2 rounded-lg transition text-center shadow"
-                >
-                  Rich Tip 💎
-                </button>
-              </div>
-            </div>
-
-            {/* Surge Demand control */}
-            <div className="flex flex-col gap-1.5">
-              <span className="text-xs font-bold text-white uppercase tracking-wider block">surging heat index</span>
-              <p className="text-[9.5px] text-gray-400 leading-normal">
-                Manipulate Lagos surge coefficients in dispatch queue. Higher values cause spike multipliers.
-              </p>
-              <div className="grid grid-cols-3 gap-2 mt-1">
-                {['low', 'medium', 'high'].map(l => (
-                  <button
-                    key={l}
-                    onClick={() => { playSoundEffect('tap'); setSurgeLevel(l as any); }}
-                    className={`py-1 rounded-lg text-[10px] font-bold uppercase transition ${
-                      surgeLevel === l ? 'bg-[#13AA52] text-white font-black' : 'bg-slate-800 text-gray-400 hover:bg-slate-750'
-                    }`}
-                  >
-                    {l === 'high' ? '🔥 2.2x High' : l === 'medium' ? '⚡ 1.4x Mid' : '🍃 1.0x Low'}
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            {/* Sim Speed Warp factor */}
-            <div className="flex flex-col gap-1.5">
-              <div className="flex justify-between items-center">
-                <span className="text-xs font-bold text-white uppercase tracking-wider">simulated navigation speed</span>
-                <span className="text-[10px] font-mono text-[#13AA52] font-black">{simSpeed}x warp</span>
-              </div>
-              <p className="text-[9.5px] text-gray-400 leading-normal">
-                Fast-forward drive parameters when moving to immediately reach targets!
-              </p>
-              <div className="grid grid-cols-4 gap-1.5 mt-1">
-                {[1, 2, 5, 10].map(s => (
-                  <button
-                    key={s}
-                    onClick={() => { playSoundEffect('tap'); setSimSpeed(s); }}
-                    className={`py-1 rounded-md text-[10px] font-mono font-bold transition ${
-                      simSpeed === s ? 'bg-[#13AA52] text-white font-black' : 'bg-slate-800 text-gray-400 hover:bg-slate-750'
-                    }`}
-                  >
-                    {s}x warp
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            {/* State of charge Battery */}
-            <div className="flex flex-col gap-1.5">
-              <div className="flex justify-between items-center">
-                <span className="text-xs font-bold text-white uppercase tracking-wider">Device battery life</span>
-                <span className="text-[10px] font-mono font-bold">{batteryLevel}%</span>
-              </div>
-              <input
-                type="range"
-                min="5"
-                max="100"
-                value={batteryLevel}
-                onChange={e => setBatteryLevel(parseInt(e.target.value))}
-                className="w-full h-1 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-[#13AA52]"
-              />
-            </div>
-
-            {/* Telemetry live log feed */}
-            <div className="flex flex-col gap-1.5 pt-2 border-t border-slate-800">
-              <div className="flex justify-between items-center">
-                <span className="text-[11px] font-bold uppercase tracking-wider text-white">Live Event telemetry</span>
-                <button onClick={() => setLogs([])} className="text-gray-500 hover:text-red-400 text-[10px] leading-none">
-                  [Clear]
-                </button>
-              </div>
-
-              <div className="bg-slate-950/90 rounded-lg p-3 border border-slate-850 font-mono text-[9px] text-gray-400 h-28 overflow-y-auto flex flex-col gap-0.5 select-text leading-relaxed">
-                {logs.length === 0 ? (
-                  <span className="text-gray-600">Terminal ready. Monitoring dispatch.</span>
-                ) : (
-                  logs.map(l => (
-                    <div key={l.id} className="flex gap-1.5">
-                      <span className="text-gray-600">[{l.timestamp}]</span>
-                      <span className={l.type === 'success' ? 'text-emerald-400' : l.type === 'warn' ? 'text-yellow-400' : l.type === 'earnings' ? 'text-purple-300 font-bold' : 'text-gray-300'}>
-                        {l.message}
-                      </span>
-                    </div>
-                  ))
-                )}
-              </div>
-            </div>
-
-          </div>
-
-        </section>
-
-      </main>
-
-      {/* FOOTER DESCRIPTOR */}
-      <footer className="max-w-6xl mx-auto w-full text-center py-6 mt-8 border-t border-slate-900 text-[10px] text-gray-650 flex flex-col sm:flex-row items-center justify-between gap-3">
-        <span>
-          © 2026 Bolt Taxi Ride-sharing Simulator System. Styled in Inter + Space Grotesk display weights.
-        </span>
-        <div className="flex gap-4 font-bold">
-          <a href="#" className="hover:text-gray-400 transition" onClick={(e) => { e.preventDefault(); alert("Telemetry synced with access points."); }}>Privacy Policy</a>
-          <a href="#" className="hover:text-gray-400 transition" onClick={(e) => { e.preventDefault(); alert("Bolt trademark remains property of its respective owners."); }}>Terms of Service</a>
-        </div>
-      </footer>
 
     </div>
   );
