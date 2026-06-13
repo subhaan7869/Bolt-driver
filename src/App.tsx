@@ -9,8 +9,15 @@ import {
 import { 
   Navigation, Star, Zap, Clock, Landmark, Sparkles, MessageSquare, 
   AlertTriangle, CheckCircle, Smartphone, Wifi, Battery, Menu, Bell, 
-  ChevronRight, Car, HelpCircle, Settings, LogOut, Check, ArrowRight, X, Phone, User, Calendar, Coffee
+  ChevronRight, Car, HelpCircle, Settings, LogOut, Check, ArrowRight, X, Phone, User, Calendar, Coffee,
+  Globe, Lock, ShieldAlert, Video, WifiOff
 } from 'lucide-react';
+
+// Live Firebase client and authentications
+import { onAuthStateChanged, signInWithPopup, signOut, User as FirebaseUser } from 'firebase/auth';
+import { doc, getDoc, setDoc, updateDoc, collection, onSnapshot } from 'firebase/firestore';
+import { auth, db, googleProvider, handleFirestoreError, OperationType } from './firebase';
+import { FaceScannerModal } from './components/FaceScannerModal';
 
 // Preset mock matches matching the London UK screenshots precisely!
 const TAXI_MOCK_RIDES: any[] = [
@@ -112,6 +119,48 @@ export default function App() {
 
   const [activeTab, setActiveTab] = useState<'home' | 'earnings' | 'wallet' | 'profile'>('home');
 
+  // Firebase Auth states
+  const [user, setUser] = useState<FirebaseUser | null>(null);
+  const [authLoading, setAuthLoading] = useState<boolean>(true);
+
+  // Compliance variables (per user account / local storage fallback)
+  const [faceVerified, setFaceVerified] = useState<boolean>(() => {
+    return localStorage.getItem('swift_face_verified') === 'true';
+  });
+  const [faceSelfieUrl, setFaceSelfieUrl] = useState<string>(() => {
+    return localStorage.getItem('swift_face_selfie_url') || '';
+  });
+  const [showFaceScanner, setShowFaceScanner] = useState<boolean>(false);
+
+  const [insuranceVerified, setInsuranceVerified] = useState<boolean>(() => {
+    const saved = localStorage.getItem('swift_insurance_verified');
+    return saved !== 'false'; // Default to true so simulation runs smoothly, let them customize
+  });
+  const [insurancePolicyNo, setInsurancePolicyNo] = useState<string>(() => {
+    return localStorage.getItem('swift_insurance_policy') || 'UK-ZEGO-SWIFT-9482903';
+  });
+  const [insuranceExpiry, setInsuranceExpiry] = useState<string>(() => {
+    return localStorage.getItem('swift_insurance_expiry') || '2026-08-24';
+  });
+
+  // Real Internet online/offline indicator vs Simulation offline-toggle
+  const [offlineSimulation, setOfflineSimulation] = useState<boolean>(() => {
+    return localStorage.getItem('swift_offline_simulation') === 'true';
+  });
+  const [networkOnline, setNetworkOnline] = useState<boolean>(navigator.onLine);
+
+  // Combined readiness is true if both real browser and sim are online
+  const isInternetConnected = useMemo(() => {
+    return networkOnline && !offlineSimulation;
+  }, [networkOnline, offlineSimulation]);
+
+  // Real-world Live GPS Geolocation states
+  const [realCoords, setRealCoords] = useState<{ lat: number; lon: number; accuracy: number; address: string } | null>(null);
+  const [useRealGPS, setUseRealGPS] = useState<boolean>(() => {
+    return localStorage.getItem('swift_use_real_gps') === 'true';
+  });
+  const [geoTrackingState, setGeoTrackingState] = useState<'idle' | 'tracking' | 'denied'>('idle');
+
   // Stats for both modes separately to support dynamic swapping!
   const [taxiStats, setTaxiStats] = useState<DriverStats>(() => {
     const saved = localStorage.getItem('bolt_sim_taxi_stats');
@@ -191,6 +240,23 @@ export default function App() {
     }
   ]);
 
+  const appendLog = useCallback((message: string, type: 'info' | 'success' | 'warn' | 'earnings' = 'info') => {
+    const time = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    setLogs((prev) => [
+      { id: Math.random().toString(), timestamp: time, type, message },
+      ...prev.slice(0, 35),
+    ]);
+  }, []);
+
+  // Sound proxy helpers
+  const playSoundEffect = useCallback((effect: 'tap' | 'complete' | 'warn' | 'offer') => {
+    if (!soundEnabled) return;
+    if (effect === 'tap') playTapSound();
+    else if (effect === 'complete') playCompleteRideSound();
+    else if (effect === 'warn') playWarningSound();
+    else if (effect === 'offer') playIncomingRideSound();
+  }, [soundEnabled]);
+
   const [currentTimeStr, setCurrentTimeStr] = useState('09:41');
 
   useEffect(() => {
@@ -216,31 +282,201 @@ export default function App() {
     localStorage.setItem('bolt_sim_food_stats', JSON.stringify(foodStats));
   }, [foodStats]);
 
-  const appendLog = useCallback((message: string, type: 'info' | 'success' | 'warn' | 'earnings' = 'info') => {
-    const time = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-    setLogs((prev) => [
-      { id: Math.random().toString(), timestamp: time, type, message },
-      ...prev.slice(0, 35),
-    ]);
-  }, []);
+  // Real Internet online/offline event subscriptions
+  useEffect(() => {
+    const onOnline = () => {
+      setNetworkOnline(true);
+      appendLog('🌐 Internet restored: Connected securely to cloud systems.', 'success');
+    };
+    const onOffline = () => {
+      setNetworkOnline(false);
+      appendLog('🔌 Internet lost: Switched seamlessly to standalone local storage cache.', 'warn');
+    };
+    window.addEventListener('online', onOnline);
+    window.addEventListener('offline', onOffline);
+    return () => {
+      window.removeEventListener('online', onOnline);
+      window.removeEventListener('offline', onOffline);
+    };
+  }, [appendLog]);
 
-  // Sound proxy helpers
-  const playSoundEffect = (effect: 'tap' | 'complete' | 'warn' | 'offer') => {
-    if (!soundEnabled) return;
-    if (effect === 'tap') playTapSound();
-    else if (effect === 'complete') playCompleteRideSound();
-    else if (effect === 'warn') playWarningSound();
-    else if (effect === 'offer') playIncomingRideSound();
-  };
+  // Locally persist compliance details
+  useEffect(() => {
+    localStorage.setItem('swift_face_verified', String(faceVerified));
+    localStorage.setItem('swift_face_selfie_url', faceSelfieUrl);
+  }, [faceVerified, faceSelfieUrl]);
+
+  useEffect(() => {
+    localStorage.setItem('swift_insurance_verified', String(insuranceVerified));
+    localStorage.setItem('swift_insurance_policy', insurancePolicyNo);
+    localStorage.setItem('swift_insurance_expiry', insuranceExpiry);
+  }, [insuranceVerified, insurancePolicyNo, insuranceExpiry]);
+
+  useEffect(() => {
+    localStorage.setItem('swift_offline_simulation', String(offlineSimulation));
+  }, [offlineSimulation]);
+
+  useEffect(() => {
+    localStorage.setItem('swift_use_real_gps', String(useRealGPS));
+  }, [useRealGPS]);
+
+  // GPS Location Tracker hook with Nominatim Reverse-Geocoding
+  useEffect(() => {
+    if (!useRealGPS) {
+      setRealCoords(null);
+      setGeoTrackingState('idle');
+      return;
+    }
+
+    setGeoTrackingState('tracking');
+    appendLog('📡 Initialising real GPS tracking...', 'info');
+
+    const handlePosSuccess = (pos: GeolocationPosition) => {
+      const { latitude, longitude, accuracy } = pos.coords;
+      const url = `https://nominatim.openstreetmap.org/reverse?format=json&lat=${latitude}&lon=${longitude}&zoom=14`;
+      
+      fetch(url)
+        .then(r => r.json())
+        .then(data => {
+          const addressParts = data.address;
+          const displayAddress = [
+            addressParts.road || addressParts.suburb || '',
+            addressParts.city || addressParts.town || addressParts.state || ''
+          ].filter(Boolean).join(', ') || `Lat:${latitude.toFixed(4)}, Lon:${longitude.toFixed(4)}`;
+          
+          setRealCoords({
+            lat: latitude,
+            lon: longitude,
+            accuracy: Math.round(accuracy),
+            address: displayAddress
+          });
+          appendLog(`📍 Location verified: ${displayAddress}`, 'success');
+        })
+        .catch(() => {
+          setRealCoords({
+            lat: latitude,
+            lon: longitude,
+            accuracy: Math.round(accuracy),
+            address: `GPS: ${latitude.toFixed(4)}N, ${longitude.toFixed(4)}W`
+          });
+        });
+    };
+
+    const handlePosError = (err: GeolocationPositionError) => {
+      console.warn("Geolocation watch failed:", err);
+      setGeoTrackingState('denied');
+      appendLog('⚠️ GPS Tracking unavailable/denied in iframe permission scope.', 'warn');
+    };
+
+    const watchId = navigator.geolocation.watchPosition(handlePosSuccess, handlePosError, {
+      enableHighAccuracy: true,
+      timeout: 10000,
+      maximumAge: 5000
+    });
+
+    return () => navigator.geolocation.clearWatch(watchId);
+  }, [useRealGPS, appendLog]);
+
+  // Auth subscriber on login/logout state changes
+  useEffect(() => {
+    const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
+      setUser(firebaseUser);
+      setAuthLoading(false);
+      
+      if (firebaseUser) {
+        appendLog(`👤 Active Cloud Account: ${firebaseUser.displayName || firebaseUser.email}`, 'success');
+        playSoundEffect('complete');
+
+        try {
+          const ref = doc(db, 'drivers', firebaseUser.uid);
+          const docSnap = await getDoc(ref);
+
+          if (docSnap.exists()) {
+            const data = docSnap.data();
+            if (data.taxiStats) setTaxiStats(data.taxiStats);
+            if (data.foodStats) setFoodStats(data.foodStats);
+            if (data.insuranceVerified !== undefined) setInsuranceVerified(data.insuranceVerified);
+            if (data.insurancePolicyNo) setInsurancePolicyNo(data.insurancePolicyNo);
+            if (data.insuranceExpiry) setInsuranceExpiry(data.insuranceExpiry);
+            if (data.faceVerified !== undefined) setFaceVerified(data.faceVerified);
+            if (data.faceSelfieSnapshot) setFaceSelfieUrl(data.faceSelfieSnapshot);
+            appendLog('💾 Profile settings synchronized perfectly from Firestore.', 'success');
+          } else {
+            const freshProfile = {
+              userId: firebaseUser.uid,
+              taxiStats: INITIAL_TAXI_STATS,
+              foodStats: INITIAL_FOOD_STATS,
+              insuranceVerified: true,
+              insurancePolicyNo: 'UK-ZEGO-SWIFT-9482903',
+              insuranceExpiry: '2026-08-24',
+              faceVerified: true,
+              faceSelfieSnapshot: '',
+              updatedAt: new Date().toISOString()
+            };
+            await setDoc(ref, freshProfile);
+            appendLog('📌 Created new verified profile in Cloud Firestore.', 'success');
+          }
+        } catch (err) {
+          handleFirestoreError(err, OperationType.GET, `drivers/${firebaseUser.uid}`);
+        }
+      } else {
+        appendLog('👤 Standalone local workspace loaded.', 'info');
+      }
+    });
+
+    return () => unsubscribe();
+  }, [appendLog]);
+
+  // Auto push statistics updates to Firestore
+  useEffect(() => {
+    if (!user || !isInternetConnected) return;
+
+    const timer = setTimeout(async () => {
+      try {
+        const ref = doc(db, 'drivers', user.uid);
+        await updateDoc(ref, {
+          taxiStats,
+          foodStats,
+          insuranceVerified,
+          insurancePolicyNo,
+          insuranceExpiry,
+          faceVerified,
+          faceSelfieSnapshot: faceSelfieUrl,
+          updatedAt: new Date().toISOString()
+        });
+      } catch (e) {
+        console.warn("Firestore autosync paused:", e);
+      }
+    }, 1200);
+
+    return () => clearTimeout(timer);
+  }, [user, isInternetConnected, taxiStats, foodStats, insuranceVerified, insurancePolicyNo, insuranceExpiry, faceVerified, faceSelfieUrl]);
+
+
 
   // Switch Online/Offline availability
   const handleSetOnline = (online: boolean) => {
     playSoundEffect('tap');
-    setIsOnline(online);
-    setIsOnBreak(false); // Clear break state on status change
     if (online) {
+      if (!faceVerified) {
+        playSoundEffect('warn');
+        alert("🔒 Swift Security Compliance: Biometric Face Verification selfie check is required before you can toggle ONLINE.\n\nLoading biometric camera viewport...");
+        setActiveTab('profile');
+        setShowFaceScanner(true);
+        return;
+      }
+      if (!insuranceVerified) {
+        playSoundEffect('warn');
+        alert("⚠️ Swift Transport Registry: Certified Hire & Reward (H&R) commercial carriage insurance cover must be activated to process fares.");
+        setActiveTab('profile');
+        return;
+      }
+      setIsOnline(true);
+      setIsOnBreak(false);
       appendLog(`Driver status changed to • Online in ${mode.toUpperCase()} dispatcher.`, 'success');
     } else {
+      setIsOnline(false);
+      setIsOnBreak(false);
       appendLog(`Driver logged out to Offline. Disconnected from queue.`, 'warn');
       if (tripProgress.stage !== 'idle') {
         setTripProgress({
@@ -252,6 +488,28 @@ export default function App() {
           etaMinutes: 0,
         });
         setChatMessages([]);
+      }
+    }
+  };
+
+  const handleGoogleSignIn = async () => {
+    playSoundEffect('tap');
+    try {
+      await signInWithPopup(auth, googleProvider);
+    } catch (e) {
+      playSoundEffect('warn');
+      console.error("Google Auth Error:", e);
+      alert("Google popup auth block: Please ensure that popups are allowed for this preview widget, or open the app in a new tab to bypass iframe security controls.");
+    }
+  };
+
+  const handleGoogleSignOut = async () => {
+    playSoundEffect('tap');
+    if (window.confirm("Are you sure you want to log out of your synchronized Swift profile?")) {
+      try {
+        await signOut(auth);
+      } catch (e) {
+        console.error("Signout fail:", e);
       }
     }
   };
@@ -655,6 +913,20 @@ export default function App() {
                       </button>
                     </div>
                   </nav>
+
+                  {/* HIGH COMPLIANCE / OFFLINE STATUS RIBBONS */}
+                  {!isInternetConnected && (
+                    <div className="bg-orange-500 text-white text-[8.5px] font-black uppercase tracking-wider py-1 px-3 text-center flex items-center justify-center gap-1.5 z-10 animate-in slide-in-from-top duration-200">
+                      <WifiOff className="w-3 h-3 text-white" />
+                      <span>STANDALONE CACHE ACTIVE • CLOUD SYNC PAUSED</span>
+                    </div>
+                  )}
+                  {useRealGPS && realCoords && (
+                    <div className="bg-blue-600 text-white text-[8.5px] font-black uppercase tracking-wider py-1 px-3 text-center flex items-center justify-center gap-1.5 z-10 animate-in slide-in-from-top duration-200">
+                      <Globe className="w-3 h-3 text-white" />
+                      <span className="truncate">GPS LOCKED: {realCoords.address}</span>
+                    </div>
+                  )}
 
                   {/* MAP SIMULATOR AREA */}
                   <div className="flex-1 relative bg-[#f2f4f2] overflow-hidden">
@@ -1219,48 +1491,161 @@ export default function App() {
                   
                   {/* Driver Header Profile block */}
                   <div className="p-4 border-b border-gray-100 bg-gray-50/50 flex flex-col gap-2.5">
-                    <div className="flex items-center gap-3">
-                      {/* Driver Picture Placeholder avatar matching John Daniel! */}
-                      <div className="w-12 h-12 rounded-full border border-gray-200 bg-gray-300 flex items-center justify-center text-gray-700 font-black text-sm relative overflow-hidden shrink-0">
-                        {/* Beautiful user placeholder graphic card */}
-                        <User className="w-6 h-6 text-gray-600" />
-                      </div>
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-3">
+                        {/* Driver Picture Placeholder/Real Avatar */}
+                        <div className="w-12 h-12 rounded-full border border-gray-200 bg-zinc-200 flex items-center justify-center text-gray-700 font-black text-sm relative overflow-hidden shrink-0">
+                          {user && user.photoURL ? (
+                            <img src={user.photoURL} referrerPolicy="no-referrer" alt="Google Profile" className="w-full h-full object-cover" />
+                          ) : faceSelfieUrl ? (
+                            <img src={faceSelfieUrl} alt="Facial Profile" className="w-full h-full object-cover" />
+                          ) : (
+                            <User className="w-6 h-6 text-gray-500" />
+                          )}
+                        </div>
 
-                      <div className="min-w-0">
-                        <h4 className="text-sm font-black text-gray-900 leading-none">John Daniel</h4>
-                        <div className="flex items-center gap-1 bg-[#13AA52]/10 px-2 py-0.5 rounded-full mt-1.5 text-[#13AA52] font-extrabold text-[9px] w-fit">
-                          ★ 4.9 Score
+                        <div className="min-w-0">
+                          <h4 className="text-sm font-black text-gray-905 leading-none truncate max-w-[150px]">
+                            {user ? (user.displayName || user.email) : "John Daniel"}
+                          </h4>
+                          <div className="flex flex-wrap items-center gap-1.5 mt-2">
+                            <span className="bg-[#13AA52]/10 px-1.5 py-0.5 rounded-full text-[#13AA52] font-black text-[8.5px] w-fit">
+                              ★ 4.9 Score
+                            </span>
+                            {user ? (
+                              <span className="bg-blue-100 text-blue-700 font-extrabold text-[8.5px] px-1.5 py-0.5 rounded-full tracking-wider uppercase">
+                                CLOUD SAVING
+                              </span>
+                            ) : (
+                              <span className="bg-amber-100 text-amber-700 font-extrabold text-[8.5px] px-1.5 py-0.5 rounded-full tracking-wider uppercase">
+                                LOCAL PROFILE
+                              </span>
+                            )}
+                          </div>
                         </div>
                       </div>
+
+                      {/* Google Authentication Trigger button */}
+                      <div>
+                        {user ? (
+                          <button
+                            onClick={handleGoogleSignOut}
+                            className="text-[9.5px] text-red-500 hover:bg-red-50 font-black px-2.5 py-1.5 border border-red-200 rounded-xl transition cursor-pointer"
+                          >
+                            Disconnect
+                          </button>
+                        ) : (
+                          <button
+                            onClick={handleGoogleSignIn}
+                            className="bg-[#4285F4] hover:bg-[#357ae8] text-white text-[9.5px] font-black px-2.5 py-1.5 rounded-xl shadow-xs transition flex items-center gap-1 cursor-pointer"
+                          >
+                            <User className="w-3" />
+                            <span>Link Google</span>
+                          </button>
+                        )}
+                      </div>
                     </div>
-                    
-                    <button onClick={() => alert("Simulating Profile metrics summary: Active driver in Lagos zone, premium driver's badge.")} className="text-[9.5px] text-gray-400 font-bold text-left hover:underline">
-                      View profile & achievements ➔
-                    </button>
                   </div>
 
                   {/* Menu options list */}
                   <div className="flex-1 overflow-y-auto p-2.5 flex flex-col divide-y divide-gray-100 text-[11px] text-gray-700 font-bold">
                     
-                    <button onClick={() => { playSoundEffect('tap'); setIsOnline(!isOnline); }} className="flex items-center justify-between py-2.5 hover:bg-gray-50 transition px-1.5">
-                      <div className="flex items-center gap-2.5">
-                        <User className="w-4 h-4 text-gray-400" />
-                        <span>My availability</span>
+                    {/* Face Verification Compliance card */}
+                    <div className="py-3 px-1">
+                      <div className="flex items-center justify-between mb-2">
+                        <div className="flex items-center gap-2">
+                          <Video className="w-4 h-4 text-[#13AA52]" />
+                          <span className="text-[10px] font-black uppercase text-zinc-805 tracking-wider">Face Identification Pass</span>
+                        </div>
+                        <span className={`text-[8.5px] font-black px-2 py-0.5 rounded-full ${faceVerified ? 'bg-emerald-100 text-emerald-700' : 'bg-rose-100 text-rose-650 animate-pulse'}`}>
+                          {faceVerified ? '✓ VERIFIED' : '⚠️ OUTSTANDING'}
+                        </span>
                       </div>
-                      <span className={`text-[9.5px] ${isOnline ? 'text-[#13AA52]' : 'text-gray-400'}`}>
-                        {isOnline ? 'ONLINE' : 'OFFLINE'}
-                      </span>
-                    </button>
+                      
+                      <p className="text-[9px] text-gray-450 font-medium mb-2.5 leading-tight">
+                        Swift requires a daily biometrics check to verify you match registry records.
+                      </p>
 
-                    <button onClick={() => { playSoundEffect('tap'); alert("Registered: Toyota Corolla 2019 (Silver), Plate ABC-123XYZ, standard ride category."); }} className="flex items-center justify-between py-2.5 hover:bg-gray-50 transition px-1.5">
+                      {faceSelfieUrl && (
+                        <div className="flex items-center gap-2 bg-zinc-50 border border-zinc-100 p-2 rounded-xl mb-2.5">
+                          <img src={faceSelfieUrl} referrerPolicy="no-referrer" alt="Selfie Snapshot" className="w-8 h-8 rounded-full object-cover border border-zinc-200 shadow-inner" />
+                          <div className="flex-1 min-w-0">
+                            <span className="block text-[7.5px] font-bold text-zinc-400 font-mono leading-none">BIOMETRICS REGISTER</span>
+                            <span className="block text-[9px] font-extrabold text-[#13AA52] font-mono tracking-wider truncate mt-0.5">MATCH RATING 99.8%</span>
+                          </div>
+                        </div>
+                      )}
+
+                      <button
+                        onClick={() => { playSoundEffect('tap'); setShowFaceScanner(true); }}
+                        className={`w-full py-2 rounded-xl text-[9.5px] font-black uppercase tracking-wider transition text-center cursor-pointer ${
+                          faceVerified ? 'bg-zinc-100 text-zinc-650 hover:bg-zinc-200' : 'bg-[#13AA52] text-white hover:bg-[#119949]'
+                        }`}
+                      >
+                        {faceVerified ? 'Re-scan Face Check' : 'Scan Live Selfie Now ➔'}
+                      </button>
+                    </div>
+
+                    {/* Carriage Transport Insurance Cover card */}
+                    <div className="py-3 px-1">
+                      <div className="flex items-center justify-between mb-2">
+                        <div className="flex items-center gap-2">
+                          <Lock className="w-4 h-4 text-blue-600" />
+                          <span className="text-[10px] font-black uppercase text-zinc-805 tracking-wider">Courier & Passenger Cover</span>
+                        </div>
+                        <span className={`text-[8.5px] font-black px-2 py-0.5 rounded-full ${insuranceVerified ? 'bg-blue-100 text-blue-700' : 'bg-amber-100 text-amber-700 animate-pulse'}`}>
+                          {insuranceVerified ? '✓ CERTIFIED' : '⚠️ UNINSURED'}
+                        </span>
+                      </div>
+                      
+                      <p className="text-[9px] text-gray-450 font-medium mb-2.5 leading-tight">
+                        Commercial Hire & Reward (H&R) insurance cover is active for passenger carriage in UK.
+                      </p>
+
+                      <div className="bg-zinc-50 border border-zinc-105 p-2.5 rounded-xl flex flex-col gap-1.5 font-mono text-[9px] mb-2.5">
+                        <div className="flex justify-between items-center text-zinc-650">
+                          <span>Insurance Carrier</span>
+                          <span className="font-bold text-zinc-900">Zego Mobility Insurance UK</span>
+                        </div>
+                        <div className="flex justify-between items-center">
+                          <span>Policy Number</span>
+                          <input 
+                            type="text" 
+                            value={insurancePolicyNo} 
+                            onChange={(e) => setInsurancePolicyNo(e.target.value)}
+                            className="bg-white border border-zinc-200 rounded px-1.5 py-0.5 text-right font-bold w-32 text-zinc-800 text-[8.5px]" 
+                          />
+                        </div>
+                        <div className="flex justify-between items-center">
+                          <span>Expiration Date</span>
+                          <input 
+                            type="date" 
+                            value={insuranceExpiry} 
+                            onChange={(e) => setInsuranceExpiry(e.target.value)}
+                            className="bg-white border border-zinc-200 rounded px-1.5 py-0.5 text-right font-bold w-32 text-zinc-800 text-[8.5px]" 
+                          />
+                        </div>
+                      </div>
+
+                      <button
+                        onClick={() => { playSoundEffect('tap'); setInsuranceVerified(!insuranceVerified); }}
+                        className={`w-full py-2 rounded-xl text-[9.5px] font-black uppercase tracking-wider transition text-center cursor-pointer ${
+                          insuranceVerified ? 'bg-amber-50 text-amber-700 border border-amber-200 hover:bg-amber-100/50' : 'bg-blue-600 text-white hover:bg-blue-700'
+                        }`}
+                      >
+                        {insuranceVerified ? 'Suspend Policy Verification' : 'Certify policy registration'}
+                      </button>
+                    </div>
+
+                    <button onClick={() => { playSoundEffect('tap'); alert("Registered: Toyota Auris Hybrid 2019 (Silver), Plate LF69-SFT, standard ride category."); }} className="flex items-center justify-between py-2.5 hover:bg-gray-50 transition px-1.5">
                       <div className="flex items-center gap-2.5">
                         <Car className="w-4 h-4 text-gray-400" />
                         <span>My vehicles</span>
                       </div>
-                      <span className="text-gray-450">Corolla 2019</span>
+                      <span className="text-gray-450">Toyota Auris</span>
                     </button>
 
-                    <button onClick={() => { playSoundEffect('tap'); alert("Notification Center: 1) Surge bonus active across Lekki. 2) Maintenance schedule update."); }} className="flex items-center justify-between py-2.5 hover:bg-gray-50 transition px-1.5">
+                    <button onClick={() => { playSoundEffect('tap'); alert("Registry updates: 1) High demand active Soho. 2) Maintenance check completed."); }} className="flex items-center justify-between py-2.5 hover:bg-gray-50 transition px-1.5">
                       <div className="flex items-center gap-2.5">
                         <Bell className="w-4 h-4 text-gray-400" />
                         <span>Notifications</span>
@@ -1270,7 +1655,7 @@ export default function App() {
                       </span>
                     </button>
 
-                    <button onClick={() => { playSoundEffect('tap'); alert("Swift Help center online: Standard dispatcher supports active."); }} className="flex items-center justify-between py-2.5 hover:bg-gray-50 transition px-1.5">
+                    <button onClick={() => { playSoundEffect('tap'); alert("Swift Help center online: Standard dispatch agent supports active."); }} className="flex items-center justify-between py-2.5 hover:bg-gray-50 transition px-1.5">
                       <div className="flex items-center gap-2.5">
                         <HelpCircle className="w-4 h-4 text-gray-400" />
                         <span>Help & support</span>
@@ -1417,6 +1802,54 @@ export default function App() {
                             ))
                           )}
                         </div>
+                      </div>
+
+                      {/* Live GPS Geolocation toggle */}
+                      <div>
+                        <div className="flex justify-between items-center mb-1">
+                          <span className="text-[9px] text-[#13AA52] font-black uppercase tracking-wider block">🗺️ Live GPS Tracking</span>
+                          <span className={`text-[8.5px] font-mono font-black ${geoTrackingState === 'tracking' ? 'text-emerald-500 animate-pulse' : 'text-gray-400'}`}>
+                            {geoTrackingState === 'tracking' ? 'WATCHING' : geoTrackingState === 'denied' ? 'BLOCKED' : 'IDLE'}
+                          </span>
+                        </div>
+                        <button
+                          onClick={() => { playSoundEffect('tap'); setUseRealGPS(!useRealGPS); }}
+                          className={`w-full py-1.5 rounded text-[8.5px] font-black uppercase tracking-wider transition ${
+                            useRealGPS ? 'bg-[#13AA52] text-white font-black' : 'bg-zinc-200 text-zinc-600 hover:bg-zinc-250'
+                          }`}
+                        >
+                          {useRealGPS ? '✓ Live GPS Active' : 'Enable Device GPS Link'}
+                        </button>
+                        {realCoords && (
+                          <div className="bg-white border border-zinc-150 p-2 rounded-xl mt-1.5 text-[8px] font-mono text-zinc-600 space-y-0.5">
+                            <div className="flex justify-between"><span className="text-zinc-400 uppercase">Latitude</span><span className="font-extrabold text-zinc-800">{realCoords.lat.toFixed(5)}</span></div>
+                            <div className="flex justify-between"><span className="text-zinc-400 uppercase">Longitude</span><span className="font-extrabold text-zinc-800">{realCoords.lon.toFixed(5)}</span></div>
+                            <div className="flex justify-between"><span className="text-zinc-400 uppercase">Identified Spot</span><span className="font-extrabold text-[#13AA52] truncate max-w-[150px]">{realCoords.address}</span></div>
+                          </div>
+                        )}
+                      </div>
+
+                      {/* Cellular Offline Toggle */}
+                      <div>
+                        <div className="flex justify-between items-center mb-1">
+                          <span className="text-[9px] text-orange-600 font-black uppercase tracking-wider block">🔌 Standalone Offline Simulation</span>
+                          <span className={`text-[8.5px] font-mono font-black ${offlineSimulation ? 'text-orange-500' : 'text-emerald-500'}`}>
+                            {offlineSimulation ? 'OFFLINE CACHE' : 'CLOUDSYNC ACTIVE'}
+                          </span>
+                        </div>
+                        <button
+                          onClick={() => { 
+                            playSoundEffect('tap'); 
+                            const nextOffline = !offlineSimulation;
+                            setOfflineSimulation(nextOffline);
+                            appendLog(nextOffline ? '🔌 Offline simulation triggered: Firestore writes paused, caching local logs.' : '🌐 Offline simulation completed: Firestore writes resumed.', nextOffline ? 'warn' : 'success');
+                          }}
+                          className={`w-full py-1.5 rounded text-[8.5px] font-black uppercase tracking-wider transition ${
+                            offlineSimulation ? 'bg-orange-500 text-white animate-pulse' : 'bg-zinc-200 text-zinc-600 hover:bg-zinc-250'
+                          }`}
+                        >
+                          {offlineSimulation ? 'Deactivate Offline Mode' : 'Activate Offline Standalone'}
+                        </button>
                       </div>
 
                       {/* Sound fx check */}
@@ -1573,6 +2006,18 @@ export default function App() {
             </div>
 
           </div>
+
+          {/* Biometric Face Capture Cam Viewport */}
+          <FaceScannerModal
+            isOpen={showFaceScanner}
+            onClose={() => setShowFaceScanner(false)}
+            onSuccess={(selfie) => {
+              setFaceSelfieUrl(selfie);
+              setFaceVerified(true);
+              appendLog("✓ Biometric identity verification successful. Security pass verified.", "success");
+            }}
+            playSoundEffect={playSoundEffect}
+          />
 
     </div>
   );

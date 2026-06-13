@@ -1,6 +1,6 @@
 {
   "name": "Swift Driver App Simulator",
   "description": "An interactive, visually rich Swift driver dashboard simulator featuring real-time interactive mapping, surge zones, simulated driving navigation, passenger chat messaging, and earnings tracking.",
-  "requestFramePermissions": [],
+  "requestFramePermissions": ["geolocation", "camera"],
   "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
 }

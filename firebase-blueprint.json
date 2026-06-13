@@ -1,0 +1,71 @@
+{
+  "entities": {
+    "driver_profile": {
+      "title": "Driver Profile",
+      "description": "The stats, settings, insurance, and face verification details of a Swift driver.",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string", "description": "The unique user authenticated registration identifier." },
+        "rating": { "type": "number", "description": "Overall metric average rating score." },
+        "acceptanceRate": { "type": "number", "description": "Driver dispatch offer acceptance percentages." },
+        "cancellationRate": { "type": "number", "description": "Overall trip cancellation rate percentage." },
+        "todayEarnings": { "type": "number", "description": "Driver daily accrued payout metrics." },
+        "weeklyEarnings": { "type": "number", "description": "Driver cumulative weekly payout." },
+        "hoursOnline": { "type": "number", "description": "Cumulative total of online session tracking." },
+        "completedTripsCount": { "type": "number", "description": "Total historical rides or food orders processed." },
+        "balance": { "type": "number", "description": "Pending withdrawable wallet standard balances." },
+        "insuranceVerified": { "type": "boolean", "description": "Indicates whether driver has comprehensive transport and hire insurance verified." },
+        "insurancePolicyNo": { "type": "string", "description": "UK standard Hire & Reward carriage Policy number." },
+        "insuranceExpiry": { "type": "string", "description": "Expiry calendar date parameters." },
+        "faceVerified": { "type": "boolean", "description": "Verification status of physical biometric face selfie checks." },
+        "faceSelfieSnapshot": { "type": "string", "description": "Base64 localized vector thumbnail representation." },
+        "faceVerificationTime": { "type": "string", "description": "Physical instant validation timestamp." },
+        "updatedAt": { "type": "string", "description": "Server synchronization record check timestamp." }
+      },
+      "required": ["userId", "rating", "acceptanceRate", "cancellationRate", "todayEarnings", "weeklyEarnings", "hoursOnline", "completedTripsCount", "balance", "insuranceVerified", "insurancePolicyNo", "insuranceExpiry", "faceVerified"]
+    },
+    "completed_trip": {
+      "title": "Completed Trip Record",
+      "description": "Historical register archive of a completed carriage or delivery order.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "passengerName": { "type": "string" },
+        "pickupAddress": { "type": "string" },
+        "dropoffAddress": { "type": "string" },
+        "fare": { "type": "number" },
+        "tip": { "type": "number" },
+        "timestamp": { "type": "string" },
+        "ratingValue": { "type": "number" },
+        "surgeMultiplier": { "type": "number" }
+      },
+      "required": ["id", "passengerName", "pickupAddress", "dropoffAddress", "fare", "tip", "timestamp", "ratingValue", "surgeMultiplier"]
+    },
+    "log_event": {
+      "title": "Simulator Log Event",
+      "description": "Chronological session event trail details.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "timestamp": { "type": "string" },
+        "type": { "type": "string" },
+        "message": { "type": "string" }
+      },
+      "required": ["id", "timestamp", "type", "message"]
+    }
+  },
+  "firestore": {
+    "drivers/{userId}": {
+      "schema": "driver_profile",
+      "description": "Primary document representing driver info and real-time saved statistics."
+    },
+    "drivers/{userId}/completedTrips/{tripId}": {
+      "schema": "completed_trip",
+      "description": "Historically archived list of complete orders."
+    },
+    "drivers/{userId}/logs/{logId}": {
+      "schema": "log_event",
+      "description": "Simulated dispatcher tracking logs."
+    }
+  }
+}
