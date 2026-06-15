@@ -6,14 +6,34 @@
       "type": "object",
       "properties": {
         "userId": { "type": "string", "description": "The unique user authenticated registration identifier." },
-        "rating": { "type": "number", "description": "Overall metric average rating score." },
-        "acceptanceRate": { "type": "number", "description": "Driver dispatch offer acceptance percentages." },
-        "cancellationRate": { "type": "number", "description": "Overall trip cancellation rate percentage." },
-        "todayEarnings": { "type": "number", "description": "Driver daily accrued payout metrics." },
-        "weeklyEarnings": { "type": "number", "description": "Driver cumulative weekly payout." },
-        "hoursOnline": { "type": "number", "description": "Cumulative total of online session tracking." },
-        "completedTripsCount": { "type": "number", "description": "Total historical rides or food orders processed." },
-        "balance": { "type": "number", "description": "Pending withdrawable wallet standard balances." },
+        "taxiStats": {
+          "type": "object",
+          "description": "Driver dispatch taxi statistics object.",
+          "properties": {
+            "rating": { "type": "number" },
+            "acceptanceRate": { "type": "number" },
+            "cancellationRate": { "type": "number" },
+            "todayEarnings": { "type": "number" },
+            "weeklyEarnings": { "type": "number" },
+            "hoursOnline": { "type": "number" },
+            "completedTripsCount": { "type": "number" },
+            "balance": { "type": "number" }
+          }
+        },
+        "foodStats": {
+          "type": "object",
+          "description": "Driver dispatch food delivery statistics object.",
+          "properties": {
+            "rating": { "type": "number" },
+            "acceptanceRate": { "type": "number" },
+            "cancellationRate": { "type": "number" },
+            "todayEarnings": { "type": "number" },
+            "weeklyEarnings": { "type": "number" },
+            "hoursOnline": { "type": "number" },
+            "completedTripsCount": { "type": "number" },
+            "balance": { "type": "number" }
+          }
+        },
         "insuranceVerified": { "type": "boolean", "description": "Indicates whether driver has comprehensive transport and hire insurance verified." },
         "insurancePolicyNo": { "type": "string", "description": "UK standard Hire & Reward carriage Policy number." },
         "insuranceExpiry": { "type": "string", "description": "Expiry calendar date parameters." },
@@ -22,7 +42,7 @@
         "faceVerificationTime": { "type": "string", "description": "Physical instant validation timestamp." },
         "updatedAt": { "type": "string", "description": "Server synchronization record check timestamp." }
       },
-      "required": ["userId", "rating", "acceptanceRate", "cancellationRate", "todayEarnings", "weeklyEarnings", "hoursOnline", "completedTripsCount", "balance", "insuranceVerified", "insurancePolicyNo", "insuranceExpiry", "faceVerified"]
+      "required": ["userId", "insuranceVerified", "insurancePolicyNo", "insuranceExpiry", "faceVerified", "taxiStats", "foodStats"]
     },
     "completed_trip": {
       "title": "Completed Trip Record",

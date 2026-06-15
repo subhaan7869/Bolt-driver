@@ -21,20 +21,27 @@ service cloud.firestore {
     }
 
     // Entity shape validation helpers
+    function isValidDriverStats(stats) {
+      return stats.rating is number
+        && stats.acceptanceRate is number
+        && stats.cancellationRate is number
+        && stats.todayEarnings is number
+        && stats.weeklyEarnings is number
+        && stats.hoursOnline is number
+        && stats.completedTripsCount is number
+        && stats.balance is number;
+    }
+
     function isValidDriverProfile(data, userId) {
       return data.userId == userId
-        && data.rating is number
-        && data.acceptanceRate is number
-        && data.cancellationRate is number
-        && data.todayEarnings is number
-        && data.weeklyEarnings is number
-        && data.hoursOnline is number
-        && data.completedTripsCount is number
-        && data.balance is number
         && data.insuranceVerified is bool
         && data.insurancePolicyNo is string
         && data.insuranceExpiry is string
-        && data.faceVerified is bool;
+        && data.faceVerified is bool
+        && data.faceSelfieSnapshot is string
+        && data.updatedAt is string
+        && isValidDriverStats(data.taxiStats)
+        && isValidDriverStats(data.foodStats);
     }
 
     function isValidCompletedTrip(data) {
