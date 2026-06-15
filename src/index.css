@@ -25,3 +25,110 @@
   animation: dash 1.5s linear infinite;
 }
 
+/* Surge Heatzone Pulsing SVG Map Animations */
+@keyframes surge-main-outer-pulse {
+  0% {
+    fill-opacity: 0.04;
+    stroke-opacity: 0.2;
+    stroke-width: 1px;
+  }
+  50% {
+    fill-opacity: 0.16;
+    stroke-opacity: 0.65;
+    stroke-width: 3.5px;
+  }
+  100% {
+    fill-opacity: 0.04;
+    stroke-opacity: 0.2;
+    stroke-width: 1px;
+  }
+}
+
+@keyframes surge-inner-core-pulse {
+  0% {
+    fill-opacity: 0.08;
+    stroke-opacity: 0.1;
+  }
+  50% {
+    fill-opacity: 0.32;
+    stroke-opacity: 0.55;
+  }
+  100% {
+    fill-opacity: 0.08;
+    stroke-opacity: 0.1;
+  }
+}
+
+.surge-pulse-path {
+  animation: surge-main-outer-pulse 3s infinite ease-in-out;
+}
+
+.surge-pulse-path-inner {
+  animation: surge-inner-core-pulse 2s infinite ease-in-out;
+}
+
+/* Pulse badge ring effect */
+@keyframes badge-ring {
+  0% {
+    box-shadow: 0 0 0 0px rgba(19, 170, 82, 0.4);
+  }
+  70% {
+    box-shadow: 0 0 0 6px rgba(19, 170, 82, 0);
+  }
+  100% {
+    box-shadow: 0 0 0 0px rgba(19, 170, 82, 0);
+  }
+}
+
+@keyframes badge-ring-amber {
+  0% {
+    box-shadow: 0 0 0 0px rgba(245, 158, 11, 0.5);
+  }
+  70% {
+    box-shadow: 0 0 0 6px rgba(245, 158, 11, 0);
+  }
+  100% {
+    box-shadow: 0 0 0 0px rgba(245, 158, 11, 0);
+  }
+}
+
+@keyframes badge-ring-orange {
+  0% {
+    box-shadow: 0 0 0 0px rgba(249, 115, 22, 0.5);
+  }
+  70% {
+    box-shadow: 0 0 0 6px rgba(249, 115, 22, 0);
+  }
+  100% {
+    box-shadow: 0 0 0 0px rgba(249, 115, 22, 0);
+  }
+}
+
+@keyframes badge-ring-red {
+  0% {
+    box-shadow: 0 0 0 0px rgba(239, 68, 68, 0.6);
+  }
+  70% {
+    box-shadow: 0 0 0 6px rgba(239, 68, 68, 0);
+  }
+  100% {
+    box-shadow: 0 0 0 0px rgba(239, 68, 68, 0);
+  }
+}
+
+.badge-pulse {
+  animation: badge-ring 2.2s infinite;
+}
+
+.badge-pulse-amber {
+  animation: badge-ring-amber 2s infinite;
+}
+
+.badge-pulse-orange {
+  animation: badge-ring-orange 1.8s infinite;
+}
+
+.badge-pulse-red {
+  animation: badge-ring-red 1.5s infinite;
+}
+

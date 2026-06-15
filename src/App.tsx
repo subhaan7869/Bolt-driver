@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { 
   DriverStats, RideRequest, TripProgress, SimulatorLog, CompletedTrip, ActiveChat, TripStage 
 } from './types';
@@ -9,8 +9,8 @@ import {
 import { 
   Navigation, Star, Zap, Clock, Landmark, Sparkles, MessageSquare, 
   AlertTriangle, CheckCircle, Smartphone, Wifi, Battery, Menu, Bell, 
-  ChevronRight, Car, HelpCircle, Settings, LogOut, Check, ArrowRight, X, Phone, User, Calendar, Coffee,
-  Globe, Lock, ShieldAlert, Video, WifiOff
+  ChevronRight, ChevronLeft, Info, Car, HelpCircle, Settings, LogOut, Check, ArrowRight, X, Phone, User, Calendar, Coffee,
+  Globe, Lock, ShieldAlert, Video, WifiOff, Sun, Moon
 } from 'lucide-react';
 
 // Live Firebase client and authentications
@@ -88,6 +88,226 @@ const FOOD_MOCK_RIDES: any[] = [
   }
 ];
 
+const CITY_ADDRESSES: Record<string, {
+  taxi: {
+    pickup: string[];
+    dropoff: string[];
+  };
+  food: {
+    restaurants: string[];
+    residences: string[];
+  };
+  surgeAreas: string[];
+}> = {
+  'london': {
+    taxi: {
+      pickup: [
+        'Piccadilly Circus / Regent Street',
+        'City of London / Threadneedle St',
+        'London Heathrow Airport (LHR) Terminal 5',
+        'Soho Square / Greek Street',
+        'Covent Garden Market / Long Acre'
+      ],
+      dropoff: [
+        'Mayfair / Oxford Street',
+        'Hyde Park Garden Road / Piccadilly',
+        'The Savoy Hotel, Strand, West End',
+        'Big Ben / Westminster Bridge',
+        'Oxford Street East, London'
+      ]
+    },
+    food: {
+      restaurants: [
+        "Nando's, Piccadilly Circus, London",
+        "Gourmet Burger Kitchen, Oxford Street, London",
+        "Wagamama, Covent Garden, London",
+        "Dishoom, Covent Garden, London"
+      ],
+      residences: [
+        "Mayfair Presidential Residences, London",
+        "Kensington Garden Apartments, London",
+        "Leicester Square Penthouse, London",
+        "Soho Loft Studios, London"
+      ]
+    },
+    surgeAreas: ['London Soho', 'Mayfair', 'Westminster', 'Hyde Park']
+  },
+  'birmingham': {
+    taxi: {
+      pickup: [
+        'Birmingham New Street Station / Stephenson St',
+        'Broad Street / Brindleyplace',
+        'Birmingham Airport (BHX) Terminal 1',
+        'Jewellery Quarter / Vyse Street',
+        'Mailbox Birmingham / Commercial St'
+      ],
+      dropoff: [
+        'Bullring Shopping Centre / High St',
+        'Edgbaston Cricket Ground / Pershore Rd',
+        'Bournville Village / Linden Road',
+        'Selly Oak / Bristol Road',
+        'Sutton Coldfield Park Gate'
+      ]
+    },
+    food: {
+      restaurants: [
+        "Nando's, Bullring Shopping Centre, Birmingham",
+        "Gourmet Burger Kitchen, Mailbox, Birmingham",
+        "Dishoom, Chamberlain Square, Birmingham",
+        "Original Patty Men, Digbeth, Birmingham"
+      ],
+      residences: [
+        "Brindleyplace Executive Wharf, Birmingham",
+        "Edgbaston Manor Residences, Birmingham",
+        "Digbeth Creative Lofts, Birmingham",
+        "S01 Wharfside Apartments, Birmingham"
+      ]
+    },
+    surgeAreas: ['Bullring', 'Broad Street', 'Mailbox', 'Digbeth']
+  },
+  'nottingham': {
+    taxi: {
+      pickup: [
+        'Old Market Square / Beastmarket Hill',
+        'Nottingham Station / Carrington St',
+        'Lace Market / High Pavement',
+        'Trent Bridge Cricket Ground / Bridgford Rd',
+        'Hockley / Broad Street'
+      ],
+      dropoff: [
+        'Wollaton Hall / Wollaton Road',
+        'University Park / University Boulevard',
+        'Nottingham Castle / Lenton Road',
+        'Beeston High Street',
+        'Sherwood Forest Visitor Centre'
+      ]
+    },
+    food: {
+      restaurants: [
+        "Nando's, Market Square, Nottingham",
+        "Gourmet Burger Kitchen, Trinity Square, Nottingham",
+        "Annie's Burger Shack, Lacey Road, Nottingham",
+        "Sexy Mamma Love Spaghetti, Hockley, Nottingham"
+      ],
+      residences: [
+        "Lace Market Luxury Suites, Nottingham",
+        "Wollaton Park Gate Apartments, Nottingham",
+        "Hockley Student Studios, Nottingham",
+        "The Park Estate Villas, Nottingham"
+      ]
+    },
+    surgeAreas: ['Lace Market', 'Hockley', 'Old Market Square', 'Trent Bridge']
+  },
+  'manchester': {
+    taxi: {
+      pickup: [
+        'Piccadilly Gardens / Market Street',
+        'Manchester Piccadilly Station',
+        'Northern Quarter / Thomas Street',
+        'Manchester Airport (MAN) Terminal 2',
+        'MediaCityUK / Salford Quays'
+      ],
+      dropoff: [
+        'Deansgate / Spinningfields',
+        'Old Trafford Stadium / Sir Matt Busby Way',
+        'Ancoats / Blossom Street',
+        'Castlefield Basin / Duke Street',
+        'Didsbury Village / Wilmslow Rd'
+      ]
+    },
+    food: {
+      restaurants: [
+        "Nando's, Piccadilly Gardens, Manchester",
+        "Gourmet Burger Kitchen, Trafford Centre, Manchester",
+        "Rudy's Pizza, Ancoats, Manchester",
+        "Albert's Schloss, Peter Street, Manchester"
+      ],
+      residences: [
+        "Spinningfields Luxury Penthouses, Manchester",
+        "Northern Quarter Canal Apartments, Manchester",
+        "MediaCity Waterside Executive Flats, Manchester",
+        "Salford Quays Quayhouse, Manchester"
+      ]
+    },
+    surgeAreas: ['Spinningfields', 'Northern Quarter', 'MediaCity', 'Ancoats']
+  },
+  'leeds': {
+    taxi: {
+      pickup: [
+        'Trinity Leeds / Briggate',
+        'Leeds Station / New Station St',
+        'Headingley / Otley Road',
+        'Leeds Bradford Airport (LBA) Terminal',
+        'Kirkgate Market / George Street'
+      ],
+      dropoff: [
+        'Roundhay Park / Princes Avenue',
+        'Victoria Quarter / King Edward St',
+        'Clarence Dock / Armouries Drive',
+        'Chapel Allerton / Harrogate Rd',
+        'Kirkstall Abbey / Abbey Rd'
+      ]
+    },
+    food: {
+      restaurants: [
+        "Nando's, Briggate, Leeds",
+        "Gourmet Burger Kitchen, Trinity Shopping, Leeds",
+        "Bundobust, Mill Hill, Leeds",
+        "Zaap Thai Street Food, Leeds"
+      ],
+      residences: [
+        "Headingley Student House, Leeds",
+        "Roundhay Luxury Villas, Leeds",
+        "Clarence Dock Waterside Apartments, Leeds",
+        "Water Lane Urban Lofts, Leeds"
+      ]
+    },
+    surgeAreas: ['Briggate', 'Headingley', 'Trinity Leeds', 'Clarence Dock']
+  }
+};
+
+const getCityAddresses = (city: string) => {
+  const normCity = (city || 'London').trim().toLowerCase();
+  if (CITY_ADDRESSES[normCity]) {
+    return CITY_ADDRESSES[normCity];
+  }
+  
+  // Dynamic fallback generator using the exact city name
+  return {
+    taxi: {
+      pickup: [
+        `${city} High Street / Town Centre`,
+        `${city} Central Station / Station Rd`,
+        `${city} Civic Square / Cathedral Place`,
+        `${city} Northern Quarter / Market Lane`,
+        `${city} Park & Ride Gateway`
+      ],
+      dropoff: [
+        `${city} Grand Hotel & Spa / Victoria Rd`,
+        `${city} Heights Luxury Residences`,
+        `${city} Meadows Park / Green Street`,
+        `${city} Retail Outlet / Shopping Walk`,
+        `Riverside Marina, ${city}`
+      ]
+    },
+    food: {
+      restaurants: [
+        `Nando's, ${city} Shop Centre`,
+        `Gourmet Burger Kitchen, ${city} Waterfront`,
+        `Wagamama, ${city} Plaza`,
+        `The Pizza Slabs, ${city}`
+      ],
+      residences: [
+        `${city} Heights Marina Apartments`,
+        `${city} Manor Park Estate`,
+        `${city} Central Luxury Lofts`,
+        `Woodland Crescent Residences, ${city}`
+      ]
+    },
+    surgeAreas: [`${city} Centre`, `${city} Waterfront`, `${city} Station`, `${city} Plaza`]
+  };
+};
+
 const INITIAL_TAXI_STATS: DriverStats = {
   rating: 4.9,
   acceptanceRate: 98,
@@ -159,17 +379,55 @@ export default function App() {
   const [useRealGPS, setUseRealGPS] = useState<boolean>(() => {
     return localStorage.getItem('swift_use_real_gps') === 'true';
   });
+  const [currentCity, setCurrentCity] = useState<string>(() => {
+    return localStorage.getItem('swift_current_city') || 'London';
+  });
   const [geoTrackingState, setGeoTrackingState] = useState<'idle' | 'tracking' | 'denied'>('idle');
+
+  useEffect(() => {
+    localStorage.setItem('swift_current_city', currentCity);
+  }, [currentCity]);
+
+  // Dark Mode, Ambient Wander, and Background notifications configuration states
+  const [darkMode, setDarkMode] = useState<boolean>(() => {
+    return localStorage.getItem('swift_dark_mode') === 'true';
+  });
+  const [simulateWandering, setSimulateWandering] = useState<boolean>(() => {
+    return localStorage.getItem('swift_simulate_wandering') !== 'false';
+  });
+  const [notificationsEnabled, setNotificationsEnabled] = useState<boolean>(() => {
+    return localStorage.getItem('swift_notifications_enabled') !== 'false';
+  });
+  const [backgroundModeEnabled, setBackgroundModeEnabled] = useState<boolean>(() => {
+    return localStorage.getItem('swift_background_mode_enabled') !== 'false';
+  });
+  const [workerTickCount, setWorkerTickCount] = useState<number>(0);
 
   // Stats for both modes separately to support dynamic swapping!
   const [taxiStats, setTaxiStats] = useState<DriverStats>(() => {
     const saved = localStorage.getItem('bolt_sim_taxi_stats');
-    return saved ? JSON.parse(saved) : INITIAL_TAXI_STATS;
+    const parsed = saved ? JSON.parse(saved) : { ...INITIAL_TAXI_STATS };
+    const foodSaved = localStorage.getItem('bolt_sim_food_stats');
+    const foodParsed = foodSaved ? JSON.parse(foodSaved) : null;
+    if (foodParsed) {
+      parsed.balance = foodParsed.balance;
+      parsed.todayEarnings = foodParsed.todayEarnings;
+      parsed.weeklyEarnings = foodParsed.weeklyEarnings;
+    }
+    return parsed;
   });
 
   const [foodStats, setFoodStats] = useState<DriverStats>(() => {
     const saved = localStorage.getItem('bolt_sim_food_stats');
-    return saved ? JSON.parse(saved) : INITIAL_FOOD_STATS;
+    const parsed = saved ? JSON.parse(saved) : { ...INITIAL_FOOD_STATS };
+    const taxiSaved = localStorage.getItem('bolt_sim_taxi_stats');
+    const taxiParsed = taxiSaved ? JSON.parse(taxiSaved) : null;
+    if (taxiParsed) {
+      parsed.balance = taxiParsed.balance;
+      parsed.todayEarnings = taxiParsed.todayEarnings;
+      parsed.weeklyEarnings = taxiParsed.weeklyEarnings;
+    }
+    return parsed;
   });
 
   const stats = useMemo(() => {
@@ -178,9 +436,27 @@ export default function App() {
 
   const setStats = useCallback((updater: (s: DriverStats) => DriverStats) => {
     if (mode === 'taxi') {
-      setTaxiStats(p => updater(p));
+      setTaxiStats(p => {
+        const next = updater(p);
+        setFoodStats(f => ({
+          ...f,
+          todayEarnings: next.todayEarnings,
+          weeklyEarnings: next.weeklyEarnings,
+          balance: next.balance,
+        }));
+        return next;
+      });
     } else {
-      setFoodStats(p => updater(p));
+      setFoodStats(p => {
+        const next = updater(p);
+        setTaxiStats(t => ({
+          ...t,
+          todayEarnings: next.todayEarnings,
+          weeklyEarnings: next.weeklyEarnings,
+          balance: next.balance,
+        }));
+        return next;
+      });
     }
   }, [mode]);
 
@@ -221,6 +497,39 @@ export default function App() {
     etaMinutes: 0,
   });
 
+  const tripProgressRef = useRef<TripProgress>(tripProgress);
+  tripProgressRef.current = tripProgress;
+
+  const [earningsPeriod, setEarningsPeriod] = useState<'day' | 'week' | 'month' | 'year'>('day');
+
+  // Multi-delivery states for premium food mode
+  const [activeEatsJobs, setActiveEatsJobs] = useState<any[]>(() => {
+    try {
+      const saved = localStorage.getItem('swift_active_eats_jobs');
+      return saved ? JSON.parse(saved) : [];
+    } catch (_) {
+      return [];
+    }
+  });
+
+  const [activeEatsJobId, setActiveEatsJobId] = useState<string | null>(() => {
+    return localStorage.getItem('swift_active_eats_job_id') || null;
+  });
+
+  // Food eats mode bootup sequence (-1 = inactive, 100 = completed, 0-4 = stages)
+  const [eatsBootupProgress, setEatsBootupProgress] = useState<number>(-1);
+
+  // Subscreen navigation state inside Menu/Profile tab
+  const [menuSubScreen, setMenuSubScreen] = useState<'main' | 'admin_settings' | 'profile_details' | 'vehicles' | 'availability'>('main');
+
+  useEffect(() => {
+    localStorage.setItem('swift_active_eats_jobs', JSON.stringify(activeEatsJobs));
+  }, [activeEatsJobs]);
+
+  useEffect(() => {
+    localStorage.setItem('swift_active_eats_job_id', activeEatsJobId || '');
+  }, [activeEatsJobId]);
+
   const [chatMessages, setChatMessages] = useState<ActiveChat[]>([]);
   const [justCompletedTrip, setJustCompletedTrip] = useState<CompletedTrip | null>(null);
   const [showCelebration, setShowCelebration] = useState<boolean>(false);
@@ -257,17 +566,94 @@ export default function App() {
     else if (effect === 'offer') playIncomingRideSound();
   }, [soundEnabled]);
 
+  // Listen to custom map simulation activity log alerts and tap gestures
+  useEffect(() => {
+    const handleSimLog = (e: Event) => {
+      const customEvent = e as CustomEvent<{ text: string; type: 'info' | 'warn' | 'success' | 'earnings' }>;
+      if (customEvent.detail) {
+        appendLog(customEvent.detail.text, customEvent.detail.type);
+      }
+    };
+    const handlePlaySound = (e: Event) => {
+      const customEvent = e as CustomEvent<any>;
+      if (customEvent.detail) {
+        playSoundEffect(customEvent.detail);
+      }
+    };
+    window.addEventListener('add-simulation-log', handleSimLog);
+    window.addEventListener('play-sound', handlePlaySound);
+    return () => {
+      window.removeEventListener('add-simulation-log', handleSimLog);
+      window.removeEventListener('play-sound', handlePlaySound);
+    };
+  }, [appendLog, playSoundEffect]);
+
+  // Real Notification helper (Alerts even when in background)
+  const sendRealNotification = useCallback((title: string, body: string) => {
+    if (!notificationsEnabled) return;
+    if (typeof window !== 'undefined' && 'Notification' in window && Notification.permission === 'granted') {
+      try {
+        new Notification(title, {
+          body,
+          icon: '/manifest.webmanifest',
+          silent: false,
+        });
+      } catch (e) {
+        console.error("Failed to send browser Notification:", e);
+      }
+    }
+  }, [notificationsEnabled]);
+
   const [currentTimeStr, setCurrentTimeStr] = useState('09:41');
 
+  // Time and Midnight Reset Effect
   useEffect(() => {
     const updateTime = () => {
       const d = new Date();
       setCurrentTimeStr(d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false }));
+
+      // Midnight/Date reset check
+      const todayStr = d.toLocaleDateString('en-CA'); // YYYY-MM-DD
+      const lastLogin = localStorage.getItem('bolt_sim_last_login_date');
+      if (lastLogin && lastLogin !== todayStr) {
+        setTaxiStats(p => ({
+          ...p,
+          todayEarnings: 0,
+          balance: 0,
+        }));
+        setFoodStats(p => ({
+          ...p,
+          todayEarnings: 0,
+          balance: 0,
+        }));
+        appendLog("🕛 Midnight strike! Daily simulated earnings and balances reset to £0.00.", "success");
+        localStorage.setItem('bolt_sim_last_login_date', todayStr);
+      }
     };
+
+    // First time login date tracking check on mount
+    const d = new Date();
+    const todayStr = d.toLocaleDateString('en-CA');
+    const lastLogin = localStorage.getItem('bolt_sim_last_login_date');
+    if (lastLogin && lastLogin !== todayStr) {
+      setTaxiStats(p => ({
+        ...p,
+        todayEarnings: 0,
+        balance: 0,
+      }));
+      setFoodStats(p => ({
+        ...p,
+        todayEarnings: 0,
+        balance: 0,
+      }));
+      appendLog("🌅 New day started! Simulated earnings and balance successfully reset to £0.00.", "success");
+    }
+    localStorage.setItem('bolt_sim_last_login_date', todayStr);
+
     updateTime();
     const interval = setInterval(updateTime, 10000);
     return () => clearInterval(interval);
-  }, []);
+  }, [appendLog]);
 
   // Sync to localStorages
   useEffect(() => {
@@ -320,6 +706,27 @@ export default function App() {
     localStorage.setItem('swift_use_real_gps', String(useRealGPS));
   }, [useRealGPS]);
 
+  useEffect(() => {
+    localStorage.setItem('swift_dark_mode', String(darkMode));
+  }, [darkMode]);
+
+  useEffect(() => {
+    localStorage.setItem('swift_simulate_wandering', String(simulateWandering));
+  }, [simulateWandering]);
+
+  useEffect(() => {
+    localStorage.setItem('swift_notifications_enabled', String(notificationsEnabled));
+    if (notificationsEnabled && typeof window !== 'undefined' && 'Notification' in window) {
+      if (Notification.permission === 'default') {
+        Notification.requestPermission();
+      }
+    }
+  }, [notificationsEnabled]);
+
+  useEffect(() => {
+    localStorage.setItem('swift_background_mode_enabled', String(backgroundModeEnabled));
+  }, [backgroundModeEnabled]);
+
   // GPS Location Tracker hook with Nominatim Reverse-Geocoding
   useEffect(() => {
     if (!useRealGPS) {
@@ -339,9 +746,12 @@ export default function App() {
         .then(r => r.json())
         .then(data => {
           const addressParts = data.address;
+          const detectedCity = addressParts.city || addressParts.town || addressParts.village || addressParts.suburb || addressParts.county || addressParts.state || 'London';
+          setCurrentCity(detectedCity);
+          
           const displayAddress = [
             addressParts.road || addressParts.suburb || '',
-            addressParts.city || addressParts.town || addressParts.state || ''
+            detectedCity
           ].filter(Boolean).join(', ') || `Lat:${latitude.toFixed(4)}, Lon:${longitude.toFixed(4)}`;
           
           setRealCoords({
@@ -350,7 +760,7 @@ export default function App() {
             accuracy: Math.round(accuracy),
             address: displayAddress
           });
-          appendLog(`📍 Location verified: ${displayAddress}`, 'success');
+          appendLog(`📍 Location verified: ${displayAddress}. Job dispatches matched to ${detectedCity}!`, 'success');
         })
         .catch(() => {
           setRealCoords({
@@ -379,7 +789,12 @@ export default function App() {
 
   // Auth subscriber on login/logout state changes
   useEffect(() => {
+    const fallbackTimer = setTimeout(() => {
+      setAuthLoading(false);
+    }, 1500);
+
     const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
+      clearTimeout(fallbackTimer);
       setUser(firebaseUser);
       setAuthLoading(false);
       
@@ -454,6 +869,37 @@ export default function App() {
 
 
 
+  // Interactive Foods "Swift Eats" Mode Boot Up Sequence Effect
+  useEffect(() => {
+    if (mode === 'food' && eatsBootupProgress === -1) {
+      setEatsBootupProgress(0);
+    } else if (mode === 'taxi') {
+      setEatsBootupProgress(-1);
+    }
+  }, [mode]);
+
+  useEffect(() => {
+    if (mode === 'food' && eatsBootupProgress === 0) {
+      playSoundEffect('offer');
+      let currentStep = 0;
+      const interval = setInterval(() => {
+        currentStep++;
+        if (currentStep < 5) {
+          setEatsBootupProgress(currentStep);
+          playSoundEffect('tap');
+        } else {
+          clearInterval(interval);
+          setEatsBootupProgress(100); // 100 is fully loaded!
+          playSoundEffect('complete');
+          appendLog("🟢 Swift Eats system online. Multi-delivery dispatch routing loaded: CAPACITY 3 CONCURRENT JOBS.", "success");
+        }
+      }, 650);
+
+      return () => clearInterval(interval);
+    }
+  }, [mode, eatsBootupProgress, playSoundEffect, appendLog]);
+
+
   // Switch Online/Offline availability
   const handleSetOnline = (online: boolean) => {
     playSoundEffect('tap');
@@ -515,7 +961,7 @@ export default function App() {
   };
 
   // Spawner action from the console
-  const handleSpawnMockRide = useCallback((type: 'short' | 'long' | 'airport' | 'high-tip') => {
+  const handleSpawnMockRide = useCallback((type: 'short' | 'long' | 'airport' | 'high-tip' | 'random') => {
     if (!isOnline) {
       playSoundEffect('warn');
       appendLog('Simulation rejected: Set status to • Online first.', 'warn');
@@ -532,11 +978,18 @@ export default function App() {
       return;
     }
 
+    // Determine target type from 'random'
+    let actualType: 'short' | 'long' | 'airport' | 'high-tip' = type as any;
+    if (type === 'random') {
+      const types: ('short' | 'long' | 'airport' | 'high-tip')[] = ['short', 'long', 'airport', 'high-tip'];
+      actualType = types[Math.floor(Math.random() * types.length)];
+    }
+
     let preset = mode === 'taxi' ? TAXI_MOCK_RIDES[0] : FOOD_MOCK_RIDES[0];
     if (mode === 'taxi') {
-      if (type === 'long') preset = TAXI_MOCK_RIDES[1];
-      else if (type === 'airport') preset = TAXI_MOCK_RIDES[2];
-      else if (type === 'high-tip') {
+      if (actualType === 'long') preset = TAXI_MOCK_RIDES[1];
+      else if (actualType === 'airport') preset = TAXI_MOCK_RIDES[2];
+      else if (actualType === 'high-tip') {
         preset = {
           ...TAXI_MOCK_RIDES[0],
           passengerName: 'Sir William',
@@ -546,8 +999,8 @@ export default function App() {
         };
       }
     } else {
-      if (type === 'long') preset = FOOD_MOCK_RIDES[1];
-      else if (type === 'airport' || type === 'high-tip') {
+      if (actualType === 'long') preset = FOOD_MOCK_RIDES[1];
+      else if (actualType === 'airport' || actualType === 'high-tip') {
         preset = {
           ...FOOD_MOCK_RIDES[0],
           passengerName: 'Lady Beatrice',
@@ -559,12 +1012,66 @@ export default function App() {
       }
     }
 
+    // Dynamic passenger and courier names (UK theme)
+    const MOCK_UK_NAMES = [
+      'Arthur Pendelton', 'Clara Vance', 'Alistair Sterling', 'Penelope Thorne', 
+      'Winston Briggs', 'Eleanor Finch', 'Gareth Croft', 'Fiona Gallagher', 
+      'Nigel Rutherford', 'Imogen Sinclair', 'Barnaby Vance', 'Harriet Lowe',
+      'Jasper Montgomery', 'Chloe Cartwright', 'Rupert Kingsley', 'Beatrix Potter',
+      'Daphne Bridgewater', 'Felix Sterling', 'Oliver Twist', 'Alastair Cook',
+      'Jameson Bond', 'Sienna Westwood'
+    ];
+    let passengerName = MOCK_UK_NAMES[Math.floor(Math.random() * MOCK_UK_NAMES.length)];
+    if (actualType === 'high-tip') {
+      passengerName = mode === 'taxi' ? 'Sir William' : 'Lady Beatrice';
+    }
+
+    const localData = getCityAddresses(currentCity);
+    const pIndex = Math.floor(Math.random() * (mode === 'taxi' ? localData.taxi.pickup.length : localData.food.restaurants.length));
+    const dIndex = Math.floor(Math.random() * (mode === 'taxi' ? localData.taxi.dropoff.length : localData.food.residences.length));
+
+    const pickupAddress = mode === 'taxi' ? localData.taxi.pickup[pIndex] : localData.food.restaurants[pIndex];
+    const dropoffAddress = mode === 'taxi' ? localData.taxi.dropoff[dIndex] : localData.food.residences[dIndex];
+
+    const pickupCoordinate = {
+      x: 60 + Math.floor(Math.random() * 280),
+      y: 120 + Math.floor(Math.random() * 360),
+    };
+    const dropoffCoordinate = {
+      x: 60 + Math.floor(Math.random() * 280),
+      y: 120 + Math.floor(Math.random() * 360),
+    };
+
+    // Apply random pricing and distance variations to avoid repetitive amounts
+    const priceVariance = 0.82 + Math.random() * 0.36; // Range: ~82% to ~118%
+    const distVariance = 0.80 + Math.random() * 0.40;  // Range: ~80% to ~120%
+
+    let finalDistance = +(preset.distance * distVariance).toFixed(1);
+    if (finalDistance < 0.4) finalDistance = 0.4;
+
+    let finalFare = +(preset.fare * priceVariance).toFixed(2);
+    const minFare = mode === 'food' ? 4.50 : 8.50;
+    if (finalFare < minFare) {
+      finalFare = +(minFare + Math.random() * 2.50).toFixed(2);
+    }
+
+    let finalMinutes = Math.ceil(finalDistance * (mode === 'food' ? 3.5 : 2.0) + 2 + Math.floor(Math.random() * 3));
+
     const multiplier = surgeLevel === 'high' ? 2.2 : surgeLevel === 'medium' ? 1.4 : 1.0;
     const finalRide: RideRequest = {
       ...preset,
+      passengerName,
+      passengerRating: +(4.6 + Math.random() * 0.4).toFixed(2),
+      pickupAddress,
+      dropoffAddress,
+      pickupCoordinate,
+      dropoffCoordinate,
+      fare: finalFare,
+      distance: finalDistance,
+      estimatedMinutes: finalMinutes,
       id: `ride-${Date.now()}`,
       surgeMultiplier: multiplier,
-      tipAmount: type === 'high-tip' ? 6.50 : Math.random() > 0.5 ? 2.50 : 0,
+      tipAmount: actualType === 'high-tip' ? +(5.00 + Math.random() * 8.00).toFixed(2) : Math.random() > 0.6 ? +(1.50 + Math.random() * 3.50).toFixed(2) : 0,
     };
 
     setTripProgress({
@@ -577,8 +1084,13 @@ export default function App() {
     });
     setChatMessages([]);
     playSoundEffect('offer');
-    appendLog(`🚨 Offer Broadcast: Incoming match "${finalRide.passengerName}" (${mode === 'food' ? 'Food delivery order' : 'Taxi trip'})`, 'info');
-  }, [isOnline, tripProgress.stage, surgeLevel, mode, appendLog, soundEnabled]);
+    appendLog(`🚨 Offer Broadcast: Incoming match "${finalRide.passengerName}" (${mode === 'food' ? 'Food delivery order' : 'Taxi trip'}) - £${(finalRide.fare * multiplier).toFixed(2)}`, 'info');
+    
+    sendRealNotification(
+      mode === 'food' ? "🍕 New Swift Eats Order!" : "🚕 New Swift Ride Match!",
+      `Match: ${finalRide.passengerName} (★${finalRide.passengerRating}) • Distance: ${finalRide.distance}km • Est Fare: £${(finalRide.fare * multiplier).toFixed(2)}`
+    );
+  }, [isOnline, isOnBreak, tripProgress.stage, surgeLevel, mode, appendLog, soundEnabled, playSoundEffect, currentCity]);
 
   // Click on Surge Hotspot in map
   const handleSpawnRideFromZone = (multiplier: number, areaName: string, coords: { x: number; y: number }) => {
@@ -588,19 +1100,46 @@ export default function App() {
     const template = mode === 'taxi' ? TAXI_MOCK_RIDES[0] : FOOD_MOCK_RIDES[0];
     const dropoffCo = { x: (coords.x + 130) % 350 + 20, y: (coords.y + 160) % 450 + 20 };
 
+    // Choose random name for zone spawned ride
+    const MOCK_UK_NAMES = [
+      'Arthur Pendelton', 'Clara Vance', 'Alistair Sterling', 'Penelope Thorne', 
+      'Winston Briggs', 'Eleanor Finch', 'Gareth Croft', 'Fiona Gallagher', 
+      'Nigel Rutherford', 'Imogen Sinclair', 'Barnaby Vance', 'Harriet Lowe',
+      'Jasper Montgomery', 'Chloe Cartwright', 'Rupert Kingsley', 'Beatrix Potter'
+    ];
+    const passengerName = MOCK_UK_NAMES[Math.floor(Math.random() * MOCK_UK_NAMES.length)];
+
+    // Pricing and distance variation
+    const fareMultiplier = 0.85 + Math.random() * 0.35;
+    const distanceMultiplier = 0.80 + Math.random() * 0.40;
+
+    let finalDistance = +(template.distance * distanceMultiplier * 1.2).toFixed(1);
+    if (finalDistance < 0.4) finalDistance = 0.4;
+
+    let finalFare = +(template.fare * fareMultiplier).toFixed(2);
+    const minFare = mode === 'food' ? 4.50 : 8.50;
+    if (finalFare < minFare) {
+      finalFare = +(minFare + Math.random() * 1.50).toFixed(2);
+    }
+
+    const localData = getCityAddresses(currentCity);
+    const dropoffAddress = mode === 'taxi' 
+      ? localData.taxi.dropoff[Math.floor(Math.random() * localData.taxi.dropoff.length)]
+      : localData.food.residences[Math.floor(Math.random() * localData.food.residences.length)];
+
     const generated: RideRequest = {
       id: `hot-ride-${Date.now()}`,
-      passengerName: template.passengerName,
-      passengerRating: template.passengerRating,
+      passengerName,
+      passengerRating: +(4.6 + Math.random() * 0.4).toFixed(2),
       pickupAddress: `${areaName} Core`,
-      dropoffAddress: `Oxford Street East, London`,
-      fare: +(template.fare * multiplier).toFixed(2),
-      distance: +(template.distance * 1.2).toFixed(1),
+      dropoffAddress,
+      fare: finalFare,
+      distance: finalDistance,
       surgeMultiplier: multiplier,
       pickupCoordinate: coords,
       dropoffCoordinate: dropoffCo,
       tipAmount: Math.random() > 0.5 ? 2.50 : 0,
-      estimatedMinutes: Math.ceil(template.estimatedMinutes * 1.1),
+      estimatedMinutes: Math.ceil(finalDistance * (mode === 'food' ? 3.5 : 2.0) + 2),
     };
 
     setTripProgress({
@@ -613,77 +1152,214 @@ export default function App() {
     });
     setChatMessages([]);
     playSoundEffect('offer');
-    appendLog(`📍 Surge Pickup spawned from ${areaName}. Multiplier: ${multiplier}x applied.`, 'info');
+    appendLog(`📍 Surge Pickup spawned from ${areaName}. Multiplier: ${multiplier}x applied. Total: £${(finalFare * multiplier).toFixed(2)}`, 'info');
+    
+    sendRealNotification(
+      mode === 'food' ? "🍕 Hot Demand order!" : "🚕 Hot Zone Surge Match!",
+      `Match from ${areaName} (★${generated.passengerRating}) • Distance: ${generated.distance}km • Est Fare: £${(finalFare * multiplier).toFixed(2)}`
+    );
   };
 
-  // Ambient automatic periodic simulations
+  // Web Worker hook to keep state ticks running at full speed in the background (even when tab is hidden or phone is locked!)
+  const workerRef = useRef<Worker | null>(null);
+
   useEffect(() => {
-    let interval: NodeJS.Timeout | null = null;
+    if (typeof window === 'undefined' || !('Worker' in window)) return;
+
+    if (isOnline && !isOnBreak && backgroundModeEnabled) {
+      const workerSource = `
+        let timer = null;
+        self.onmessage = function(e) {
+          if (e.data === 'start') {
+            if (timer) clearInterval(timer);
+            timer = setInterval(() => {
+              self.postMessage('tick');
+            }, 1000);
+          } else if (e.data === 'stop') {
+            if (timer) clearInterval(timer);
+            timer = null;
+          }
+        };
+      `;
+      const blob = new Blob([workerSource], { type: 'application/javascript' });
+      const workerUrl = URL.createObjectURL(blob);
+      const worker = new Worker(workerUrl);
+
+      worker.onmessage = (e) => {
+        if (e.data === 'tick') {
+          setWorkerTickCount(c => c + 1);
+        }
+      };
+      
+      worker.postMessage('start');
+      workerRef.current = worker;
+      appendLog('⚙️ Background simulation Worker thread active.', 'success');
+    }
+
+    return () => {
+      if (workerRef.current) {
+        workerRef.current.postMessage('stop');
+        workerRef.current.terminate();
+        workerRef.current = null;
+      }
+    };
+  }, [isOnline, isOnBreak, backgroundModeEnabled, appendLog]);
+
+  // Fallback ticker if Worker is disabled or unsupported by browser
+  useEffect(() => {
+    let fallbackInterval: NodeJS.Timeout | null = null;
+    
     if (isOnline && !isOnBreak) {
-      interval = setInterval(() => {
-        if (tripProgress.stage === 'idle') {
-          // 8% chance to trigger ambient match every 4 seconds
-          if (Math.random() < 0.12) {
-            handleSpawnMockRide('random' as any);
+      const usesWorker = backgroundModeEnabled && typeof window !== 'undefined' && 'Worker' in window;
+      if (!usesWorker) {
+        fallbackInterval = setInterval(() => {
+          setWorkerTickCount(c => c + 1);
+        }, 1000);
+      }
+    }
+
+    return () => {
+      if (fallbackInterval) clearInterval(fallbackInterval);
+    };
+  }, [isOnline, isOnBreak, backgroundModeEnabled]);
+
+  // Unified simulation clock synced with the Worker background ticker (runs perfectly even when tab is hidden)
+  useEffect(() => {
+    if (workerTickCount === 0) return;
+
+    // 1. Ambient Match Offers (Every 4 ticks)
+    if (workerTickCount % 4 === 0) {
+      if (tripProgressRef.current.stage === 'idle') {
+        if (Math.random() < 0.12) {
+          handleSpawnMockRide('random');
+        }
+      }
+      if (Math.random() < 0.05) {
+        setBatteryLevel(p => Math.max(5, p - 1));
+      }
+    }
+
+    // 2. Dynamic Surge Pricing shifts (Every 16 ticks)
+    if (workerTickCount % 16 === 0) {
+      if (Math.random() < 0.18) {
+        const levels: ('low' | 'medium' | 'high')[] = ['low', 'medium', 'high'];
+        const nextLevel = levels[Math.floor(Math.random() * levels.length)];
+        setSurgeLevel((prev) => {
+          if (prev !== nextLevel) {
+            const mult = nextLevel === 'high' ? 2.2 : nextLevel === 'medium' ? 1.4 : 1.0;
+            appendLog(`⚡ Dynamic Demand Shift: London Soho / Mayfair surge adjusted to ${mult}x.`, nextLevel === 'high' ? 'warn' : 'info');
+            playSoundEffect('tap');
+            return nextLevel;
+          }
+          return prev;
+        });
+      }
+    }
+
+    // 3. Match offering beep chime
+    if (tripProgressRef.current.stage === 'offering' && tripProgressRef.current.offerTimeRemaining > 0) {
+      if (tripProgressRef.current.offerTimeRemaining % 3 === 0) {
+        playSoundEffect('offer');
+      }
+    }
+
+    // 4. Current active stage updates
+    const { stage, offerTimeRemaining } = tripProgressRef.current;
+    
+    if (stage === 'offering') {
+      setTripProgress((prev) => {
+        if (prev.offerTimeRemaining <= 1) {
+          playSoundEffect('warn');
+          appendLog(`⚠️ Match offer expired! Acceptance score slightly declined.`, 'warn');
+          setStats((s) => ({
+            ...s,
+            acceptanceRate: Math.max(70, s.acceptanceRate - 4),
+          }));
+          return { ...prev, stage: 'idle', currentRide: null, offerTimeRemaining: 0 };
+        }
+        
+        // Auto accept helper
+        if (autoAccept && prev.offerTimeRemaining === 10) {
+          setTimeout(() => handleAcceptRide(), 50);
+        }
+        
+        return { ...prev, offerTimeRemaining: prev.offerTimeRemaining - 1 };
+      });
+    }
+
+    if (stage === 'to_pickup' || stage === 'to_destination') {
+      setTripProgress((prev) => {
+        // since timer is now 1000ms instead of 500ms, double the speed increment
+        const increment = 3.2 * simSpeed;
+        const nextVal = prev.navigationProgress + increment;
+
+        if (nextVal >= 100) {
+          if (prev.stage === 'to_pickup') {
+            playSoundEffect('complete');
+            appendLog(`📍 Arrived at pickup. Notifying client: "${prev.currentRide?.passengerName}"`, 'success');
+            sendRealNotification(
+              mode === 'food' ? "🍕 Restaurant Reached!" : "🚕 Arrived at Passenger!",
+              `Waiting for start clearance. Slide to initiate transit.`
+            );
+            return {
+              ...prev,
+              stage: 'arrived_pickup',
+              navigationProgress: 100,
+              etaMinutes: 0,
+            };
+          } else {
+            playSoundEffect('complete');
+            appendLog(`🏁 Destination reached! Safety lock released. Slide to close order.`, 'success');
+            sendRealNotification(
+              mode === 'food' ? "🍕 Delivery Complete!" : "🚕 Passenger Dropped Off!",
+              `Trip successfully finalised. Swipe to complete transaction.`
+            );
+            return {
+              ...prev,
+              stage: 'arrived_destination',
+              navigationProgress: 100,
+              etaMinutes: 0,
+            };
           }
         }
-        if (Math.random() < 0.05) {
-          setBatteryLevel(p => Math.max(5, p - 1));
-        }
-      }, 4000);
+
+        const pct = nextVal / 100;
+        const fullMinutes = prev.currentRide?.estimatedMinutes || 10;
+        const remaining = Math.ceil(fullMinutes * (1 - pct));
+
+        return {
+          ...prev,
+          navigationProgress: nextVal,
+          etaMinutes: remaining,
+        };
+      });
     }
-    return () => {
-      if (interval) clearInterval(interval);
-    };
-  }, [isOnline, isOnBreak, tripProgress.stage, handleSpawnMockRide]);
 
-  // Offer tick countdown & Nav driving loop
-  useEffect(() => {
-    let timer: NodeJS.Timeout | null = null;
-    if (tripProgress.stage !== 'idle') {
-      timer = setInterval(() => {
-        if (tripProgress.stage === 'offering') {
-          setTripProgress((prev) => {
-            if (prev.offerTimeRemaining <= 1) {
-              playSoundEffect('warn');
-              appendLog(`⚠️ Match offer expired! Acceptance score slightly declined.`, 'warn');
-              setStats((s) => ({
-                ...s,
-                acceptanceRate: Math.max(70, s.acceptanceRate - 4),
-              }));
-              return { ...prev, stage: 'idle', currentRide: null, offerTimeRemaining: 0 };
-            }
-
-            // Auto accept helper
-            if (autoAccept && prev.offerTimeRemaining === 10) {
-              setTimeout(() => handleAcceptRide(), 50);
-            }
-
-            return { ...prev, offerTimeRemaining: prev.offerTimeRemaining - 1 };
-          });
-        }
-
-        // Simulating GPS progress
-        if (tripProgress.stage === 'to_pickup' || tripProgress.stage === 'to_destination') {
-          setTripProgress((prev) => {
-            const increment = 1.6 * simSpeed;
-            const nextVal = prev.navigationProgress + increment;
+    // Ticking active food delivery jobs concurrently
+    if (mode === 'food') {
+      setActiveEatsJobs((prevJobs) => {
+        if (!prevJobs || prevJobs.length === 0) return prevJobs;
+        return prevJobs.map((job) => {
+          if (job.stage === 'to_pickup' || job.stage === 'to_destination') {
+            const increment = 3.2 * simSpeed;
+            const nextVal = (job.navigationProgress || 0) + increment;
 
             if (nextVal >= 100) {
-              if (prev.stage === 'to_pickup') {
-                playSoundEffect('complete');
-                appendLog(`📍 Arrived at pickup. Notifying client: "${prev.currentRide?.passengerName}"`, 'success');
+              playSoundEffect('complete');
+              if (job.stage === 'to_pickup') {
+                appendLog(`📍 Arrived at restaurant: "${job.passengerName}". Ready to collect order.`, 'success');
+                sendRealNotification("🍕 Restaurant Reached!", `Awaiting pickup confirmation for ${job.passengerName}.`);
                 return {
-                  ...prev,
+                  ...job,
                   stage: 'arrived_pickup',
                   navigationProgress: 100,
                   etaMinutes: 0,
                 };
               } else {
-                playSoundEffect('complete');
-                appendLog(`🏁 Destination reached! Safety lock released. Slide to close order.`, 'success');
+                appendLog(`🏁 Delivery spot reached for customer: "${job.passengerName}". Ready to drop off!`, 'success');
+                sendRealNotification("🍕 Delivery Spot Reached!", `Swipe to complete delivery to ${job.passengerName}.`);
                 return {
-                  ...prev,
+                  ...job,
                   stage: 'arrived_destination',
                   navigationProgress: 100,
                   etaMinutes: 0,
@@ -692,26 +1368,67 @@ export default function App() {
             }
 
             const pct = nextVal / 100;
-            const fullMinutes = prev.currentRide?.estimatedMinutes || 10;
-            const remaining = Math.ceil(fullMinutes * (1 - pct));
+            const fullMinutes = job.estimatedMinutes || 10;
+            const remaining = Math.max(1, Math.ceil(fullMinutes * (1 - pct)));
 
             return {
-              ...prev,
+              ...job,
               navigationProgress: nextVal,
               etaMinutes: remaining,
             };
-          });
-        }
-      }, 500);
+          }
+          return job;
+        });
+      });
     }
-    return () => {
-      if (timer) clearInterval(timer);
-    };
-  }, [tripProgress.stage, simSpeed, autoAccept, appendLog]);
+
+  }, [workerTickCount, appendLog, playSoundEffect, mode, autoAccept, simSpeed, sendRealNotification]);
 
   const handleAcceptRide = () => {
     if (!tripProgress.currentRide) return;
     playSoundEffect('tap');
+
+    if (mode === 'food') {
+      if (activeEatsJobs.length >= 3) {
+        alert("Eats safety protocols limit: You can only accept a maximum of 3 active jobs concurrently.");
+        return;
+      }
+
+      setStats((s) => ({
+        ...s,
+        acceptanceRate: Math.min(100, s.acceptanceRate + 1),
+      }));
+
+      const newJob = {
+        ...tripProgress.currentRide,
+        id: tripProgress.currentRide.id || 'order-' + Date.now(),
+        stage: 'to_pickup',
+        navigationProgress: 0,
+        etaMinutes: tripProgress.currentRide.estimatedMinutes || 10,
+      };
+
+      setActiveEatsJobs(p => {
+        const index = p.findIndex(j => j.id === newJob.id);
+        if (index !== -1) return p;
+        return [...p, newJob];
+      });
+      setActiveEatsJobId(newJob.id);
+
+      appendLog(`✅ Accepted Swift Eats Order from restaurant: ${newJob.passengerName}. Navigating...`, 'success');
+
+      // Clear the single offer area so user can match additional concurrent deliveries while driving!
+      setTripProgress({
+        stage: 'idle',
+        currentRide: null,
+        offerTimeRemaining: 0,
+        totalOfferTime: 12,
+        navigationProgress: 0,
+        etaMinutes: 0,
+      });
+      setActiveTab('home');
+      return;
+    }
+
     setTripProgress(p => ({
       ...p,
       stage: 'to_pickup',
@@ -736,6 +1453,68 @@ export default function App() {
       totalOfferTime: 12,
       navigationProgress: 0,
       etaMinutes: 0,
+    });
+  };
+
+  // Transit confirmation triggers for Food mode multi-jobs
+  const handleConfirmFoodPickup = (jobId: string) => {
+    playSoundEffect('tap');
+    setActiveEatsJobs(p => p.map(job => {
+      if (job.id === jobId) {
+        appendLog(`🍕 Picked up food order: "${job.passengerName}". Heading to customer delivery address.`, 'success');
+        return {
+          ...job,
+          stage: 'to_destination',
+          navigationProgress: 0,
+          etaMinutes: job.estimatedMinutes || 10
+        };
+      }
+      return job;
+    }));
+  };
+
+  const handleCompleteFoodDelivery = (jobId: string) => {
+    playSoundEffect('complete');
+    
+    setActiveEatsJobs(p => {
+      const job = p.find(j => j.id === jobId);
+      if (!job) return p;
+
+      // Update statistics
+      setStats((s) => ({
+        ...s,
+        completedTripsCount: s.completedTripsCount + 1,
+        todayEarnings: s.todayEarnings + job.fare,
+        weeklyEarnings: s.weeklyEarnings + job.fare,
+        balance: s.balance + job.fare,
+      }));
+
+      const completedRun = {
+        id: job.id,
+        passengerName: job.passengerName,
+        pickupAddress: job.pickupAddress,
+        dropoffAddress: job.dropoffAddress,
+        fare: job.fare,
+        tip: 0,
+        timestamp: new Date().toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' }),
+        date: new Date().toLocaleDateString('en-GB', { day: 'numeric', month: 'short' }),
+        type: 'food' as const,
+        rating: 5,
+        review: 'Super prompt hot delivery, thanks! ⭐⭐⭐⭐⭐'
+      };
+
+      setCompletedTrips((prev: any) => [...prev, completedRun]);
+      setJustCompletedTrip(completedRun);
+      setShowCelebration(true);
+      appendLog(`🏆 Order successfully delivered. £${job.fare.toFixed(2)} added to your Swift balance!`, 'success');
+
+      return p.filter(j => j.id !== jobId);
+    });
+
+    // Reset active focused job ID
+    setActiveEatsJobId(prev => {
+      const remaining = activeEatsJobs.filter(j => j.id !== jobId);
+      return remaining.length > 0 ? remaining[0].id : null;
     });
   };
 
@@ -823,6 +1602,20 @@ export default function App() {
     setChatMessages([]);
   };
 
+  const handleCancelFoodTrip = (jobId: string) => {
+    playSoundEffect('warn');
+    appendLog(`❌ Food order cancelled by driver. Order returned to pool.`, 'warn');
+    setStats((s) => ({
+      ...s,
+      cancellationRate: s.cancellationRate + 1,
+    }));
+    setActiveEatsJobs((prev) => prev.filter(job => job.id !== jobId));
+    setActiveEatsJobId((prev) => {
+      const remaining = activeEatsJobs.filter(job => job.id !== jobId);
+      return remaining.length > 0 ? remaining[0].id : null;
+    });
+  };
+
   const handleAddChatMessage = (text: string) => {
     if (!text.trim()) return;
     playSoundEffect('tap');
@@ -880,37 +1673,48 @@ export default function App() {
         </div>
 
         {/* INTERNAL PHONE SCREEN PORTAL */}
-        <div className="flex-1 bg-white flex flex-col overflow-hidden relative select-none text-gray-900">
+        <div className={`flex-1 flex flex-col overflow-hidden relative select-none transition-colors duration-200 ${darkMode ? 'bg-zinc-950 text-zinc-100' : 'bg-white text-gray-900'}`}>
               
               {/* 1. HOME TAB COMPONENT VIEW */}
               {activeTab === 'home' && (
                 <div className="flex-1 flex flex-col relative overflow-hidden">
                   
                   {/* APP UPPER SHELF BAR (Swift Header) */}
-                  <nav className="h-11 bg-white px-3 border-b border-gray-100 flex items-center justify-between shrink-0 select-none z-10 shadow-sm">
+                  <nav className={`h-11 flex items-center justify-between shrink-0 select-none z-10 shadow-sm border-b transition-colors duration-200 px-3 ${darkMode ? 'bg-zinc-900 border-zinc-800 text-zinc-100' : 'bg-white border-gray-100 text-gray-900'}`}>
                     <div className="flex items-center gap-1.5">
                       <button
                         onClick={() => { playSoundEffect('tap'); setActiveTab('profile'); }}
-                        className="w-7 h-7 rounded-full bg-gray-100 flex items-center justify-center text-gray-700 hover:bg-gray-200 transition"
+                        className={`w-7 h-7 rounded-lg flex items-center justify-center transition ${darkMode ? 'bg-zinc-800 text-zinc-200 hover:bg-zinc-700' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'}`}
                       >
                         <Menu className="w-3.5 h-3.5" />
                       </button>
-                      <span className="text-sm font-black font-sans tracking-tight text-gray-900 flex items-baseline gap-0.5">
+                      <span className={`text-sm font-black font-sans tracking-tight flex items-baseline gap-0.5 ${darkMode ? 'text-zinc-100' : 'text-gray-905'}`}>
                         {mode === 'food' ? 'Swift Eats' : 'Swift Driver'}
                       </span>
                     </div>
 
                     {/* Online switcher on the header */}
-                    <div className="flex items-center gap-2">
-                      <span className={`text-[10px] font-sans font-extrabold ${isOnline ? 'text-[#13AA52]' : 'text-gray-400'}`}>
-                        {isOnline ? 'Online' : 'Offline'}
-                      </span>
+                    <div className="flex items-center gap-2.5">
+                      {/* Sun/Moon Toggle button */}
                       <button
-                        onClick={() => handleSetOnline(!isOnline)}
-                        className={`w-8 h-4.5 rounded-full flex items-center px-0.5 transition-colors ${isOnline ? 'bg-[#13AA52]' : 'bg-gray-300'}`}
+                        onClick={() => { playSoundEffect('tap'); setDarkMode(!darkMode); }}
+                        className={`w-7 h-7 rounded-lg flex items-center justify-center transition-all ${darkMode ? 'bg-zinc-800 text-yellow-450 hover:bg-zinc-750' : 'bg-amber-50 text-amber-600 border border-amber-100 hover:bg-amber-100'}`}
+                        title={darkMode ? "Switch to Light Mode" : "Switch to Dark Mode"}
                       >
-                        <div className={`w-3.5 h-3.5 rounded-full bg-white shadow-md transform transition-transform ${isOnline ? 'translate-x-3.5' : 'translate-x-0'}`} />
+                        {darkMode ? <Sun className="w-3.5 h-3.5 text-yellow-400 fill-yellow-400/20" /> : <Moon className="w-3.5 h-3.5 fill-amber-600/10" />}
                       </button>
+
+                      <div className="flex items-center gap-1.5">
+                        <span className={`text-[10px] font-sans font-extrabold ${isOnline ? 'text-[#13AA52]' : (darkMode ? 'text-zinc-550' : 'text-gray-400')}`}>
+                          {isOnline ? 'Online' : 'Offline'}
+                        </span>
+                        <button
+                          onClick={() => handleSetOnline(!isOnline)}
+                          className={`w-8 h-4.5 rounded-full flex items-center px-0.5 transition-colors ${isOnline ? 'bg-[#13AA52]' : (darkMode ? 'bg-zinc-700' : 'bg-gray-300')}`}
+                        >
+                          <div className={`w-3.5 h-3.5 rounded-full bg-white shadow-md transform transition-transform ${isOnline ? 'translate-x-3.5' : 'translate-x-0'}`} />
+                        </button>
+                      </div>
                     </div>
                   </nav>
 
@@ -930,22 +1734,45 @@ export default function App() {
 
                   {/* MAP SIMULATOR AREA */}
                   <div className="flex-1 relative bg-[#f2f4f2] overflow-hidden">
-                    <MapSimulator
-                      tripProgress={tripProgress}
-                      isOnline={isOnline}
-                      surgeLevel={surgeLevel}
-                      onSpawnRideFromZone={handleSpawnRideFromZone}
-                      mode={mode}
-                    />
+                    {(() => {
+                      const mapTripProgress = mode === 'food' && activeEatsJobs.length > 0
+                        ? (() => {
+                            const focusJob = activeEatsJobs.find(j => j.id === activeEatsJobId) || activeEatsJobs[0];
+                            return {
+                              stage: focusJob.stage,
+                              currentRide: focusJob,
+                              offerTimeRemaining: 0,
+                              totalOfferTime: 12,
+                              navigationProgress: focusJob.navigationProgress || 0,
+                              etaMinutes: focusJob.etaMinutes || 0,
+                            };
+                          })()
+                        : tripProgress;
+
+                      return (
+                        <MapSimulator
+                          tripProgress={mapTripProgress}
+                          isOnline={isOnline}
+                          surgeLevel={surgeLevel}
+                          onSpawnRideFromZone={handleSpawnRideFromZone}
+                          mode={mode}
+                          realCoords={realCoords}
+                          useRealGPS={useRealGPS}
+                          darkMode={darkMode}
+                          simulateWandering={simulateWandering}
+                          currentCity={currentCity}
+                        />
+                      );
+                    })()}
 
                     {/* Floating stats header inside Home map when online and searching */}
-                    {isOnline && tripProgress.stage === 'idle' && (
-                      <div className="absolute top-3 left-3 right-3 bg-white/95 backdrop-blur-md border border-gray-100 rounded-xl p-2.5 flex items-center justify-between shadow-md z-15 animate-in fade-in duration-300">
-                        <div className="text-center flex-1 border-r border-gray-100">
+                    {isOnline && tripProgress.stage === 'idle' && activeEatsJobs.length === 0 && (
+                      <div className={`absolute top-3 left-3 right-3 backdrop-blur-md border rounded-xl p-2.5 flex items-center justify-between shadow-md z-15 animate-in fade-in duration-300 ${darkMode ? 'bg-zinc-900/95 border-zinc-800 text-zinc-100' : 'bg-white/95 border-gray-100 text-gray-950'}`}>
+                        <div className={`text-center flex-1 border-r ${darkMode ? 'border-zinc-800' : 'border-gray-100'}`}>
                           <span className="text-[7.5px] text-gray-400 uppercase font-bold block leading-none">Accept Rate</span>
-                          <span className="text-[11px] font-bold font-mono text-gray-900 tracking-tight">{stats.acceptanceRate}%</span>
+                          <span className={`text-[11px] font-bold font-mono tracking-tight ${darkMode ? 'text-zinc-100' : 'text-gray-900'}`}>{stats.acceptanceRate}%</span>
                         </div>
-                        <div className="text-center flex-1 border-r border-gray-100">
+                        <div className={`text-center flex-1 border-r ${darkMode ? 'border-zinc-800' : 'border-gray-100'}`}>
                           <span className="text-[7.5px] text-gray-400 uppercase font-bold block leading-none">Rating Stars</span>
                           <span className="text-[11px] font-bold font-mono text-amber-500 flex items-center justify-center gap-0.5 leading-none">
                             {stats.rating.toFixed(1)} <Star className="w-2.5 h-2.5 text-amber-500 fill-amber-500" />
@@ -972,7 +1799,191 @@ export default function App() {
                   </div>
 
                   {/* BOTTOM INFO CARDS AND LISTS (Exactly replicating screenshots!) */}
-                  {tripProgress.stage === 'idle' ? (
+                  {mode === 'food' && activeEatsJobs.length > 0 && isOnline ? (
+                    /* MULTI-DELIVERY HUD CONTROLLER (EATS MODE) */
+                    <div className={`border-t p-3 shrink-0 flex flex-col gap-3 select-none z-10 shadow-lg transition-colors duration-250 ${darkMode ? 'bg-zinc-900 border-zinc-800 text-zinc-100' : 'bg-white border-gray-100 text-gray-900'}`}>
+                      {/* Tabs selector for concurrent list */}
+                      <div className="flex items-center justify-between">
+                        <span className="text-[10px] font-black uppercase text-[#13AA52] tracking-wider leading-none">
+                          Active Orders • {activeEatsJobs.length}/3 Accepted
+                        </span>
+                        
+                        {/* Emergency simulation cancel buttons */}
+                        <button
+                          onClick={() => {
+                            if (confirm("Cancel all accepted orders and return to idle?")) {
+                              setActiveEatsJobs([]);
+                              setActiveEatsJobId(null);
+                              appendLog("🔌 Multi-delivery queues cleared by dispatch directive.", "warn");
+                            }
+                          }}
+                          className="text-[9px] text-red-500 hover:text-red-750 font-bold leading-none"
+                        >
+                          Cancel All Matches
+                        </button>
+                      </div>
+
+                      {/* Horizontal pill list of jobs */}
+                      <div className="flex items-center gap-1.5 overflow-x-auto py-0.5 scrollbar-none">
+                        {activeEatsJobs.map((job, idx) => {
+                          const isFocused = job.id === activeEatsJobId || (!activeEatsJobId && idx === 0);
+                          return (
+                            <button
+                              key={job.id}
+                              onClick={() => { playSoundEffect('tap'); setActiveEatsJobId(job.id); }}
+                              className={`px-3 py-1.5 rounded-full text-[10px] font-black transition-all whitespace-nowrap active:scale-95 flex items-center gap-1.5 shrink-0 ${
+                                isFocused
+                                  ? 'bg-[#13AA52] text-white shadow-md'
+                                  : (darkMode ? 'bg-zinc-800 text-zinc-400 border border-zinc-700 hover:bg-zinc-750' : 'bg-gray-100 text-gray-600 hover:bg-gray-200')
+                              }`}
+                            >
+                              <div className={`w-1.5 h-1.5 rounded-full ${
+                                job.stage === 'arrived_destination' ? 'bg-red-500 animate-ping' : 'bg-emerald-300'
+                              }`} />
+                              Order #{idx + 1}
+                            </button>
+                          );
+                        })}
+                      </div>
+
+                      {/* Details of the focused active delivery job */}
+                      {(() => {
+                        const selectedJob = activeEatsJobs.find(j => j.id === activeEatsJobId) || activeEatsJobs[0];
+                        if (!selectedJob) return null;
+
+                        const stagesSeq = ['to_pickup', 'arrived_pickup', 'to_destination', 'arrived_destination'];
+                        const curIdx = stagesSeq.indexOf(selectedJob.stage);
+
+                        return (
+                          <div className="flex flex-col gap-2.5 animate-in fade-in duration-200">
+                            {/* Visual flow connector nodes */}
+                            <div className="flex items-center justify-between px-2 pt-1 border-b border-dashed border-zinc-150 pb-2">
+                              {['Pickup Restaurant', 'At Kitchen', 'Transit Delivery', 'Arrived'].map((term, sIdx) => {
+                                const active = sIdx <= curIdx;
+                                return (
+                                  <div key={term} className="flex flex-col items-center gap-1 flex-1 relative">
+                                    <div className={`w-4 h-4 rounded-full flex items-center justify-center text-[7.5px] font-bold border transition ${
+                                      active 
+                                        ? 'bg-[#13AA52] text-white border-[#13AA52]'
+                                        : (darkMode ? 'bg-zinc-950 text-zinc-600 border-zinc-800' : 'bg-white text-gray-300 border-gray-150')
+                                    }`}>
+                                      {sIdx + 1}
+                                    </div>
+                                    <span className={`text-[6.5px] text-center tracking-tight leading-none truncate w-14 ${
+                                      sIdx === curIdx ? 'text-[#13AA52] font-black' : (darkMode ? 'text-zinc-500' : 'text-gray-400')
+                                    }`}>
+                                      {term}
+                                    </span>
+                                  </div>
+                                );
+                              })}
+                            </div>
+
+                            {/* Job restaurant & customer details */}
+                            <div className={`border p-2.5 rounded-xl flex flex-col gap-2 transition-colors ${darkMode ? 'bg-zinc-950/40 border-zinc-800' : 'bg-gray-50/50 border-gray-100'}`}>
+                              <div className="flex justify-between items-start">
+                                <div className="flex-1 min-w-0">
+                                  <span className="text-[7.5px] text-gray-450 font-extrabold uppercase tracking-wide block leading-none">
+                                    Restaurant Pick up
+                                  </span>
+                                  <h4 className={`text-[11px] font-black tracking-tight mt-1 truncate ${darkMode ? 'text-zinc-100' : 'text-gray-900'}`}>
+                                    {selectedJob.passengerName}
+                                  </h4>
+                                  <p className={`text-[9.5px] mt-0.5 truncate ${darkMode ? 'text-zinc-500' : 'text-gray-500'}`}>
+                                    {selectedJob.pickupAddress}
+                                  </p>
+                                </div>
+                                
+                                <div className="text-right">
+                                  <span className="text-xs font-black font-mono text-[#13AA52] block leading-none">
+                                    £{selectedJob.fare.toFixed(2)}
+                                  </span>
+                                  <span className="text-[7px] text-gray-400 block mt-0.5 leading-none">Gross Fare</span>
+                                </div>
+                              </div>
+
+                              <div className={`h-px ${darkMode ? 'bg-zinc-800' : 'bg-gray-100'}`} />
+
+                              <div>
+                                <span className="text-[7.5px] text-gray-450 font-extrabold uppercase tracking-wide block leading-none">
+                                  Customer destination address
+                                </span>
+                                <p className={`text-[9.5px] font-medium mt-1 truncate ${darkMode ? 'text-zinc-350' : 'text-gray-750'}`}>
+                                  {selectedJob.dropoffAddress}
+                                </p>
+                              </div>
+
+                              <div className={`h-px ${darkMode ? 'bg-zinc-800' : 'bg-gray-100'}`} />
+
+                              <div className="flex items-center justify-between">
+                                <div className="flex items-center gap-1">
+                                  <span className="text-[8px] bg-emerald-500/10 text-[#13AA52] border border-emerald-500/20 px-1.5 py-0.5 rounded font-black max-w-[120px] truncate leading-none">
+                                    🍗 {selectedJob.foodItem || 'Meatballs Hot combo & Chips'}
+                                  </span>
+                                </div>
+
+                                <div className="flex items-center gap-1 text-[8.5px] font-mono font-bold text-gray-400">
+                                  <span>Transit:</span>
+                                  <span className={`text-[#13AA52] font-black ${selectedJob.stage === 'to_pickup' || selectedJob.stage === 'to_destination' ? 'animate-pulse' : ''}`}>
+                                    {selectedJob.stage === 'arrived_pickup' ? 'COLLECT NOW' : selectedJob.stage === 'arrived_destination' ? 'ARRIVED SPOT' : `${Math.ceil(selectedJob.etaMinutes || 5)} MINS`}
+                                  </span>
+                                </div>
+                              </div>
+                            </div>
+
+                            {/* Interactive Confirmation Action Bar */}
+                            <div className="mt-0.5">
+                              {selectedJob.stage === 'to_pickup' && (
+                                <div className="text-center bg-gray-50 border border-gray-150 rounded-xl py-2 px-1 text-[8.5px] text-gray-500 font-medium font-mono leading-none flex items-center justify-center gap-1.5">
+                                  <span className="w-1.5 h-1.5 rounded-full bg-[#13AA52] animate-ping" />
+                                  Driving to restaurant: <span className="font-bold text-[#13AA52]">{Math.round(selectedJob.navigationProgress)}% completed</span>
+                                </div>
+                              )}
+
+                              {selectedJob.stage === 'arrived_pickup' && (
+                                <button
+                                  onClick={() => handleConfirmFoodPickup(selectedJob.id)}
+                                  className="w-full h-11 bg-[#13AA52] hover:bg-[#0f8f44] text-white font-extrabold text-[11px] uppercase tracking-wider rounded-xl flex items-center justify-center gap-1.5 shadow-md active:scale-98 transition duration-200 cursor-pointer animate-pulse"
+                                >
+                                  Confirm Pickup & Start transit ✓
+                                </button>
+                              )}
+
+                              {selectedJob.stage === 'to_destination' && (
+                                <div className="text-center bg-gray-50 border border-gray-150 rounded-xl py-2 px-1 text-[8.5px] text-gray-500 font-medium font-mono leading-none flex items-center justify-center gap-1.5">
+                                  <span className="w-1.5 h-1.5 rounded-full bg-rose-500 animate-ping" />
+                                  Driving to customer location: <span className="font-bold text-rose-500">{Math.round(selectedJob.navigationProgress)}% completed</span>
+                                </div>
+                              )}
+
+                              {selectedJob.stage === 'arrived_destination' && (
+                                <button
+                                  onClick={() => handleCompleteFoodDelivery(selectedJob.id)}
+                                  className="w-full h-11 bg-rose-600 hover:bg-rose-700 text-white font-extrabold text-[11px] uppercase tracking-wider rounded-xl flex items-center justify-center gap-1.5 shadow-md active:scale-98 transition duration-200 cursor-pointer"
+                                >
+                                  Complete Delivery ✅
+                                </button>
+                              )}
+
+                              {/* Cancel selected food job */}
+                              <div className="flex justify-center mt-2 pb-0.5">
+                                <button
+                                  onClick={() => {
+                                    if (confirm("Decline this food order? Your acceptance score will fall.")) {
+                                      handleCancelFoodTrip(selectedJob.id);
+                                    }
+                                  }}
+                                  className="text-[9.5px] text-red-500 hover:text-red-750 font-bold border-b border-transparent hover:border-red-500 transition leading-none py-0.5"
+                                >
+                                  Cancel selected order
+                                </button>
+                              </div>
+                            </div>
+                          </div>
+                        );
+                      })()}
+                    </div>
+                  ) : tripProgress.stage === 'idle' ? (
                     <div className="bg-white border-t border-gray-100 p-3 shrink-0 flex flex-col gap-2.5 select-none z-10 shadow-lg">
                       {/* Offline stats lists */}
                       {!isOnline ? (
@@ -1207,7 +2218,22 @@ export default function App() {
 
                         {/* Force Cancel link */}
                         <button
-                          onClick={() => { if (confirm("Decline this job matches? Accept ratings will fall.")) handleCancelTrip(); }}
+                          onClick={() => {
+                            if (confirm("Decline this job matches? Accept ratings will fall.")) {
+                              if (mode === 'food') {
+                                const selectedJob = activeEatsJobs.find(j => j.id === activeEatsJobId) || activeEatsJobs[0];
+                                if (selectedJob) {
+                                  handleCancelFoodTrip(selectedJob.id);
+                                } else if (activeEatsJobId) {
+                                  handleCancelFoodTrip(activeEatsJobId);
+                                } else {
+                                  handleCancelTrip();
+                                }
+                              } else {
+                                handleCancelTrip();
+                              }
+                            }
+                          }}
                           className="text-[10px] text-red-500 hover:text-red-650 font-bold self-center py-0.5 border-b border-transparent hover:border-red-500 transition"
                         >
                           Cancel order matches
@@ -1358,84 +2384,136 @@ export default function App() {
                     <span className="text-[10px] bg-emerald-50 text-[#13AA52] px-2 py-0.2 rounded font-mono font-bold uppercase">Synced</span>
                   </div>
 
-                  {/* Day | Week | Month pills selector */}
-                  <div className="grid grid-cols-3 gap-1 border border-gray-100 rounded-full p-1 bg-gray-50/50">
-                    <button className="bg-[#13AA52] text-white font-black text-[10.5px] py-1 rounded-full shadow-sm">Day</button>
-                    <button className="text-gray-500 font-bold text-[10.5px] py-1 rounded-full">Week</button>
-                    <button className="text-gray-500 font-bold text-[10.5px] py-1 rounded-full">Month</button>
+                  {/* Day | Week | Month | Year pills selector */}
+                  <div className="grid grid-cols-4 gap-1 border border-gray-100 rounded-full p-1 bg-gray-50/50 select-none">
+                    {(['day', 'week', 'month', 'year'] as const).map((period) => (
+                      <button
+                        key={period}
+                        onClick={() => { playSoundEffect('tap'); setEarningsPeriod(period); }}
+                        className={`font-black text-[9.5px] py-1 rounded-full capitalize transition duration-150 ${
+                          earningsPeriod === period
+                            ? 'bg-[#13AA52] text-white shadow-sm'
+                            : 'text-gray-500 hover:text-gray-700'
+                        }`}
+                      >
+                        {period}
+                      </button>
+                    ))}
                   </div>
 
-                  {/* Largegross earnings layout */}
-                  <div className="py-4 text-center">
-                    <span className="text-[10px] text-gray-400 font-bold uppercase block leading-none tracking-wider">Today</span>
-                    <h2 className="text-4xl font-black text-gray-900 font-mono tracking-tight mt-1.5">
-                      £{stats.todayEarnings.toFixed(2)}
-                    </h2>
-                  </div>
+                  {(() => {
+                    let grossEarnings = stats.todayEarnings;
+                    let ridesCount = stats.completedTripsCount;
+                    let onlineTime = mode === 'taxi' ? '3h 45m' : '2h 30m';
+                    let pointsStr = mode === 'taxi' ? '120' : '90';
+                    let baseFare = stats.todayEarnings;
+                    let bonusFare = mode === 'taxi' ? 15.00 : 6.50;
+                    let titleLabel = "Today";
 
-                  {/* Summary metric matrix row */}
-                  <div className="grid grid-cols-3 gap-2 text-center border-y border-gray-100 py-3.5 my-1 bg-gray-50/20">
-                    <div className="flex flex-col">
-                      <span className="text-gray-900 font-black font-mono text-sm leading-none">
-                        {stats.completedTripsCount}
-                      </span>
-                      <span className="text-gray-400 text-[8.5px] font-semibold uppercase mt-1 leading-none">Rides / Orders</span>
-                    </div>
-                    <div className="flex flex-col border-x border-gray-100">
-                      <span className="text-gray-900 font-black font-mono text-sm leading-none">
-                        {mode === 'taxi' ? '3h 45m' : '2h 30m'}
-                      </span>
-                      <span className="text-gray-400 text-[8.5px] font-semibold uppercase mt-1 leading-none">Online time</span>
-                    </div>
-                    <div className="flex flex-col">
-                      <span className="text-[#13AA52] font-black font-mono text-sm leading-none">
-                        {mode === 'taxi' ? '120' : '90'}
-                      </span>
-                      <span className="text-gray-400 text-[8.5px] font-semibold uppercase mt-1 leading-none">Points</span>
-                    </div>
-                  </div>
+                    if (earningsPeriod === 'week') {
+                      grossEarnings = stats.weeklyEarnings;
+                      ridesCount = stats.completedTripsCount + 22;
+                      onlineTime = mode === 'taxi' ? '24h 15m' : '18h 45m';
+                      pointsStr = mode === 'taxi' ? '740' : '620';
+                      baseFare = stats.weeklyEarnings;
+                      bonusFare = mode === 'taxi' ? 75.00 : 35.00;
+                      titleLabel = "This Week";
+                    } else if (earningsPeriod === 'month') {
+                      grossEarnings = stats.weeklyEarnings * 4.2 + 120.00;
+                      ridesCount = stats.completedTripsCount + 94;
+                      onlineTime = mode === 'taxi' ? '98h 30m' : '76h 15m';
+                      pointsStr = mode === 'taxi' ? '3,120' : '2,480';
+                      baseFare = stats.weeklyEarnings * 4.2 + 120.00;
+                      bonusFare = mode === 'taxi' ? 320.00 : 160.00;
+                      titleLabel = "This Month";
+                    } else if (earningsPeriod === 'year') {
+                      grossEarnings = stats.weeklyEarnings * 52.1 + 840.00;
+                      ridesCount = stats.completedTripsCount + 1240;
+                      onlineTime = mode === 'taxi' ? '1,240h' : '980h';
+                      pointsStr = mode === 'taxi' ? '41,500' : '32,400';
+                      baseFare = stats.weeklyEarnings * 52.1 + 840.00;
+                      bonusFare = mode === 'taxi' ? 4200.00 : 2100.00;
+                      titleLabel = "This Year";
+                    }
 
-                  {/* Breakdown finance cards */}
-                  <div className="flex-1 overflow-y-auto flex flex-col gap-2 pt-2 text-[11px] text-gray-600">
-                    <div className="bg-gray-50 border border-gray-100 rounded-xl p-3 flex flex-col gap-2.5">
-                      <div className="flex items-center justify-between">
-                        <span>Base fare collected</span>
-                        <span className="font-extrabold text-gray-900 font-mono">£{stats.todayEarnings.toFixed(2)}</span>
-                      </div>
-                      <div className="flex items-center justify-between">
-                        <span>London Bonnet Bonuses</span>
-                        <span className="font-extrabold text-[#13AA52] font-mono">+£{(mode === 'taxi' ? 15.00 : 6.50).toFixed(2)}</span>
-                      </div>
-                      <div className="flex items-center justify-between border-t border-gray-150 pt-2 font-black text-gray-900 text-[12px]">
-                        <span>Total simulated gross</span>
-                        <span className="font-mono text-[#13AA52]">£{(stats.todayEarnings + (mode === 'taxi' ? 15.00 : 6.50)).toFixed(2)}</span>
-                      </div>
-                    </div>
+                    const totalGross = baseFare + bonusFare;
 
-                    {/* Historical Completed list logs */}
-                    <div>
-                      <span className="text-[9px] text-gray-400 font-bold uppercase tracking-wider block mb-2 px-1">Session transactions</span>
-                      {completedTrips.length === 0 ? (
-                        <div className="bg-gray-100/50 border border-dashed border-gray-200 p-4 rounded-xl text-center text-xs text-gray-400">
-                          Complete some simulation trips on map to populate financial transaction ledgers.
+                    return (
+                      <>
+                        {/* Large gross earnings layout */}
+                        <div className="py-2.5 text-center shrink-0">
+                          <span className="text-[10px] text-gray-400 font-bold uppercase block leading-none tracking-wider">{titleLabel}</span>
+                          <h2 className="text-4.2xl font-black text-gray-900 font-mono tracking-tight mt-1.5 leading-none">
+                            £{totalGross.toFixed(2)}
+                          </h2>
                         </div>
-                      ) : (
-                        <div className="flex flex-col gap-1.5 select-text">
-                          {completedTrips.map(t => (
-                            <div key={t.id} className="bg-white border border-gray-100 p-2.5 rounded-xl flex items-center justify-between">
-                              <div className="min-w-0 flex-1">
-                                <span className="font-bold text-gray-900 text-[11.5px] block truncate">{t.passengerName}</span>
-                                <span className="text-[8.5px] text-gray-400 block font-mono mt-0.5">{t.timestamp}</span>
-                              </div>
-                              <span className="font-mono font-black text-[#13AA52] text-xs">
-                                +£{((t.fare * t.surgeMultiplier) + t.tip).toFixed(2)}
-                              </span>
+
+                        {/* Summary metric matrix row */}
+                        <div className="grid grid-cols-3 gap-2 text-center border-y border-gray-100 py-3 my-1 bg-gray-50/20 shrink-0">
+                          <div className="flex flex-col">
+                            <span className="text-gray-900 font-black font-mono text-sm leading-none">
+                              {ridesCount}
+                            </span>
+                            <span className="text-gray-400 text-[8.5px] font-semibold uppercase mt-1 leading-none">Rides / Orders</span>
+                          </div>
+                          <div className="flex flex-col border-x border-gray-100">
+                            <span className="text-gray-900 font-black font-mono text-sm leading-none">
+                              {onlineTime}
+                            </span>
+                            <span className="text-gray-400 text-[8.5px] font-semibold uppercase mt-1 leading-none">Online time</span>
+                          </div>
+                          <div className="flex flex-col">
+                            <span className="text-[#13AA52] font-black font-mono text-sm leading-none">
+                              {pointsStr}
+                            </span>
+                            <span className="text-gray-400 text-[8.5px] font-semibold uppercase mt-1 leading-none">Points</span>
+                          </div>
+                        </div>
+
+                        {/* Scrollable area wrapper */}
+                        <div className="flex-1 overflow-y-auto flex flex-col gap-2.5 pt-2 text-[11px] text-gray-600">
+                          <div className="bg-gray-50 border border-gray-100 rounded-xl p-3 flex flex-col gap-2.5">
+                            <div className="flex items-center justify-between">
+                              <span>Base fare collected</span>
+                              <span className="font-extrabold text-gray-900 font-mono">£{baseFare.toFixed(2)}</span>
                             </div>
-                          ))}
+                            <div className="flex items-center justify-between">
+                              <span>London Bonnet Bonuses</span>
+                              <span className="font-extrabold text-[#13AA52] font-mono">+£{bonusFare.toFixed(2)}</span>
+                            </div>
+                            <div className="flex items-center justify-between border-t border-gray-150 pt-2 font-black text-gray-900 text-[12px]">
+                              <span>Total simulated gross</span>
+                              <span className="font-mono text-[#13AA52]">£{totalGross.toFixed(2)}</span>
+                            </div>
+                          </div>
+
+                          {/* Historical Completed list logs */}
+                          <div>
+                            <span className="text-[9px] text-gray-400 font-bold uppercase tracking-wider block mb-2 px-1">Session transactions</span>
+                            {completedTrips.length === 0 ? (
+                              <div className="bg-gray-100/50 border border-dashed border-gray-200 p-4 rounded-xl text-center text-xs text-gray-400">
+                                Complete some simulation trips on map to populate financial transaction ledgers.
+                              </div>
+                            ) : (
+                              <div className="flex flex-col gap-1.5 select-text">
+                                {completedTrips.map(t => (
+                                  <div key={t.id} className="bg-white border border-gray-100 p-2.5 rounded-xl flex items-center justify-between">
+                                    <div className="min-w-0 flex-1">
+                                      <span className="font-bold text-gray-900 text-[11.5px] block truncate">{t.passengerName}</span>
+                                      <span className="text-[8.5px] text-gray-400 block font-mono mt-0.5">{t.timestamp}</span>
+                                    </div>
+                                    <span className="font-mono font-black text-[#13AA52] text-xs">
+                                      +£{((t.fare * t.surgeMultiplier) + t.tip).toFixed(2)}
+                                    </span>
+                                  </div>
+                                ))}
+                              </div>
+                            )}
+                          </div>
                         </div>
-                      )}
-                    </div>
-                  </div>
+                      </>
+                    );
+                  })()}
                 </div>
               )}
 
@@ -1487,203 +2565,400 @@ export default function App() {
 
               {/* 4. PROFILE TAB / SETTINGS SCREEN (Exactly matching Menu drawer screenshot!) */}
               {activeTab === 'profile' && (
-                <div className="flex-1 flex flex-col bg-white overflow-hidden animate-in fade-in duration-250 select-none">
+                <div className={`flex-1 flex flex-col overflow-hidden animate-in fade-in duration-250 select-none ${darkMode ? 'bg-zinc-950 text-zinc-100' : 'bg-white text-gray-900'}`}>
                   
-                  {/* Driver Header Profile block */}
-                  <div className="p-4 border-b border-gray-100 bg-gray-50/50 flex flex-col gap-2.5">
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-3">
-                        {/* Driver Picture Placeholder/Real Avatar */}
-                        <div className="w-12 h-12 rounded-full border border-gray-200 bg-zinc-200 flex items-center justify-center text-gray-700 font-black text-sm relative overflow-hidden shrink-0">
-                          {user && user.photoURL ? (
-                            <img src={user.photoURL} referrerPolicy="no-referrer" alt="Google Profile" className="w-full h-full object-cover" />
-                          ) : faceSelfieUrl ? (
-                            <img src={faceSelfieUrl} alt="Facial Profile" className="w-full h-full object-cover" />
-                          ) : (
-                            <User className="w-6 h-6 text-gray-500" />
-                          )}
-                        </div>
+                  {/* Back Navigation Header for sub-menus */}
+                  {menuSubScreen !== 'main' && (
+                    <div className={`h-11 px-3 border-b flex items-center justify-between shrink-0 transition-colors ${darkMode ? 'bg-zinc-900 border-zinc-800 text-zinc-100' : 'bg-gray-50/50 border-gray-150 text-gray-900'}`}>
+                      <button
+                        onClick={() => { playSoundEffect('tap'); setMenuSubScreen('main'); }}
+                        className={`flex items-center gap-1 text-[11px] font-black uppercase tracking-wider px-2 py-1 rounded-lg ${darkMode ? 'bg-zinc-800 text-zinc-200 hover:bg-zinc-700' : 'bg-white border border-gray-200 text-gray-700 hover:bg-gray-100'}`}
+                      >
+                        <ChevronLeft className="w-3.5 h-3.5" /> Back
+                      </button>
+                      <span className="text-[9px] font-black uppercase text-gray-400 tracking-widest leading-none">
+                        {menuSubScreen === 'vehicles' && 'My Vehicles'}
+                        {menuSubScreen === 'availability' && 'My Availability'}
+                        {menuSubScreen === 'settings' && 'Simulator Controls'}
+                        {menuSubScreen === 'about' && 'About Simulator'}
+                      </span>
+                      <div className="w-12" />
+                    </div>
+                  )}
 
-                        <div className="min-w-0">
-                          <h4 className="text-sm font-black text-gray-905 leading-none truncate max-w-[150px]">
-                            {user ? (user.displayName || user.email) : "John Daniel"}
-                          </h4>
-                          <div className="flex flex-wrap items-center gap-1.5 mt-2">
-                            <span className="bg-[#13AA52]/10 px-1.5 py-0.5 rounded-full text-[#13AA52] font-black text-[8.5px] w-fit">
-                              ★ 4.9 Score
-                            </span>
+                  {/* SUB-SCREEN: MAIN PROFILE MENU DRAWER */}
+                  {menuSubScreen === 'main' && (
+                    <div className="flex-1 flex flex-col overflow-hidden">
+                      {/* Driver Header Profile block */}
+                      <div className={`p-4 border-b flex flex-col gap-2.5 transition-colors ${darkMode ? 'bg-zinc-900/40 border-zinc-850' : 'bg-gray-50/50 border-gray-100'}`}>
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-3">
+                            {/* Driver Picture Placeholder/Real Avatar */}
+                            <div className={`w-12 h-12 rounded-full border bg-zinc-200 flex items-center justify-center text-gray-750 font-black text-sm relative overflow-hidden shrink-0 ${darkMode ? 'border-zinc-700 bg-zinc-800 text-zinc-300' : 'border-gray-200'}`}>
+                              {user && user.photoURL ? (
+                                <img src={user.photoURL} referrerPolicy="no-referrer" alt="Google Profile" className="w-full h-full object-cover" />
+                              ) : faceSelfieUrl ? (
+                                <img src={faceSelfieUrl} alt="Facial Profile" className="w-full h-full object-cover" />
+                              ) : (
+                                <User className="w-6 h-6 text-gray-500" />
+                              )}
+                            </div>
+
+                            <div className="min-w-0">
+                              <h4 className={`text-sm font-black leading-none truncate max-w-[150px] ${darkMode ? 'text-zinc-100' : 'text-gray-900'}`}>
+                                {user ? (user.displayName || user.email) : "John Daniel"}
+                              </h4>
+                              <div className="flex flex-wrap items-center gap-1.5 mt-2">
+                                <span className="bg-[#13AA52]/10 px-1.5 py-0.5 rounded-full text-[#13AA52] font-black text-[8.5px] w-fit font-mono">
+                                  ★ 4.93 Score
+                                </span>
+                                {user ? (
+                                  <span className="bg-blue-500/10 text-blue-650 font-extrabold text-[8.5px] px-1.5 py-0.5 rounded-full tracking-wider uppercase font-mono">
+                                    CLOUD SYNCD
+                                  </span>
+                                ) : (
+                                  <span className="bg-amber-500/10 text-amber-600 font-extrabold text-[8.5px] px-1.5 py-0.5 rounded-full tracking-wider uppercase font-mono">
+                                    LOCAL STAGE
+                                  </span>
+                                )}
+                              </div>
+                            </div>
+                          </div>
+
+                          {/* Google Authentication Trigger button */}
+                          <div>
                             {user ? (
-                              <span className="bg-blue-100 text-blue-700 font-extrabold text-[8.5px] px-1.5 py-0.5 rounded-full tracking-wider uppercase">
-                                CLOUD SAVING
-                              </span>
+                              <button
+                                onClick={handleGoogleSignOut}
+                                className="text-[9px] text-red-500 hover:bg-red-50/10 font-black px-2.5 py-1.5 border border-red-200 rounded-xl transition cursor-pointer font-sans"
+                              >
+                                Disconnect
+                              </button>
                             ) : (
-                              <span className="bg-amber-100 text-amber-700 font-extrabold text-[8.5px] px-1.5 py-0.5 rounded-full tracking-wider uppercase">
-                                LOCAL PROFILE
-                              </span>
+                              <button
+                                onClick={handleGoogleSignIn}
+                                className="bg-[#4285F4] hover:bg-[#357ae8] text-white text-[9px] font-black px-2.5 py-1.5 rounded-xl shadow-xs transition flex items-center gap-1 cursor-pointer font-sans"
+                              >
+                                <User className="w-3" />
+                                <span>Link Google</span>
+                              </button>
                             )}
                           </div>
                         </div>
                       </div>
 
-                      {/* Google Authentication Trigger button */}
-                      <div>
-                        {user ? (
-                          <button
-                            onClick={handleGoogleSignOut}
-                            className="text-[9.5px] text-red-500 hover:bg-red-50 font-black px-2.5 py-1.5 border border-red-200 rounded-xl transition cursor-pointer"
-                          >
-                            Disconnect
-                          </button>
-                        ) : (
-                          <button
-                            onClick={handleGoogleSignIn}
-                            className="bg-[#4285F4] hover:bg-[#357ae8] text-white text-[9.5px] font-black px-2.5 py-1.5 rounded-xl shadow-xs transition flex items-center gap-1 cursor-pointer"
-                          >
-                            <User className="w-3" />
-                            <span>Link Google</span>
-                          </button>
-                        )}
-                      </div>
-                    </div>
-                  </div>
+                      {/* Primary Navigation list container */}
+                      <div className="flex-1 overflow-y-auto p-2.5 flex flex-col space-y-1">
+                        
+                        {/* 1. My availability */}
+                        <button 
+                          onClick={() => { playSoundEffect('tap'); setMenuSubScreen('availability'); }}
+                          className={`flex items-center justify-between py-3 px-2.5 rounded-xl transition text-left text-[11px] font-extrabold ${darkMode ? 'hover:bg-zinc-900 text-zinc-100' : 'hover:bg-gray-100 text-gray-800'}`}
+                        >
+                          <div className="flex items-center gap-3">
+                            <Clock className="w-4 h-4 text-[#13AA52]" />
+                            <div className="flex flex-col">
+                              <span>My availability</span>
+                              <span className="text-[7.5px] text-gray-400 font-medium font-bold">Auto-dispatch hours</span>
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-1 text-gray-400 font-medium text-[9px]">
+                            <span>Daily 24/7</span>
+                            <ChevronRight className="w-3.5 h-3.5 text-gray-300" />
+                          </div>
+                        </button>
 
-                  {/* Menu options list */}
-                  <div className="flex-1 overflow-y-auto p-2.5 flex flex-col divide-y divide-gray-100 text-[11px] text-gray-700 font-bold">
-                    
-                    {/* Face Verification Compliance card */}
-                    <div className="py-3 px-1">
-                      <div className="flex items-center justify-between mb-2">
-                        <div className="flex items-center gap-2">
-                          <Video className="w-4 h-4 text-[#13AA52]" />
-                          <span className="text-[10px] font-black uppercase text-zinc-805 tracking-wider">Face Identification Pass</span>
-                        </div>
-                        <span className={`text-[8.5px] font-black px-2 py-0.5 rounded-full ${faceVerified ? 'bg-emerald-100 text-emerald-700' : 'bg-rose-100 text-rose-650 animate-pulse'}`}>
-                          {faceVerified ? '✓ VERIFIED' : '⚠️ OUTSTANDING'}
-                        </span>
-                      </div>
-                      
-                      <p className="text-[9px] text-gray-450 font-medium mb-2.5 leading-tight">
-                        Swift requires a daily biometrics check to verify you match registry records.
-                      </p>
+                        {/* 2. My vehicles */}
+                        <button 
+                          onClick={() => { playSoundEffect('tap'); setMenuSubScreen('vehicles'); }}
+                          className={`flex items-center justify-between py-3 px-2.5 rounded-xl transition text-left text-[11px] font-extrabold ${darkMode ? 'hover:bg-zinc-900 text-zinc-100' : 'hover:bg-gray-100 text-gray-800'}`}
+                        >
+                          <div className="flex items-center gap-3">
+                            <Car className="w-4 h-4 text-blue-500" />
+                            <div className="flex flex-col">
+                              <span>My vehicles</span>
+                              <span className="text-[7.5px] text-gray-400 font-medium font-bold">Licensed hire vectors</span>
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-1 text-gray-400 font-medium text-[9px]">
+                            <span className="bg-[#13AA52]/10 text-[#13AA52] text-[8px] font-black px-1.5 py-0.2 rounded font-mono">TOYOTA AURIS</span>
+                            <ChevronRight className="w-3.5 h-3.5 text-gray-300" />
+                          </div>
+                        </button>
 
-                      {faceSelfieUrl && (
-                        <div className="flex items-center gap-2 bg-zinc-50 border border-zinc-100 p-2 rounded-xl mb-2.5">
-                          <img src={faceSelfieUrl} referrerPolicy="no-referrer" alt="Selfie Snapshot" className="w-8 h-8 rounded-full object-cover border border-zinc-200 shadow-inner" />
-                          <div className="flex-1 min-w-0">
-                            <span className="block text-[7.5px] font-bold text-zinc-400 font-mono leading-none">BIOMETRICS REGISTER</span>
-                            <span className="block text-[9px] font-extrabold text-[#13AA52] font-mono tracking-wider truncate mt-0.5">MATCH RATING 99.8%</span>
+                        {/* 3. Notifications */}
+                        <button 
+                          onClick={() => { playSoundEffect('tap'); alert("Registered match events:\n1) London Soho Food Surge active at 1.4x\n2) Driver Biometrics audit passed successfully."); }}
+                          className={`flex items-center justify-between py-3 px-2.5 rounded-xl transition text-left text-[11px] font-extrabold ${darkMode ? 'hover:bg-zinc-900 text-zinc-100' : 'hover:bg-gray-100 text-gray-800'}`}
+                        >
+                          <div className="flex items-center gap-3">
+                            <Bell className="w-4 h-4 text-amber-500" />
+                            <div className="flex flex-col">
+                              <span>Notifications</span>
+                              <span className="text-[7.5px] text-gray-400 font-medium font-bold">Inbox matched briefings</span>
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-1">
+                            <span className="bg-red-500 text-white font-black text-[9px] px-2 py-0.5 rounded-full leading-none">
+                              2
+                            </span>
+                            <ChevronRight className="w-3.5 h-3.5 text-gray-300" />
+                          </div>
+                        </button>
+
+                        {/* 4. Help & support */}
+                        <button 
+                          onClick={() => { playSoundEffect('tap'); alert("Swift Help & Support is active. Email developer if you experience issues."); }}
+                          className={`flex items-center justify-between py-3 px-2.5 rounded-xl transition text-left text-[11px] font-extrabold ${darkMode ? 'hover:bg-zinc-900 text-zinc-100' : 'hover:bg-gray-100 text-gray-800'}`}
+                        >
+                          <div className="flex items-center gap-3">
+                            <HelpCircle className="w-4 h-4 text-purple-500" />
+                            <div className="flex flex-col">
+                              <span>Help & support</span>
+                              <span className="text-[7.5px] text-gray-400 font-medium font-bold">Help center portal</span>
+                            </div>
+                          </div>
+                          <ChevronRight className="w-3.5 h-3.5 text-gray-300" />
+                        </button>
+
+                        {/* 5. Settings / Simulator parameters */}
+                        <button 
+                          onClick={() => { playSoundEffect('tap'); setMenuSubScreen('settings'); }}
+                          className={`flex items-center justify-between py-3 px-2.5 rounded-xl transition text-left text-[11px] font-extrabold ${darkMode ? 'hover:bg-zinc-900 text-zinc-100' : 'hover:bg-gray-100 text-gray-800'}`}
+                        >
+                          <div className="flex items-center gap-3">
+                            <Settings className="w-4 h-4 text-orange-500" />
+                            <div className="flex flex-col">
+                              <span>Settings</span>
+                              <span className="text-[7.5px] text-gray-400 font-medium font-bold">Admin & simulation options</span>
+                            </div>
+                          </div>
+                          <ChevronRight className="w-3.5 h-3.5 text-gray-300" />
+                        </button>
+
+                        {/* 6. About Swift Driver */}
+                        <button 
+                          onClick={() => { playSoundEffect('tap'); setMenuSubScreen('about'); }}
+                          className={`flex items-center justify-between py-3 px-2.5 rounded-xl transition text-left text-[11px] font-extrabold ${darkMode ? 'hover:bg-zinc-900 text-zinc-100' : 'hover:bg-gray-100 text-gray-800'}`}
+                        >
+                          <div className="flex items-center gap-3">
+                            <Info className="w-4 h-4 text-zinc-400" />
+                            <div className="flex flex-col">
+                              <span>About Swift Driver</span>
+                              <span className="text-[7.5px] text-gray-400 font-medium font-bold">Simulator metadata</span>
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-1 text-gray-400 font-mono text-[8.5px]">
+                            <span>v3.0</span>
+                            <ChevronRight className="w-3.5 h-3.5 text-gray-300" />
+                          </div>
+                        </button>
+
+                        {/* COMPLIANCE MODULE CARDS INSIDE MAIN DRAWER */}
+                        <div className="pt-4 pb-2 border-t border-gray-100 mt-2 flex flex-col gap-3">
+                          
+                          {/* Face check scan card */}
+                          <div className={`p-3 rounded-2xl border text-left flex flex-col gap-1.5 ${darkMode ? 'bg-zinc-900 border-zinc-800 text-zinc-100' : 'bg-gray-50 border-gray-150 text-gray-850'}`}>
+                            <div className="flex items-center justify-between">
+                              <div className="flex items-center gap-1.5 font-black uppercase text-[8.5px] font-mono tracking-wider">
+                                <Video className="w-3.5 h-3.5 text-[#13AA52]" />
+                                <span>Biometrics validation</span>
+                              </div>
+                              <span className={`text-[7.5px] font-extrabold font-mono px-1.5 py-0.2 rounded-full ${faceVerified ? 'bg-emerald-100 text-emerald-700' : 'bg-rose-100 text-rose-650 animate-pulse'}`}>
+                                {faceVerified ? 'VERIFIED ✓' : 'OUTSTANDING'}
+                              </span>
+                            </div>
+                            <p className="text-[9.2px] text-gray-400 leading-tight">
+                              All Swift operators must register daily biometric scans before completing matches.
+                            </p>
+                            {faceSelfieUrl && (
+                              <div className="flex items-center gap-2 bg-white/20 border border-black/5 p-1.5 rounded-lg">
+                                <img src={faceSelfieUrl} alt="Selfie" className="w-5 h-5 rounded-full object-cover" />
+                                <span className="text-[7.5px] font-mono text-zinc-500">Selfie Registered (99.8% Match)</span>
+                              </div>
+                            )}
+                            <button
+                              onClick={() => { playSoundEffect('tap'); setShowFaceScanner(true); }}
+                              className="w-full py-1.5 bg-[#13AA52] hover:bg-[#119949] text-white rounded-lg text-[9px] font-black uppercase tracking-wider text-center"
+                            >
+                              Scan Face selfie ➔
+                            </button>
+                          </div>
+
+                          {/* Insurance policy cover */}
+                          <div className={`p-3 rounded-2xl border text-left flex flex-col gap-1.5 ${darkMode ? 'bg-zinc-900 border-zinc-800 text-zinc-100' : 'bg-gray-50 border-gray-150'}`}>
+                            <div className="flex items-center justify-between">
+                              <div className="flex items-center gap-1.5 font-black uppercase text-[8.5px] font-mono tracking-wider text-blue-500">
+                                <Lock className="w-3.5 h-3.5 text-blue-500" />
+                                <span>Hire & Reward insurance</span>
+                              </div>
+                              <span className={`text-[7.5px] font-extrabold font-mono px-1.5 py-0.2 rounded-full ${insuranceVerified ? 'bg-blue-100 text-blue-700' : 'bg-amber-100 text-amber-700'}`}>
+                                {insuranceVerified ? 'CERTIFIED ✓' : 'UNINSURED'}
+                              </span>
+                            </div>
+                            <div className="grid grid-cols-2 gap-1.5 mt-1 font-mono text-[8.5px]">
+                              <div>
+                                <span className="text-zinc-400 block text-[6.5px]">POLICY NUMBER</span>
+                                <input 
+                                  type="text" 
+                                  value={insurancePolicyNo} 
+                                  onChange={(e) => setInsurancePolicyNo(e.target.value)}
+                                  className="bg-white border rounded px-1 w-full text-zinc-800 font-extrabold py-0.5 mt-0.5 text-[8.2px]" 
+                                />
+                              </div>
+                              <div>
+                                <span className="text-zinc-400 block text-[6.5px]">EXPIRATION</span>
+                                <input 
+                                  type="date" 
+                                  value={insuranceExpiry} 
+                                  onChange={(e) => setInsuranceExpiry(e.target.value)}
+                                  className="bg-white border rounded px-1 w-full text-zinc-805 font-extrabold py-0.5 mt-0.5 text-[8.2px]" 
+                                />
+                              </div>
+                            </div>
+                            <button
+                              onClick={() => { playSoundEffect('tap'); setInsuranceVerified(!insuranceVerified); }}
+                              className={`w-full py-1.2 rounded-lg text-[8.5px] font-black uppercase tracking-wider text-center ${insuranceVerified ? 'bg-amber-500/10 text-amber-600 border border-amber-500/20 hover:bg-amber-100/50' : 'bg-blue-600 text-white hover:bg-blue-700'}`}
+                            >
+                              {insuranceVerified ? 'Suspend validation' : 'Verify active Certificate'}
+                            </button>
                           </div>
                         </div>
-                      )}
 
-                      <button
-                        onClick={() => { playSoundEffect('tap'); setShowFaceScanner(true); }}
-                        className={`w-full py-2 rounded-xl text-[9.5px] font-black uppercase tracking-wider transition text-center cursor-pointer ${
-                          faceVerified ? 'bg-zinc-100 text-zinc-650 hover:bg-zinc-200' : 'bg-[#13AA52] text-white hover:bg-[#119949]'
-                        }`}
-                      >
-                        {faceVerified ? 'Re-scan Face Check' : 'Scan Live Selfie Now ➔'}
-                      </button>
-                    </div>
-
-                    {/* Carriage Transport Insurance Cover card */}
-                    <div className="py-3 px-1">
-                      <div className="flex items-center justify-between mb-2">
-                        <div className="flex items-center gap-2">
-                          <Lock className="w-4 h-4 text-blue-600" />
-                          <span className="text-[10px] font-black uppercase text-zinc-805 tracking-wider">Courier & Passenger Cover</span>
-                        </div>
-                        <span className={`text-[8.5px] font-black px-2 py-0.5 rounded-full ${insuranceVerified ? 'bg-blue-100 text-blue-700' : 'bg-amber-100 text-amber-700 animate-pulse'}`}>
-                          {insuranceVerified ? '✓ CERTIFIED' : '⚠️ UNINSURED'}
-                        </span>
+                        {/* Standard logout element */}
+                        <button
+                          onClick={() => {
+                            playSoundEffect('warn');
+                            setIsOnline(false);
+                            alert("Logged out of matching pool. Switched offline.");
+                          }}
+                          className="flex items-center gap-2 py-3 text-red-500 hover:bg-red-50/10 rounded-xl transition px-2 hover:translate-x-1"
+                        >
+                          <LogOut className="w-4 h-4 text-red-500" />
+                          <span className="text-[11px] font-black">Log out</span>
+                        </button>
                       </div>
+                    </div>
+                  )}
+
+                  {/* SUB-SCREEN: MY VEHICLES */}
+                  {menuSubScreen === 'vehicles' && (
+                    <div className="flex-1 overflow-y-auto p-4 flex flex-col gap-3 animate-in fade-in slide-in-from-right duration-250 text-left">
+                      <h3 className="text-sm font-black tracking-tight mb-1">Approved Registry Vehicles</h3>
                       
-                      <p className="text-[9px] text-gray-450 font-medium mb-2.5 leading-tight">
-                        Commercial Hire & Reward (H&R) insurance cover is active for passenger carriage in UK.
-                      </p>
+                      {/* Active car */}
+                      <div className={`p-4 rounded-2xl border-2 flex flex-col gap-2 transition-colors duration-200 ${darkMode ? 'bg-zinc-900 border-[#13AA52]' : 'bg-emerald-50/30 border-[#13AA52]'}`}>
+                        <div className="flex justify-between items-start">
+                          <div>
+                            <span className="bg-[#13AA52] text-white text-[8px] font-bold font-mono px-1.5 py-0.2 rounded uppercase leading-none">ACTIVE DRIVING</span>
+                            <h4 className="text-sm font-black text-gray-905 mt-1.5">Toyota Auris Hybrid (2019)</h4>
+                            <p className="text-[10px] text-gray-400">Class: Swift Ride, Cargo Carrier</p>
+                          </div>
+                          <div className={`w-8 h-8 rounded-full flex items-center justify-center ${darkMode ? 'bg-zinc-800' : 'bg-white shadow-sm'}`}>
+                            <Car className="w-4.5 h-4.5 text-[#13AA52]" />
+                          </div>
+                        </div>
+                        <div className="border-t border-dashed border-[#13AA52]/20 pt-2 flex items-center justify-between text-[10px] font-mono mt-1 text-gray-500">
+                          <div><span className="block text-[6.5px]">LICENSED PLATE</span><span className="font-extrabold text-[#13AA52]">LF69 SFT</span></div>
+                          <div><span className="block text-[6.5px]">STATUS</span><span className="font-extrabold text-[#13AA52]">APPROVED ✓</span></div>
+                        </div>
+                      </div>
 
-                      <div className="bg-zinc-50 border border-zinc-105 p-2.5 rounded-xl flex flex-col gap-1.5 font-mono text-[9px] mb-2.5">
-                        <div className="flex justify-between items-center text-zinc-650">
-                          <span>Insurance Carrier</span>
-                          <span className="font-bold text-zinc-900">Zego Mobility Insurance UK</span>
-                        </div>
-                        <div className="flex justify-between items-center">
-                          <span>Policy Number</span>
-                          <input 
-                            type="text" 
-                            value={insurancePolicyNo} 
-                            onChange={(e) => setInsurancePolicyNo(e.target.value)}
-                            className="bg-white border border-zinc-200 rounded px-1.5 py-0.5 text-right font-bold w-32 text-zinc-800 text-[8.5px]" 
-                          />
-                        </div>
-                        <div className="flex justify-between items-center">
-                          <span>Expiration Date</span>
-                          <input 
-                            type="date" 
-                            value={insuranceExpiry} 
-                            onChange={(e) => setInsuranceExpiry(e.target.value)}
-                            className="bg-white border border-zinc-200 rounded px-1.5 py-0.5 text-right font-bold w-32 text-zinc-800 text-[8.5px]" 
-                          />
+                      {/* Inactive car */}
+                      <div className={`p-4 rounded-2xl border flex flex-col gap-2 ${darkMode ? 'bg-zinc-900 border-zinc-800 text-zinc-100' : 'bg-gray-50 border-gray-150'}`}>
+                        <div className="flex justify-between items-start">
+                          <div>
+                            <span className="bg-zinc-400 text-white text-[8px] font-bold font-mono px-1.5 py-0.2 rounded uppercase leading-none">INACTIVE</span>
+                            <h4 className="text-sm font-black mt-1.5">Cargo Electric E-Bike</h4>
+                            <p className="text-[10px] text-zinc-400">Class: Swift Eats Courier only</p>
+                          </div>
+                          <div className={`w-8 h-8 rounded-full flex items-center justify-center ${darkMode ? 'bg-zinc-800 bg-opacity-20' : 'bg-white shadow-sm'}`}>
+                            <Zap className="w-4.5 h-4.5 text-zinc-300" />
+                          </div>
                         </div>
                       </div>
 
                       <button
-                        onClick={() => { playSoundEffect('tap'); setInsuranceVerified(!insuranceVerified); }}
-                        className={`w-full py-2 rounded-xl text-[9.5px] font-black uppercase tracking-wider transition text-center cursor-pointer ${
-                          insuranceVerified ? 'bg-amber-50 text-amber-700 border border-amber-200 hover:bg-amber-100/50' : 'bg-blue-600 text-white hover:bg-blue-700'
-                        }`}
+                        onClick={() => { playSoundEffect('tap'); alert("Registered vehicle audit is controlled by Greater London Council. Additional vectors must be licensed on TFL Registry."); }}
+                        className="py-3 bg-zinc-250 hover:bg-zinc-305 text-zinc-700 font-extrabold text-[10px] uppercase tracking-wider rounded-xl transition text-center mt-2"
                       >
-                        {insuranceVerified ? 'Suspend Policy Verification' : 'Certify policy registration'}
+                        + Register another vehicle
                       </button>
                     </div>
+                  )}
 
-                    <button onClick={() => { playSoundEffect('tap'); alert("Registered: Toyota Auris Hybrid 2019 (Silver), Plate LF69-SFT, standard ride category."); }} className="flex items-center justify-between py-2.5 hover:bg-gray-50 transition px-1.5">
-                      <div className="flex items-center gap-2.5">
-                        <Car className="w-4 h-4 text-gray-400" />
-                        <span>My vehicles</span>
+                  {/* SUB-SCREEN: MY AVAILABILITY */}
+                  {menuSubScreen === 'availability' && (
+                    <div className="flex-1 overflow-y-auto p-4 flex flex-col gap-3.5 animate-in fade-in slide-in-from-right duration-250 text-left">
+                      <div>
+                        <h3 className="text-sm font-black tracking-tight mb-1">Working Availability Control</h3>
+                        <p className="text-[10px] text-gray-450 font-bold">Configure simulated working schedule parameters.</p>
                       </div>
-                      <span className="text-gray-450">Toyota Auris</span>
-                    </button>
 
-                    <button onClick={() => { playSoundEffect('tap'); alert("Registry updates: 1) High demand active Soho. 2) Maintenance check completed."); }} className="flex items-center justify-between py-2.5 hover:bg-gray-50 transition px-1.5">
-                      <div className="flex items-center gap-2.5">
-                        <Bell className="w-4 h-4 text-gray-400" />
-                        <span>Notifications</span>
-                      </div>
-                      <span className="bg-red-500 text-white font-extrabold text-[8.5px] px-1.5 py-0.2 rounded-full leading-none">
-                        2
-                      </span>
-                    </button>
+                      <div className={`p-4 rounded-2xl border flex flex-col gap-3 ${darkMode ? 'bg-zinc-900 border-zinc-800' : 'bg-zinc-50 border-gray-150'}`}>
+                        <span className="font-black text-[9px] uppercase tracking-wider text-[#13AA52] block leading-none antialiased">Automatic Dispatch Hours</span>
+                        
+                        {/* Weekly nodes */}
+                        <div className="grid grid-cols-7 gap-1 text-center font-mono my-1">
+                          {['M','T','W','T','F','S','S'].map((day, idx) => (
+                            <div key={idx} className="flex flex-col gap-1 items-center">
+                              <span className="text-[8px] text-zinc-450">{day}</span>
+                              <div className="w-6 h-6 rounded-full bg-[#13AA52] text-white text-[9px] font-extrabold flex items-center justify-center">
+                                ✓
+                              </div>
+                            </div>
+                          ))}
+                        </div>
 
-                    <button onClick={() => { playSoundEffect('tap'); alert("Swift Help center online: Standard dispatch agent supports active."); }} className="flex items-center justify-between py-2.5 hover:bg-gray-50 transition px-1.5">
-                      <div className="flex items-center gap-2.5">
-                        <HelpCircle className="w-4 h-4 text-gray-400" />
-                        <span>Help & support</span>
+                        <div className="border-t border-dashed border-gray-200 pt-2.5 flex items-center justify-between">
+                          <span className="text-[10px] font-bold">Auto-online at startup</span>
+                          <button className="w-8 h-4.5 rounded-full flex items-center px-0.5 bg-[#13AA52] pointer-events-none">
+                            <div className="w-3.5 h-3.5 rounded-full bg-white shadow-md transform translate-x-3.5" />
+                          </button>
+                        </div>
                       </div>
-                      <ChevronRight className="w-3.5 h-3.5 text-gray-300" />
-                    </button>                    {/* Simulation Parameters Switcher */}
-                    <div className="py-3.5 px-2.5 flex flex-col gap-3.5 bg-zinc-50 rounded-2xl my-3.5 border border-zinc-100 shadow-sm text-left">
+
+                      <div className="grid grid-cols-2 gap-2 text-center text-zinc-650">
+                        <div className={`p-3 rounded-xl border flex flex-col items-center justify-center ${darkMode ? 'bg-zinc-900 border-zinc-800 text-zinc-300' : 'bg-white shadow-sm border-gray-150'}`}>
+                          <span className="block text-sm font-black font-mono animate-pulse">24h</span>
+                          <span className="block text-[8px] text-zinc-450 tracking-wider font-extrabold uppercase mt-0.5">MATCH WINDOW</span>
+                        </div>
+                        <div className={`p-3 rounded-xl border flex flex-col items-center justify-center ${darkMode ? 'bg-zinc-900 border-zinc-800 text-zinc-300' : 'bg-white shadow-sm border-gray-150'}`}>
+                          <span className="block text-sm font-black text-[#13AA52] font-[#13AA52] font-mono">100%</span>
+                          <span className="block text-[8px] text-zinc-450 tracking-wider font-extrabold uppercase mt-0.5">DISPATCH RATIO</span>
+                        </div>
+                      </div>
+
+                      <div className="text-center p-3 text-[9px] text-gray-450 leading-tight">
+                        ⚠️ Simulated dispatcher matches requests strictly according to nearby surges regardless of scheduling calendar.
+                      </div>
+                    </div>
+                  )}
+
+                  {/* SUB-SCREEN: SETTINGS (SIMULATOR CONTROLS) */}
+                  {menuSubScreen === 'settings' && (
+                    <div className="flex-1 overflow-y-auto p-4 flex flex-col gap-3.5 animate-in fade-in slide-in-from-right duration-250 text-left">
                       <div className="flex items-center gap-2">
                         <Settings className="w-4 h-4 text-[#13AA52]" />
-                        <span className="font-extrabold uppercase text-[10px] tracking-wider text-[#13AA52]">Simulator admin core</span>
+                        <span className="font-extrabold uppercase text-[10px] tracking-wider text-[#13AA52]">Simulation Controls</span>
                       </div>
-                      
+
                       {/* Mode picker (Taxi vs Food!) */}
                       <div>
                         <span className="text-[9px] text-zinc-400 font-bold block mb-1">SERVICE MODE</span>
                         <div className="grid grid-cols-2 gap-1.5">
                           <button
                             onClick={() => { playSoundEffect('tap'); setMode('taxi'); }}
-                            className={`py-1 rounded-lg text-center text-[9.5px] font-black tracking-wide cursor-pointer transition ${
-                              mode === 'taxi' ? 'bg-[#13AA52] text-white shadow-sm' : 'bg-zinc-200 text-zinc-600 hover:bg-zinc-250'
+                            className={`py-1.5 rounded-xl text-center text-[9.5px] font-black tracking-wide cursor-pointer transition ${
+                              mode === 'taxi' ? 'bg-[#13AA52] text-white shadow-xs' : 'bg-zinc-200 text-zinc-600 hover:bg-zinc-250'
                             }`}
                           >
                             🚕 TAXI MODE
                           </button>
                           <button
                             onClick={() => { playSoundEffect('tap'); setMode('food'); }}
-                            className={`py-1 rounded-lg text-center text-[9.5px] font-black tracking-wide cursor-pointer transition ${
-                              mode === 'food' ? 'bg-[#13AA52] text-white shadow-sm' : 'bg-zinc-200 text-zinc-600 hover:bg-zinc-250'
+                            className={`py-1.5 rounded-xl text-center text-[9.5px] font-black tracking-wide cursor-pointer transition ${
+                              mode === 'food' ? 'bg-[#13AA52] text-white shadow-xs' : 'bg-zinc-200 text-zinc-650 hover:bg-zinc-250'
                             }`}
                           >
                             🍕 FOOD MODE
@@ -1693,52 +2968,52 @@ export default function App() {
 
                       {/* Trigger matches spawner */}
                       <div>
-                        <span className="text-[9px] text-zinc-400 font-bold block mb-1">FORCE MATCH OFFERS</span>
-                        <div className="grid grid-cols-2 gap-1">
+                        <span className="text-[9px] text-zinc-450 font-bold block mb-1">FORCE MATCH OFFERS</span>
+                        <div className="grid grid-cols-2 gap-1.5">
                           <button
-                            disabled={!isOnline || tripProgress.stage !== 'idle'}
+                            disabled={!isOnline || (mode === 'taxi' && tripProgress.stage !== 'idle') || (mode === 'food' && activeEatsJobs.length >= 3)}
                             onClick={() => { playSoundEffect('tap'); handleSpawnMockRide('short'); }}
-                            className="bg-zinc-800 text-white hover:bg-zinc-700 disabled:opacity-30 disabled:cursor-not-allowed text-[8.5px] py-1.5 rounded-lg font-bold text-center active:scale-95 transition"
+                            className="bg-zinc-850 text-white hover:bg-zinc-750 disabled:opacity-30 disabled:cursor-not-allowed text-[8.5px] py-1.5 rounded-xl font-bold text-center active:scale-95 transition cursor-pointer"
                           >
                             Short Trip
                           </button>
                           <button
-                            disabled={!isOnline || tripProgress.stage !== 'idle'}
+                            disabled={!isOnline || (mode === 'taxi' && tripProgress.stage !== 'idle') || (mode === 'food' && activeEatsJobs.length >= 3)}
                             onClick={() => { playSoundEffect('tap'); handleSpawnMockRide('long'); }}
-                            className="bg-zinc-800 text-white hover:bg-zinc-700 disabled:opacity-30 disabled:cursor-not-allowed text-[8.5px] py-1.5 rounded-lg font-bold text-center active:scale-95 transition"
+                            className="bg-zinc-850 text-white hover:bg-zinc-750 disabled:opacity-30 disabled:cursor-not-allowed text-[8.5px] py-1.5 rounded-xl font-bold text-center active:scale-95 transition cursor-pointer"
                           >
                             Long Commute
                           </button>
                           <button
-                            disabled={!isOnline || tripProgress.stage !== 'idle'}
+                            disabled={!isOnline || (mode === 'taxi' && tripProgress.stage !== 'idle') || (mode === 'food' && activeEatsJobs.length >= 3)}
                             onClick={() => { playSoundEffect('tap'); handleSpawnMockRide('airport'); }}
-                            className="bg-[#13AA52] text-white hover:bg-[#0f8f44] disabled:opacity-30 disabled:cursor-not-allowed text-[8.5px] py-1.5 rounded-lg font-extrabold text-center active:scale-95 transition"
+                            className="bg-[#13AA52] text-white hover:bg-[#0f8f44] disabled:opacity-30 disabled:cursor-not-allowed text-[8.5px] py-1.5 rounded-xl font-extrabold text-center active:scale-95 transition cursor-pointer"
                           >
                             Airport Class
                           </button>
                           <button
-                            disabled={!isOnline || tripProgress.stage !== 'idle'}
+                            disabled={!isOnline || (mode === 'taxi' && tripProgress.stage !== 'idle') || (mode === 'food' && activeEatsJobs.length >= 3)}
                             onClick={() => { playSoundEffect('tap'); handleSpawnMockRide('high-tip'); }}
-                            className="bg-[#13AA52]/10 text-[#13AA52] border border-[#13AA52]/30 hover:bg-[#13AA52]/20 disabled:opacity-30 disabled:cursor-not-allowed text-[8.5px] py-1.5 rounded-lg font-black text-center active:scale-95 transition"
+                            className="bg-[#13AA52]/10 text-[#13AA52] border border-[#13AA52]/30 hover:bg-[#13AA52]/20 disabled:opacity-30 disabled:cursor-not-allowed text-[8.5px] py-1.5 rounded-xl font-black text-center active:scale-95 transition cursor-pointer"
                           >
                             Rich Tip 💎
                           </button>
                         </div>
                       </div>
 
-                      {/* Surge selectors */}
+                      {/* Surge Level */}
                       <div>
-                        <span className="text-[9px] text-zinc-400 font-bold block mb-1">SURGENT HEAT FORCE</span>
+                        <span className="text-[9px] text-zinc-450 font-bold block mb-1">SURGENT HEAT FORCE</span>
                         <div className="grid grid-cols-3 gap-1">
                           {['low', 'medium', 'high'].map(l => (
                             <button
                               key={l}
                               onClick={() => { playSoundEffect('tap'); setSurgeLevel(l as any); }}
-                              className={`py-1 rounded text-[8.5px] font-extrabold uppercase transition ${
-                                surgeLevel === l ? 'bg-[#13AA52] text-white font-black' : 'bg-zinc-200 text-zinc-600 hover:bg-zinc-250'
+                              className={`py-1 rounded-lg text-[8.5px] font-extrabold uppercase transition cursor-pointer ${
+                                surgeLevel === l ? 'bg-[#13AA52] text-white font-black' : 'bg-zinc-200 text-zinc-650 hover:bg-zinc-250'
                               }`}
                             >
-                              {l === 'high' ? '🔥 2.2x High' : l === 'medium' ? '⚡ 1.4x Mid' : '🍃 1.0x Low'}
+                              {l === 'high' ? '🔥 High 2.2x' : l === 'medium' ? '⚡ Mid 1.4x' : '🍃 Low 1.0x'}
                             </button>
                           ))}
                         </div>
@@ -1747,7 +3022,7 @@ export default function App() {
                       {/* Warp Speed */}
                       <div>
                         <div className="flex justify-between items-center mb-1">
-                          <span className="text-[9px] text-zinc-400 font-bold block">DRIVE RECTITUDE WARP</span>
+                          <span className="text-[9px] text-zinc-450 font-bold block">DRIVE RECTITUDE WARP</span>
                           <span className="text-[8.5px] font-mono text-[#13AA52] font-black">{simSpeed}x speed</span>
                         </div>
                         <div className="grid grid-cols-4 gap-1">
@@ -1755,8 +3030,8 @@ export default function App() {
                             <button
                               key={s}
                               onClick={() => { playSoundEffect('tap'); setSimSpeed(s); }}
-                              className={`py-1 text-[8.5px] rounded font-mono font-bold transition ${
-                                simSpeed === s ? 'bg-[#13AA52] text-white font-black animate-pulse' : 'bg-zinc-200 text-zinc-600 hover:bg-zinc-250'
+                              className={`py-1 text-[8.5px] rounded-lg font-mono font-bold transition cursor-pointer ${
+                                simSpeed === s ? 'bg-[#13AA52] text-white font-black' : 'bg-zinc-200 text-zinc-650 hover:bg-zinc-250'
                               }`}
                             >
                               {s}x
@@ -1768,8 +3043,8 @@ export default function App() {
                       {/* Charge percentage */}
                       <div>
                         <div className="flex justify-between items-center mb-0.5">
-                          <span className="text-[9px] text-zinc-400 font-bold block">DEVICE CHARGE STATE</span>
-                          <span className="text-[8.5px] font-mono font-bold text-zinc-700">{batteryLevel}%</span>
+                          <span className="text-[9px] text-zinc-450 font-bold block">DEVICE CHARGE STATE</span>
+                          <span className="text-[8.5px] font-mono font-bold">{batteryLevel}%</span>
                         </div>
                         <input
                           type="range"
@@ -1781,61 +3056,65 @@ export default function App() {
                         />
                       </div>
 
-                      {/* Telemetry scrolling logs inside Profile tab */}
-                      <div>
-                        <div className="flex justify-between items-center mb-1">
-                          <span className="text-[9px] text-zinc-400 font-bold block">LIVE DISPATCH TELEMETRY FEED</span>
-                          <button onClick={() => setLogs([])} className="text-zinc-400 hover:text-red-500 text-[8px] leading-none uppercase font-extrabold">
-                            Clear
-                          </button>
-                        </div>
-                        <div className="bg-zinc-950 rounded-xl p-2.5 font-mono text-[8px] text-zinc-400 h-24 overflow-y-auto block select-text leading-tight border border-zinc-900 w-full max-w-full">
-                          {logs.length === 0 ? (
-                            <span className="text-zinc-600">No events connected. Waiting...</span>
-                          ) : (
-                            logs.slice().reverse().map(l => (
-                              <div key={l.id} className="truncate select-text">
-                                <span className="text-zinc-650">[{l.timestamp}]</span> <span className={
-                                  l.type === 'success' ? 'text-emerald-400' : l.type === 'warn' ? 'text-yellow-400' : l.type === 'earnings' ? 'text-purple-400 font-bold' : 'text-zinc-300'
-                                }>{l.message}</span>
-                              </div>
-                            ))
-                          )}
-                        </div>
-                      </div>
-
-                      {/* Live GPS Geolocation toggle */}
+                      {/* Geolocation real GPS */}
                       <div>
                         <div className="flex justify-between items-center mb-1">
                           <span className="text-[9px] text-[#13AA52] font-black uppercase tracking-wider block">🗺️ Live GPS Tracking</span>
                           <span className={`text-[8.5px] font-mono font-black ${geoTrackingState === 'tracking' ? 'text-emerald-500 animate-pulse' : 'text-gray-400'}`}>
-                            {geoTrackingState === 'tracking' ? 'WATCHING' : geoTrackingState === 'denied' ? 'BLOCKED' : 'IDLE'}
+                            {geoTrackingState === 'tracking' ? 'WATCHING' : 'OFFLINE'}
                           </span>
                         </div>
                         <button
                           onClick={() => { playSoundEffect('tap'); setUseRealGPS(!useRealGPS); }}
-                          className={`w-full py-1.5 rounded text-[8.5px] font-black uppercase tracking-wider transition ${
-                            useRealGPS ? 'bg-[#13AA52] text-white font-black' : 'bg-zinc-200 text-zinc-600 hover:bg-zinc-250'
+                          className={`w-full py-2 rounded-xl text-[8.5px] font-black uppercase tracking-wider transition cursor-pointer mb-2 ${
+                            useRealGPS ? 'bg-[#13AA52] text-white font-black' : 'bg-zinc-200 text-zinc-650 hover:bg-zinc-250'
                           }`}
                         >
                           {useRealGPS ? '✓ Live GPS Active' : 'Enable Device GPS Link'}
                         </button>
-                        {realCoords && (
-                          <div className="bg-white border border-zinc-150 p-2 rounded-xl mt-1.5 text-[8px] font-mono text-zinc-600 space-y-0.5">
-                            <div className="flex justify-between"><span className="text-zinc-400 uppercase">Latitude</span><span className="font-extrabold text-zinc-800">{realCoords.lat.toFixed(5)}</span></div>
-                            <div className="flex justify-between"><span className="text-zinc-400 uppercase">Longitude</span><span className="font-extrabold text-zinc-800">{realCoords.lon.toFixed(5)}</span></div>
-                            <div className="flex justify-between"><span className="text-zinc-400 uppercase">Identified Spot</span><span className="font-extrabold text-[#13AA52] truncate max-w-[150px]">{realCoords.address}</span></div>
-                          </div>
-                        )}
+
+                        {/* Interactive City Selector */}
+                        <div className={`text-[9px] font-bold border rounded-xl p-2.5 transition-colors duration-250 ${
+                          darkMode ? 'bg-zinc-900 border-zinc-800 text-zinc-300' : 'bg-zinc-50/55 border-zinc-150 text-zinc-600'
+                        }`}>
+                          <span className={`text-[8px] tracking-wider uppercase block mb-1.5 font-black ${darkMode ? 'text-zinc-550' : 'text-zinc-400'}`}>
+                            {useRealGPS ? '📡 Auto-Detected GPS Region' : '🗺️ Select Simulated City'}
+                          </span>
+                          {useRealGPS ? (
+                            <div className="flex items-center gap-1.5 py-0.5 text-[#13AA52] font-black uppercase text-[8.5px]">
+                              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
+                              <span>{currentCity} dispatch active</span>
+                            </div>
+                          ) : (
+                            <div className="grid grid-cols-2 gap-1 mt-1">
+                              {['London', 'Birmingham', 'Nottingham', 'Manchester'].map((ct) => (
+                                <button
+                                  key={ct}
+                                  onClick={() => {
+                                    playSoundEffect('tap');
+                                    setCurrentCity(ct);
+                                    appendLog(`🗺️ City region changed to ${ct}. Dispatch of rides and order routes now targeting ${ct} streets perfectly!`, 'success');
+                                  }}
+                                  className={`py-1 rounded text-[8px] font-extrabold uppercase transition cursor-pointer ${
+                                    currentCity.toLowerCase() === ct.toLowerCase()
+                                      ? 'bg-[#13AA52] text-white font-black shadow-xs'
+                                      : darkMode 
+                                        ? 'bg-zinc-800 text-zinc-400 hover:bg-zinc-750' 
+                                        : 'bg-zinc-200 text-zinc-600 hover:bg-zinc-250'
+                                  }`}
+                                >
+                                  {ct}
+                                </button>
+                              ))}
+                            </div>
+                          )}
+                        </div>
                       </div>
 
-                      {/* Cellular Offline Toggle */}
+                      {/* Offline standalone simulation */}
                       <div>
                         <div className="flex justify-between items-center mb-1">
-                          <span className="text-[9px] text-orange-600 font-black uppercase tracking-wider block">🔌 Standalone Offline Simulation</span>
-                          <span className={`text-[8.5px] font-mono font-black ${offlineSimulation ? 'text-orange-500' : 'text-emerald-500'}`}>
-                            {offlineSimulation ? 'OFFLINE CACHE' : 'CLOUDSYNC ACTIVE'}
-                          </span>
+                          <span className="text-[9px] text-orange-600 font-black uppercase tracking-wider block">🔌 Offline Simulation</span>
                         </div>
                         <button
                           onClick={() => { 
@@ -1844,43 +3123,123 @@ export default function App() {
                             setOfflineSimulation(nextOffline);
                             appendLog(nextOffline ? '🔌 Offline simulation triggered: Firestore writes paused, caching local logs.' : '🌐 Offline simulation completed: Firestore writes resumed.', nextOffline ? 'warn' : 'success');
                           }}
-                          className={`w-full py-1.5 rounded text-[8.5px] font-black uppercase tracking-wider transition ${
-                            offlineSimulation ? 'bg-orange-500 text-white animate-pulse' : 'bg-zinc-200 text-zinc-600 hover:bg-zinc-250'
+                          className={`w-full py-2 rounded-xl text-[8.5px] font-black uppercase tracking-wider transition cursor-pointer ${
+                            offlineSimulation ? 'bg-orange-500 text-white animate-pulse' : 'bg-zinc-205 text-zinc-650'
                           }`}
                         >
-                          {offlineSimulation ? 'Deactivate Offline Mode' : 'Activate Offline Standalone'}
+                          {offlineSimulation ? 'Offline Simulator Active' : 'Enable Standalone Offline'}
                         </button>
                       </div>
 
-                      {/* Sound fx check */}
-                      <button
-                        onClick={() => { setSoundEnabled(!soundEnabled); playTapSound(); }}
-                        className="w-full py-1.5 mt-0.5 border border-zinc-200 bg-white hover:bg-zinc-50 rounded text-center text-[9px] text-zinc-500 font-bold transition-colors"
-                      >
-                        Audio Chimes: {soundEnabled ? '🔔 ACTIVE' : '🔕 MUTED'}
-                      </button>
-                    </div>
-
-                    <button onClick={() => alert("Swift Driver Simulator v3.0 London Localized Version.")} className="flex items-center justify-between py-2.5 hover:bg-gray-50 transition px-1.5">
-                      <div className="flex items-center gap-2.5">
-                        <Settings className="w-4 h-4 text-gray-400" />
-                        <span>About Swift Driver</span>
+                      {/* Audio Chimes toggle */}
+                      <div className="flex justify-between items-center py-1">
+                        <span className="text-[10px] font-bold">Simulator Audio Chimes</span>
+                        <button
+                          onClick={() => { setSoundEnabled(!soundEnabled); playTapSound(); }}
+                          className={`px-3 py-1 text-[9px] uppercase font-black rounded-lg transition-colors cursor-pointer ${soundEnabled ? 'bg-[#13AA52]/15 text-[#13AA52]' : 'bg-zinc-200 text-zinc-500'}`}
+                        >
+                          {soundEnabled ? '🔔 ACTIVE' : '🔕 MUTED'}
+                        </button>
                       </div>
-                      <span className="text-gray-400 text-[9px] font-mono">v3.0</span>
-                    </button>
 
-                    <button
-                      onClick={() => {
-                        playSoundEffect('warn');
-                        setIsOnline(false);
-                        alert("Logged out of matching pool. Switched offline.");
-                      }}
-                      className="flex items-center gap-2.5 py-3 text-red-500 hover:bg-red-50/50 transition px-1.5 mt-2 active:translate-x-1"
-                    >
-                      <LogOut className="w-4 h-4 text-red-500" />
-                      <span>Log out</span>
-                    </button>
-                  </div>
+                      {/* Premium Options */}
+                      <div className={`p-3.5 rounded-2xl border flex flex-col gap-2.5 ${darkMode ? 'bg-zinc-900 border-zinc-805' : 'bg-gray-50 border-gray-150'}`}>
+                        <span className="text-[9px] text-[#13AA52] font-black uppercase tracking-wider block">⚡ Premium Options</span>
+                        
+                        {/* Dark Mode */}
+                        <div className="flex justify-between items-center">
+                          <span className="text-[9.5px] font-bold">Dark Theme Design</span>
+                          <button
+                            onClick={() => { playSoundEffect('tap'); setDarkMode(!darkMode); }}
+                            className={`w-8 h-4.5 rounded-full flex items-center px-0.5 transition-colors cursor-pointer ${darkMode ? 'bg-[#13AA52]' : 'bg-gray-300'}`}
+                          >
+                            <div className={`w-3.5 h-3.5 rounded-full bg-white shadow-md transform transition-transform ${darkMode ? 'translate-x-3.5' : 'translate-x-0'}`} />
+                          </button>
+                        </div>
+
+                        {/* Simulate wandering */}
+                        <div className="flex justify-between items-center">
+                          <span className="text-[9.5px] font-bold">Wander parked vehicles</span>
+                          <button
+                            onClick={() => { playSoundEffect('tap'); setSimulateWandering(!simulateWandering); }}
+                            className={`w-8 h-4.5 rounded-full flex items-center px-0.5 transition-colors cursor-pointer ${simulateWandering ? 'bg-[#13AA52]' : 'bg-gray-300'}`}
+                          >
+                            <div className={`w-3.5 h-3.5 rounded-full bg-white shadow-md transform transition-transform ${simulateWandering ? 'translate-x-3.5' : 'translate-x-0'}`} />
+                          </button>
+                        </div>
+
+                        {/* Push Notifications */}
+                        <div className="flex justify-between items-center">
+                          <span className="text-[9.5px] font-bold">Background Push notifications</span>
+                          <button
+                            onClick={() => { playSoundEffect('tap'); setNotificationsEnabled(!notificationsEnabled); }}
+                            className={`w-8 h-4.5 rounded-full flex items-center px-0.5 transition-colors cursor-pointer ${notificationsEnabled ? 'bg-[#13AA52]' : 'bg-gray-300'}`}
+                          >
+                            <div className={`w-3.5 h-3.5 rounded-full bg-white shadow-md transform transition-transform ${notificationsEnabled ? 'translate-x-3.5' : 'translate-x-0'}`} />
+                          </button>
+                        </div>
+
+                        {/* Background service worker */}
+                        <div className="flex justify-between items-center">
+                          <span className="text-[9.5px] font-bold">Background processes watch</span>
+                          <button
+                            onClick={() => { playSoundEffect('tap'); setBackgroundModeEnabled(!backgroundModeEnabled); }}
+                            className={`w-8 h-4.5 rounded-full flex items-center px-0.5 transition-colors cursor-pointer ${backgroundModeEnabled ? 'bg-[#13AA52]' : 'bg-gray-300'}`}
+                          >
+                            <div className={`w-3.5 h-3.5 rounded-full bg-white shadow-md transform transition-transform ${backgroundModeEnabled ? 'translate-x-3.5' : 'translate-x-0'}`} />
+                          </button>
+                        </div>
+                      </div>
+
+                      {/* Display telemetry logs */}
+                      <div>
+                        <span className="text-[9px] text-zinc-400 font-bold block mb-1">LIVE DISPATCH TELEMETRY REGISTRY</span>
+                        <div className="bg-zinc-950 rounded-xl p-2.5 font-mono text-[7.5px] text-zinc-400 h-24 overflow-y-auto block select-text leading-tight w-full">
+                          {logs.length === 0 ? "No active match events cached." : logs.slice().reverse().map(l => (
+                            <div key={l.id} className="truncate">
+                              <span className="text-zinc-600">[{l.timestamp}]</span> <span className={l.type === 'success' ? 'text-emerald-400' : l.type === 'warn' ? 'text-yellow-400' : 'text-zinc-300'}>{l.message}</span>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* SUB-SCREEN: ABOUT */}
+                  {menuSubScreen === 'about' && (
+                    <div className="flex-1 overflow-y-auto p-4 flex flex-col gap-4 animate-in fade-in slide-in-from-right duration-250 text-left">
+                      <div className="text-center py-4">
+                        <div className="w-14 h-14 rounded-2xl bg-[#13AA52] text-white font-black flex items-center justify-center text-xl mx-auto shadow-md mb-2">
+                          🗲
+                        </div>
+                        <h3 className="text-lg font-black tracking-tight">Swift Driver Simulator</h3>
+                        <span className="text-zinc-400 font-mono text-[10px]">v3.0 - Premium Edition</span>
+                      </div>
+
+                      <div className={`p-4 rounded-2xl border flex flex-col gap-2.5 text-[11px] ${darkMode ? 'bg-zinc-900 border-zinc-800' : 'bg-gray-50 border-gray-150'}`}>
+                        <div className="flex justify-between items-center">
+                          <span className="text-gray-400 font-semibold">TFL Regulated License</span>
+                          <span className="font-bold">✓ Approved</span>
+                        </div>
+                        <div className="flex justify-between items-center border-t border-gray-105/10 pt-2.5">
+                          <span className="text-gray-400 font-semibold">Offline Caching Buffer</span>
+                          <span className="font-bold">128 local logs</span>
+                        </div>
+                        <div className="flex justify-between items-center border-t border-gray-105/10 pt-2.5">
+                          <span className="text-gray-400 font-semibold">Multi-eats Dispatch Cap</span>
+                          <span className="font-bold text-[#13AA52]">3 Concurrent orders</span>
+                        </div>
+                        <div className="flex justify-between items-center border-t border-gray-105/10 pt-2.5">
+                          <span className="text-gray-400 font-semibold">Regional Coverage Map</span>
+                          <span className="font-bold font-mono text-[10px]">All World Interactive</span>
+                        </div>
+                      </div>
+
+                      <div className="p-3 text-[9.5px] text-gray-400 text-center leading-relaxed">
+                        Built for ultimate driver simulation on London and worldwide routes. Features include custom surge controls, full offline telemetry state persistence, and multiple Eats order queues.
+                      </div>
+                    </div>
+                  )}
                 </div>
               )}
 

@@ -11,6 +11,9 @@ function getAudioContext(): AudioContext | null {
       audioCtx = new AudioContextClass();
     }
   }
+  if (audioCtx && audioCtx.state === 'suspended') {
+    audioCtx.resume().catch((err) => console.warn('Could not resume AudioContext directly:', err));
+  }
   return audioCtx;
 }
 
