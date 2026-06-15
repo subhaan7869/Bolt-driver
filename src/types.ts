@@ -12,6 +12,7 @@ export interface RideRequest {
   tipAmount: number;
   estimatedMinutes: number;
   foodItem?: string;
+  category?: string;
 }
 
 export interface DriverStats {

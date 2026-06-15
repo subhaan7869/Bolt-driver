@@ -388,6 +388,34 @@ export default function App() {
     localStorage.setItem('swift_current_city', currentCity);
   }, [currentCity]);
 
+  // Bolt-exclusive premium state variables
+  const [boltCategories, setBoltCategories] = useState<string[]>(() => {
+    try {
+      const saved = localStorage.getItem('swift_bolt_categories');
+      return saved ? JSON.parse(saved) : ['comfort', 'xl', 'lite'];
+    } catch (_) {
+      return ['comfort', 'xl', 'lite'];
+    }
+  });
+  const [destinationFilter, setDestinationFilter] = useState<string>(() => {
+    return localStorage.getItem('swift_destination_filter') || '';
+  });
+  const [destinationActivated, setDestinationActivated] = useState<boolean>(() => {
+    return localStorage.getItem('swift_destination_active') === 'true';
+  });
+
+  useEffect(() => {
+    localStorage.setItem('swift_bolt_categories', JSON.stringify(boltCategories));
+  }, [boltCategories]);
+
+  useEffect(() => {
+    localStorage.setItem('swift_destination_filter', destinationFilter);
+  }, [destinationFilter]);
+
+  useEffect(() => {
+    localStorage.setItem('swift_destination_active', String(destinationActivated));
+  }, [destinationActivated]);
+
   // Dark Mode, Ambient Wander, and Background notifications configuration states
   const [darkMode, setDarkMode] = useState<boolean>(() => {
     return localStorage.getItem('swift_dark_mode') === 'true';
@@ -520,7 +548,8 @@ export default function App() {
   const [eatsBootupProgress, setEatsBootupProgress] = useState<number>(-1);
 
   // Subscreen navigation state inside Menu/Profile tab
-  const [menuSubScreen, setMenuSubScreen] = useState<'main' | 'admin_settings' | 'profile_details' | 'vehicles' | 'availability'>('main');
+  const [menuSubScreen, setMenuSubScreen] = useState<'main' | 'admin_settings' | 'profile_details' | 'vehicles' | 'availability' | 'categories' | 'quests'>('main');
+  const [showDestinationSettings, setShowDestinationSettings] = useState<boolean>(false);
 
   useEffect(() => {
     localStorage.setItem('swift_active_eats_jobs', JSON.stringify(activeEatsJobs));
@@ -1031,7 +1060,7 @@ export default function App() {
     const dIndex = Math.floor(Math.random() * (mode === 'taxi' ? localData.taxi.dropoff.length : localData.food.residences.length));
 
     const pickupAddress = mode === 'taxi' ? localData.taxi.pickup[pIndex] : localData.food.restaurants[pIndex];
-    const dropoffAddress = mode === 'taxi' ? localData.taxi.dropoff[dIndex] : localData.food.residences[dIndex];
+    let dropoffAddress = mode === 'taxi' ? localData.taxi.dropoff[dIndex] : localData.food.residences[dIndex];
 
     const pickupCoordinate = {
       x: 60 + Math.floor(Math.random() * 280),
@@ -1042,6 +1071,43 @@ export default function App() {
       y: 120 + Math.floor(Math.random() * 360),
     };
 
+    // Apply destination filtering for taxi simulation
+    if (mode === 'taxi' && destinationActivated && destinationFilter.trim()) {
+      const landmarks = [
+        `${destinationFilter} Central Station`,
+        `The Grand ${destinationFilter} Hotel`,
+        `${destinationFilter} Business Park`,
+        `${destinationFilter} High Street East`,
+        `${destinationFilter} Parklands Gate`
+      ];
+      dropoffAddress = landmarks[Math.floor(Math.random() * landmarks.length)];
+    }
+
+    // Determine Bolt Ride Category & Multiplier
+    let rideCategory = 'Standard';
+    let categoryMultiplier = 1.0;
+    if (mode === 'taxi') {
+      const activeCats = boltCategories && boltCategories.length > 0 ? boltCategories : ['comfort'];
+      const chosenCat = activeCats[Math.floor(Math.random() * activeCats.length)].toLowerCase();
+      
+      if (chosenCat === 'lite') {
+        rideCategory = 'Bolt Lite';
+        categoryMultiplier = 0.88;
+      } else if (chosenCat === 'comfort') {
+        rideCategory = 'Bolt Comfort';
+        categoryMultiplier = 1.25;
+      } else if (chosenCat === 'xl') {
+        rideCategory = 'Bolt XL';
+        categoryMultiplier = 1.55;
+      } else if (chosenCat === 'green') {
+        rideCategory = 'Bolt Green';
+        categoryMultiplier = 1.05;
+      } else {
+        rideCategory = 'Bolt Standard';
+        categoryMultiplier = 1.0;
+      }
+    }
+
     // Apply random pricing and distance variations to avoid repetitive amounts
     const priceVariance = 0.82 + Math.random() * 0.36; // Range: ~82% to ~118%
     const distVariance = 0.80 + Math.random() * 0.40;  // Range: ~80% to ~120%
@@ -1049,7 +1115,7 @@ export default function App() {
     let finalDistance = +(preset.distance * distVariance).toFixed(1);
     if (finalDistance < 0.4) finalDistance = 0.4;
 
-    let finalFare = +(preset.fare * priceVariance).toFixed(2);
+    let finalFare = +(preset.fare * priceVariance * categoryMultiplier).toFixed(2);
     const minFare = mode === 'food' ? 4.50 : 8.50;
     if (finalFare < minFare) {
       finalFare = +(minFare + Math.random() * 2.50).toFixed(2);
@@ -1072,6 +1138,7 @@ export default function App() {
       id: `ride-${Date.now()}`,
       surgeMultiplier: multiplier,
       tipAmount: actualType === 'high-tip' ? +(5.00 + Math.random() * 8.00).toFixed(2) : Math.random() > 0.6 ? +(1.50 + Math.random() * 3.50).toFixed(2) : 0,
+      category: mode === 'taxi' ? rideCategory : undefined,
     };
 
     setTripProgress({
@@ -1629,12 +1696,36 @@ export default function App() {
 
     setTimeout(() => {
       playSoundEffect('offer');
+      let responseText = "Alright driver! I am coming down right now. 👍";
+      const userTextLower = text.toLowerCase();
+      if (mode === 'food') {
+        if (userTextLower.includes('here') || userTextLower.includes('arrived')) {
+          responseText = "Super, I will come to the lobby inside 1 min! Thanks!";
+        } else if (userTextLower.includes('traffic') || userTextLower.includes('delayed') || userTextLower.includes('way')) {
+          responseText = "No worries, thank you for letting me know! Safe driving.";
+        } else if (userTextLower.includes('ac') || userTextLower.includes('cold') || userTextLower.includes('hot')) {
+          responseText = "Yes please, keep it warm. Thanks!";
+        } else {
+          responseText = "Got it! Thanks for the update.";
+        }
+      } else {
+        if (userTextLower.includes('here') || userTextLower.includes('pickup') || userTextLower.includes('arrived')) {
+          responseText = "Coming down now! Just taking the elevator, see you in 1 min.";
+        } else if (userTextLower.includes('traffic') || userTextLower.includes('late') || userTextLower.includes('way')) {
+          responseText = "No problem at all! I see you on my map, take your time.";
+        } else if (userTextLower.includes('ac') || userTextLower.includes('cold') || userTextLower.includes('hot')) {
+          responseText = "Yes please, some cool air would be fantastic! Thank you.";
+        } else {
+          responseText = "Splendid, see you shortly!";
+        }
+      }
+
       setChatMessages(prev => [
         ...prev,
         {
           id: Math.random().toString(),
           sender: 'passenger',
-          text: mode === 'food' ? "Yes, please deliver at the gate! Thanks 🍕" : "Alright driver! I am coming down right now. 👍",
+          text: responseText,
           timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
         }
       ]);
@@ -1794,6 +1885,149 @@ export default function App() {
                         >
                           + Go Online
                         </button>
+                      </div>
+                    )}
+
+                    {/* Destination Filter Floating Button & Active Badge */}
+                    {isOnline && mode === 'taxi' && tripProgress.stage === 'idle' && (
+                      <>
+                        {destinationActivated && destinationFilter.trim() && (
+                          <div className={`absolute top-18 left-3 z-15 backdrop-blur-md border rounded-lg px-2 py-1 flex items-center gap-1.5 shadow-sm animate-in fade-in slide-in-from-left duration-200 text-[9px] font-black uppercase tracking-wider ${
+                            darkMode ? 'bg-zinc-900/90 border-[#13AA52] text-[#13AA52]' : 'bg-emerald-50/90 border-[#13AA52] text-[#13AA52]'
+                          }`}>
+                            <Compass className="w-3 h-3 text-[#13AA52] animate-spin" style={{ animationDuration: '3500ms' }} />
+                            <span>Filter: {destinationFilter}</span>
+                            <button
+                              onClick={() => { playSoundEffect('tap'); setDestinationActivated(false); }}
+                              className="w-3.5 h-3.5 rounded-full bg-red-500/10 hover:bg-red-500/20 text-red-500 flex items-center justify-center font-mono font-black"
+                            >
+                              ×
+                            </button>
+                          </div>
+                        )}
+                        <div className="absolute right-3.5 bottom-3.5 z-15 flex flex-col gap-2">
+                          <button
+                            onClick={() => { playSoundEffect('tap'); setShowDestinationSettings(true); }}
+                            className={`w-9 h-9 rounded-full shadow-lg border backdrop-blur-md flex items-center justify-center transition active:scale-90 cursor-pointer ${
+                              destinationActivated 
+                                ? 'bg-[#13AA52] border-[#13AA52] text-white' 
+                                : darkMode
+                                  ? 'bg-zinc-900/95 border-zinc-800 text-zinc-200 hover:bg-zinc-800'
+                                  : 'bg-white/95 border-gray-200 text-gray-700 hover:bg-gray-100'
+                            }`}
+                            title="Destination Filter (My Way)"
+                          >
+                            <Compass className={`w-4.5 h-4.5 ${destinationActivated ? 'animate-spin' : ''}`} style={{ animationDuration: '3000ms' }} />
+                          </button>
+                        </div>
+                      </>
+                    )}
+
+                    {/* Destination Filter Slide-Up Panel Modal */}
+                    {showDestinationSettings && (
+                      <div className="absolute inset-x-0 bottom-0 top-0 bg-slate-950/70 z-30 backdrop-blur-xs flex items-end justify-center animate-in fade-in duration-200">
+                        <div className={`w-full rounded-t-[25px] border-t p-5 flex flex-col gap-4 max-h-[75%] select-none animate-in slide-in-from-bottom duration-250 ${
+                          darkMode ? 'bg-zinc-900 border-zinc-800 text-zinc-100' : 'bg-white border-gray-150 text-gray-900'
+                        }`}>
+                          {/* Modal Header */}
+                          <div className="flex items-center justify-between">
+                            <div className="flex items-center gap-1.5 flex-1">
+                              <Compass className="w-4 h-4 text-[#13AA52]" />
+                              <span className="text-xs font-black uppercase tracking-wider">Destination (My Way)</span>
+                            </div>
+                            <button
+                              onClick={() => { playSoundEffect('tap'); setShowDestinationSettings(false); }}
+                              className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold ${darkMode ? 'bg-zinc-800 text-zinc-300 hover:bg-zinc-700' : 'bg-gray-100 text-gray-500 hover:bg-gray-200'}`}
+                            >
+                              ✕
+                            </button>
+                          </div>
+
+                          {/* Modal Body */}
+                          <div className="flex flex-col gap-2.5 text-left">
+                            <p className="text-[10px] text-gray-400 font-bold leading-normal">
+                              Set a specific destination area (e.g. Heathrow, Birmingham, Chelsea). Once activated, the simulator will strictly route incoming match dispatches ending near this local hub.
+                            </p>
+                            
+                            <div className="flex gap-2">
+                              <input
+                                type="text"
+                                value={destinationFilter}
+                                onChange={(e) => setDestinationFilter(e.target.value)}
+                                placeholder="Enter airport, area or city..."
+                                className={`flex-1 px-3 py-2 border rounded-xl text-xs font-semibold focus:outline-none focus:ring-1 focus:ring-[#13AA52] ${
+                                  darkMode 
+                                    ? 'bg-zinc-950 border-zinc-850 text-zinc-100' 
+                                    : 'bg-gray-50 border-gray-200 text-gray-900'
+                                }`}
+                              />
+                              {destinationFilter && (
+                                <button
+                                  onClick={() => { playSoundEffect('tap'); setDestinationFilter(''); }}
+                                  className={`px-3 py-2 text-xs font-bold rounded-xl ${
+                                    darkMode ? 'bg-zinc-800 hover:bg-zinc-750' : 'bg-gray-100 hover:bg-gray-150'
+                                  }`}
+                                >
+                                  Clear
+                                </button>
+                              )}
+                            </div>
+
+                            {/* Preset destination shortcuts */}
+                            <div className="flex flex-wrap gap-1.5 mt-1">
+                              {['Heathrow LHR', 'City Center', 'Main Train Station', 'Airport Terminals', 'Birmingham Core'].map((preset) => (
+                                <button
+                                  key={preset}
+                                  onClick={() => { playSoundEffect('tap'); setDestinationFilter(preset); }}
+                                  className={`text-[8px] font-black uppercase tracking-wider px-2 py-1 rounded-md border ${
+                                    destinationFilter === preset
+                                      ? 'bg-[#13AA52]/10 border-[#13AA52] text-[#13AA52]'
+                                      : darkMode
+                                        ? 'bg-zinc-950/40 border-zinc-850 text-zinc-400 hover:bg-zinc-800'
+                                        : 'bg-white border-zinc-150 text-zinc-500 hover:bg-zinc-50'
+                                  }`}
+                                >
+                                  {preset}
+                                </button>
+                              ))}
+                            </div>
+                          </div>
+
+                          {/* Action Button */}
+                          <div className="flex gap-2.5 mt-2">
+                            <button
+                              onClick={() => {
+                                playSoundEffect('tap');
+                                setDestinationActivated(false);
+                                setShowDestinationSettings(false);
+                                appendLog("📍 Destination filter disabled.", "info");
+                              }}
+                              className={`flex-1 py-2 rounded-xl text-[10px] font-black uppercase tracking-wide border transition ${
+                                darkMode 
+                                  ? 'bg-zinc-950 border-zinc-800 text-zinc-400 hover:bg-zinc-850' 
+                                  : 'bg-white border-gray-200 text-gray-500 hover:bg-gray-100'
+                              }`}
+                            >
+                              Turn Off
+                            </button>
+                            <button
+                              disabled={!destinationFilter.trim()}
+                              onClick={() => {
+                                playSoundEffect('tap');
+                                setDestinationActivated(true);
+                                setShowDestinationSettings(false);
+                                appendLog(`📍 Destination filter enabled targeting: "${destinationFilter}". All incoming offer arrivals will head here.`, "success");
+                              }}
+                              className={`flex-1 py-2 font-black text-[10px] uppercase tracking-wide rounded-xl transition ${
+                                !destinationFilter.trim()
+                                  ? 'bg-gray-200 text-gray-400 cursor-not-allowed'
+                                  : 'bg-[#13AA52] text-white hover:bg-[#0f8f44] cursor-pointer shadow-md shadow-emerald-500/10'
+                              }`}
+                            >
+                              Activate Filter
+                            </button>
+                          </div>
+                        </div>
                       </div>
                     )}
                   </div>
@@ -2682,6 +2916,46 @@ export default function App() {
                           </div>
                           <div className="flex items-center gap-1 text-gray-400 font-medium text-[9px]">
                             <span className="bg-[#13AA52]/10 text-[#13AA52] text-[8px] font-black px-1.5 py-0.2 rounded font-mono">TOYOTA AURIS</span>
+                            <ChevronRight className="w-3.5 h-3.5 text-gray-300" />
+                          </div>
+                        </button>
+
+                        {/* Bolt Ride Categories setting selection */}
+                        {mode === 'taxi' && (
+                          <button 
+                            onClick={() => { playSoundEffect('tap'); setMenuSubScreen('categories'); }}
+                            className={`flex items-center justify-between py-3 px-2.5 rounded-xl transition text-left text-[11px] font-extrabold ${darkMode ? 'hover:bg-zinc-900 text-zinc-100' : 'hover:bg-gray-100 text-gray-800'}`}
+                          >
+                            <div className="flex items-center gap-3">
+                              <Zap className="w-4 h-4 text-amber-500 fill-amber-500/20" />
+                              <div className="flex flex-col">
+                                <span>Ride Categories</span>
+                                <span className="text-[7.5px] text-gray-400 font-medium font-bold font-sans">Select active booking tiers</span>
+                              </div>
+                            </div>
+                            <div className="flex items-center gap-1 text-gray-400 font-mono text-[8.5px]">
+                              <span className="bg-amber-500/10 text-amber-600 text-[8px] font-black px-1.5 py-0.2 rounded font-mono uppercase">{boltCategories.length} Active</span>
+                              <ChevronRight className="w-3.5 h-3.5 text-gray-300" />
+                            </div>
+                          </button>
+                        )}
+
+                        {/* Driver Quests & Milestones setting selection */}
+                        <button 
+                          onClick={() => { playSoundEffect('tap'); setMenuSubScreen('quests'); }}
+                          className={`flex items-center justify-between py-3 px-2.5 rounded-xl transition text-left text-[11px] font-extrabold ${darkMode ? 'hover:bg-zinc-900 text-zinc-100' : 'hover:bg-gray-100 text-gray-800'}`}
+                        >
+                          <div className="flex items-center gap-3">
+                            <Sparkles className="w-4 h-4 text-purple-500" />
+                            <div className="flex flex-col">
+                              <span>Driver Quests & Milestones</span>
+                              <span className="text-[7.5px] text-gray-400 font-medium font-bold font-sans">Earn consecutive trip bonuses</span>
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-1 text-[#13AA52] font-mono text-[8.5px]">
+                            <span className="bg-emerald-500/10 text-[#13AA52] text-[8px] font-black px-1.5 py-0.2 rounded font-mono">
+                              {completedQuestIds.length}/{quests.length} DONE
+                            </span>
                             <ChevronRight className="w-3.5 h-3.5 text-gray-300" />
                           </div>
                         </button>

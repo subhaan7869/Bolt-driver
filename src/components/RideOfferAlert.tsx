@@ -98,8 +98,15 @@ export const RideOfferAlert: React.FC<RideOfferAlertProps> = ({
               {ride.passengerName.substring(0, 1)}
             </div>
             <div>
-              <h4 className="text-white text-sm font-bold">{ride.passengerName}</h4>
-              <div className="flex items-center gap-1">
+              <div className="flex items-center gap-1.5 flex-wrap">
+                <h4 className="text-white text-sm font-bold">{ride.passengerName}</h4>
+                {ride.category && (
+                  <span className="bg-blue-500/20 text-blue-450 border border-blue-500/[0.15] text-[7.5px] font-black uppercase px-1.5 py-0.5 rounded-md leading-none tracking-wider">
+                    {ride.category}
+                  </span>
+                )}
+              </div>
+              <div className="flex items-center gap-1 mt-1">
                 <Star className="w-3 h-3 text-amber-400 fill-amber-400" />
                 <span className="text-xs text-amber-400 font-bold">{ride.passengerRating.toFixed(2)}</span>
                 <span className="text-[10px] text-gray-400 font-mono">(138 trips)</span>
