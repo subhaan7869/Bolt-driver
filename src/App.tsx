@@ -7,7 +7,7 @@ import {
   playTapSound, playCompleteRideSound, playWarningSound, playIncomingRideSound 
 } from './utils/SoundGenerator';
 import { 
-  Navigation, Star, Zap, Clock, Landmark, Sparkles, MessageSquare, 
+  Navigation, Star, Zap, Clock, Landmark, Sparkles, Compass, MessageSquare, 
   AlertTriangle, CheckCircle, Smartphone, Wifi, Battery, Menu, Bell, 
   ChevronRight, ChevronLeft, Info, Car, HelpCircle, Settings, LogOut, Check, ArrowRight, X, Phone, User, Calendar, Coffee,
   Globe, Lock, ShieldAlert, Video, WifiOff, Sun, Moon
@@ -416,6 +416,43 @@ export default function App() {
     localStorage.setItem('swift_destination_active', String(destinationActivated));
   }, [destinationActivated]);
 
+  // Quests & Challenges states
+  const [quests] = useState([
+    { id: 'q-1', name: 'Morning Peak Hustle', description: 'Complete 3 simulated trips across Soho or local core.', target: 3, reward: 15.00 },
+    { id: 'q-2', name: 'Elite Comfort Quest', description: 'Complete 2 Comfort premium category rides.', target: 2, reward: 25.00 },
+    { id: 'q-3', name: 'Airport Shuttle Run', description: 'Complete 1 long-haul trip ending near Heathrow Airport terminals.', target: 1, reward: 20.00 },
+    { id: 'q-4', name: 'Double-Shift Explorer', description: 'Earn high rating marks over 5 total completed trips.', target: 5, reward: 35.00 },
+  ]);
+
+  const [completedQuestIds, setCompletedQuestIds] = useState<string[]>(() => {
+    try {
+      const saved = localStorage.getItem('swift_completed_quests');
+      return saved ? JSON.parse(saved) : [];
+    } catch (_) {
+      return [];
+    }
+  });
+
+  const [completedComfortCount, setCompletedComfortCount] = useState<number>(() => {
+    return Number(localStorage.getItem('swift_completed_comfort') || '0');
+  });
+
+  const [completedAirportCount, setCompletedAirportCount] = useState<number>(() => {
+    return Number(localStorage.getItem('swift_completed_airport') || '0');
+  });
+
+  useEffect(() => {
+    localStorage.setItem('swift_completed_quests', JSON.stringify(completedQuestIds));
+  }, [completedQuestIds]);
+
+  useEffect(() => {
+    localStorage.setItem('swift_completed_comfort', String(completedComfortCount));
+  }, [completedComfortCount]);
+
+  useEffect(() => {
+    localStorage.setItem('swift_completed_airport', String(completedAirportCount));
+  }, [completedAirportCount]);
+
   // Dark Mode, Ambient Wander, and Background notifications configuration states
   const [darkMode, setDarkMode] = useState<boolean>(() => {
     return localStorage.getItem('swift_dark_mode') === 'true';
@@ -696,6 +733,57 @@ export default function App() {
   useEffect(() => {
     localStorage.setItem('bolt_sim_food_stats', JSON.stringify(foodStats));
   }, [foodStats]);
+
+  // Automated Quest Completion Tracker Effect
+  useEffect(() => {
+    if (mode !== 'taxi') return;
+
+    const newlyCompleted: string[] = [];
+    
+    // Quest 1: Morning Peak Hustle (3 completed trips total)
+    if (stats.completedTripsCount >= 3 && !completedQuestIds.includes('q-1')) {
+      newlyCompleted.push('q-1');
+    }
+    // Quest 2: Elite Comfort Quest (2 Comfort category trips)
+    if (completedComfortCount >= 2 && !completedQuestIds.includes('q-2')) {
+      newlyCompleted.push('q-2');
+    }
+    // Quest 3: Airport Shuttle Run (1 long-haul airport trip)
+    if (completedAirportCount >= 1 && !completedQuestIds.includes('q-3')) {
+      newlyCompleted.push('q-3');
+    }
+    // Quest 4: Double-Shift Explorer (5 completed trips overall)
+    if (stats.completedTripsCount >= 5 && !completedQuestIds.includes('q-4')) {
+      newlyCompleted.push('q-4');
+    }
+
+    if (newlyCompleted.length > 0) {
+      setCompletedQuestIds(prev => {
+        const next = [...prev, ...newlyCompleted];
+        
+        let additionalBonus = 0;
+        newlyCompleted.forEach(qId => {
+          const quest = quests.find(q => q.id === qId);
+          if (quest) {
+            additionalBonus += quest.reward;
+            appendLog(`🏆 QUEST COMPLETED! Completed "${quest.name}"! Bonus of +£${quest.reward.toFixed(2)} added to active balance.`, 'success');
+            playSoundEffect('complete');
+          }
+        });
+
+        if (additionalBonus > 0) {
+          setStats(s => ({
+            ...s,
+            todayEarnings: s.todayEarnings + additionalBonus,
+            weeklyEarnings: s.weeklyEarnings + additionalBonus,
+            balance: s.balance + additionalBonus,
+          }));
+        }
+
+        return next;
+      });
+    }
+  }, [stats.completedTripsCount, completedComfortCount, completedAirportCount, completedQuestIds, quests, mode, appendLog, playSoundEffect, setStats]);
 
   // Real Internet online/offline event subscriptions
   useEffect(() => {
@@ -1620,6 +1708,12 @@ export default function App() {
 
       if (mode === 'taxi') {
         setTaxiTrips(p => [newRecord, ...p]);
+        if (currentRide.category && currentRide.category.toLowerCase().includes('comfort')) {
+          setCompletedComfortCount(c => c + 1);
+        }
+        if (currentRide.pickupAddress.toLowerCase().includes('terminal') || currentRide.dropoffAddress.toLowerCase().includes('airport') || currentRide.dropoffAddress.toLowerCase().includes('heathrow')) {
+          setCompletedAirportCount(a => a + 1);
+        }
       } else {
         setFoodTrips(p => [newRecord, ...p]);
       }
@@ -2814,6 +2908,8 @@ export default function App() {
                         {menuSubScreen === 'vehicles' && 'My Vehicles'}
                         {menuSubScreen === 'availability' && 'My Availability'}
                         {menuSubScreen === 'settings' && 'Simulator Controls'}
+                        {menuSubScreen === 'categories' && 'Ride Tiers'}
+                        {menuSubScreen === 'quests' && 'Driver Quests'}
                         {menuSubScreen === 'about' && 'About Simulator'}
                       </span>
                       <div className="w-12" />
@@ -3511,6 +3607,152 @@ export default function App() {
 
                       <div className="p-3 text-[9.5px] text-gray-400 text-center leading-relaxed">
                         Built for ultimate driver simulation on London and worldwide routes. Features include custom surge controls, full offline telemetry state persistence, and multiple Eats order queues.
+                      </div>
+                    </div>
+                  )}
+
+                  {/* SUB-SCREEN: RIDE CATEGORIES SELECTOR */}
+                  {menuSubScreen === 'categories' && (
+                    <div className="flex-1 overflow-y-auto p-4 flex flex-col gap-3.5 animate-in fade-in slide-in-from-right duration-250 text-left">
+                      <div>
+                        <h3 className="text-sm font-black tracking-tight mb-1">Select Active Tiers</h3>
+                        <p className="text-[10px] text-gray-450 font-bold leading-normal">
+                          Deselect any categories to stop receiving dispatch invitations for those booking tiers. Fares and demand multipliers sync dynamically.
+                        </p>
+                      </div>
+
+                      <div className="flex flex-col gap-2.5">
+                        {[
+                          { id: 'lite', name: 'Bolt Lite', desc: 'Shorter, lower budget transit runs.', multiplier: 0.88, color: 'text-zinc-500 bg-zinc-100' },
+                          { id: 'standard', name: 'Bolt Standard', desc: 'Frequent general booking tier.', multiplier: 1.0, color: 'text-[#13AA52] bg-[#13AA52]/10' },
+                          { id: 'comfort', name: 'Bolt Comfort', desc: 'Sleek premium sedans & top rated operators.', multiplier: 1.25, color: 'text-amber-500 bg-amber-500/10' },
+                          { id: 'green', name: 'Bolt Green', desc: 'Environment friendly electric/hybrid vehicles.', multiplier: 1.05, color: 'text-emerald-500 bg-emerald-500/10' },
+                          { id: 'xl', name: 'Bolt XL', desc: '6-seater large SUVs & vans.', multiplier: 1.55, color: 'text-blue-500 bg-blue-500/10' },
+                        ].map((cat) => {
+                          const isActive = boltCategories.includes(cat.id);
+                          return (
+                            <button
+                              key={cat.id}
+                              onClick={() => {
+                                playSoundEffect('tap');
+                                if (isActive) {
+                                  if (boltCategories.length <= 1) {
+                                    alert("At least one booking tier must remain active to accept dispatch matches!");
+                                    return;
+                                  }
+                                  setBoltCategories(prev => prev.filter(c => c !== cat.id));
+                                  appendLog(`❌ Disabled booking tier: ${cat.name}`, 'info');
+                                } else {
+                                  setBoltCategories(prev => [...prev, cat.id]);
+                                  appendLog(`✓ Enabled booking tier: ${cat.name}`, 'success');
+                                }
+                              }}
+                              className={`p-3.5 rounded-2xl border text-left flex items-center justify-between transition ${
+                                isActive 
+                                  ? darkMode
+                                    ? 'bg-zinc-900 border-[#13AA52] text-zinc-100'
+                                    : 'bg-emerald-50/20 border-[#13AA52] text-gray-900 font-extrabold'
+                                  : darkMode
+                                    ? 'bg-zinc-950 border-zinc-850 text-zinc-400'
+                                    : 'bg-white border-gray-150 text-gray-500'
+                              }`}
+                            >
+                              <div className="flex-1 pr-3">
+                                <div className="flex items-center gap-2">
+                                  <span className="text-xs font-black">{cat.name}</span>
+                                  <span className={`text-[7.5px] font-black uppercase tracking-wider px-1.5 py-0.2 rounded font-mono ${cat.color}`}>
+                                    {cat.multiplier}x Rate
+                                  </span>
+                                </div>
+                                <p className="text-[9.5px] text-gray-400 font-bold mt-1.5 leading-tight">{cat.desc}</p>
+                              </div>
+
+                              <div className={`w-5 h-5 rounded-full border-1.5 flex items-center justify-center transition-all ${
+                                isActive 
+                                  ? 'bg-[#13AA52] border-[#13AA52] text-white' 
+                                  : darkMode ? 'border-zinc-750' : 'border-gray-200'
+                              }`}>
+                                {isActive && <Check className="w-3.5 h-3.5 stroke-[4.5]" />}
+                              </div>
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* SUB-SCREEN: DRIVER QUESTS & ACHIEVEMENTS */}
+                  {menuSubScreen === 'quests' && (
+                    <div className="flex-1 overflow-y-auto p-4 flex flex-col gap-3.5 animate-in fade-in slide-in-from-right duration-250 text-left">
+                      <div>
+                        <h3 className="text-sm font-black tracking-tight mb-1">Campaigns & Quests</h3>
+                        <p className="text-[10px] text-gray-450 font-bold leading-normal">
+                          Complete active consecutive trips to unleash lucrative cash rewards added immediately into your wallet ledger.
+                        </p>
+                      </div>
+
+                      <div className="flex flex-col gap-3">
+                        {quests.map((quest) => {
+                          const isDone = completedQuestIds.includes(quest.id);
+                          
+                          // Dynamically calculate progress based on types
+                          let currentProgress = 0;
+                          if (quest.id === 'q-1' || quest.id === 'q-4') {
+                            currentProgress = stats.completedTripsCount;
+                          } else if (quest.id === 'q-2') {
+                            currentProgress = completedComfortCount;
+                          } else if (quest.id === 'q-3') {
+                            currentProgress = completedAirportCount;
+                          }
+
+                          const progressPct = Math.min(Math.round((currentProgress / quest.target) * 100), 100);
+
+                          return (
+                            <div
+                              key={quest.id}
+                              className={`p-4 rounded-2xl border flex flex-col gap-3 transition ${
+                                isDone 
+                                  ? darkMode
+                                    ? 'bg-zinc-900/60 border-emerald-500/20'
+                                    : 'bg-emerald-50/10 border-emerald-500/20'
+                                  : darkMode
+                                    ? 'bg-zinc-900 border-zinc-800'
+                                    : 'bg-zinc-50 border-gray-150'
+                              }`}
+                            >
+                              <div className="flex justify-between items-start">
+                                <div className="min-w-0 pr-3">
+                                  <h4 className={`text-xs font-black truncate ${isDone ? 'text-[#13AA52] line-through decoration-emerald-500/30 font-extrabold' : ''}`}>
+                                    {quest.name}
+                                  </h4>
+                                  <p className="text-[9.5px] text-gray-400 font-bold mt-1 leading-normal">
+                                    {quest.description}
+                                  </p>
+                                </div>
+                                <span className={`text-[10px] font-mono font-black shrink-0 ${isDone ? 'text-[#13AA52]' : 'text-amber-500'}`}>
+                                  +£{quest.reward.toFixed(2)}
+                                </span>
+                              </div>
+
+                              {/* Progress elements */}
+                              <div className="flex flex-col gap-1.5 pt-1.5 border-t border-dashed border-gray-150/10">
+                                <div className="flex justify-between items-center text-[9px] font-mono font-bold leading-none">
+                                  <span className="text-gray-400">PROGRESS</span>
+                                  <span className={isDone ? 'text-[#13AA52]' : 'text-gray-405'}>
+                                    {isDone ? 'COMPLETED' : `${currentProgress} / ${quest.target}`}
+                                  </span>
+                                </div>
+
+                                <div className="w-full h-2 rounded-full bg-gray-200/50 overflow-hidden relative">
+                                  <div
+                                    className={`h-full rounded-full transition-all duration-300 ${isDone ? 'bg-[#13AA52]' : 'bg-amber-500'}`}
+                                    style={{ width: `${progressPct}%` }}
+                                  />
+                                </div>
+                              </div>
+                            </div>
+                          );
+                        })}
                       </div>
                     </div>
                   )}
