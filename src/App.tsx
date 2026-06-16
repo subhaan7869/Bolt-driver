@@ -18,6 +18,7 @@ import { onAuthStateChanged, signInWithPopup, signOut, User as FirebaseUser } fr
 import { doc, getDoc, setDoc, updateDoc, collection, onSnapshot } from 'firebase/firestore';
 import { auth, db, googleProvider, handleFirestoreError, OperationType } from './firebase';
 import { FaceScannerModal } from './components/FaceScannerModal';
+import { SwipeButton } from './components/SwipeButton';
 
 // Preset mock matches matching the London UK screenshots precisely!
 const TAXI_MOCK_RIDES: any[] = [
@@ -585,8 +586,35 @@ export default function App() {
   const [eatsBootupProgress, setEatsBootupProgress] = useState<number>(-1);
 
   // Subscreen navigation state inside Menu/Profile tab
-  const [menuSubScreen, setMenuSubScreen] = useState<'main' | 'admin_settings' | 'profile_details' | 'vehicles' | 'availability' | 'categories' | 'quests'>('main');
+  const [menuSubScreen, setMenuSubScreen] = useState<string>('main');
   const [showDestinationSettings, setShowDestinationSettings] = useState<boolean>(false);
+
+  // Editable dynamic vehicles state
+  const [vehicles, setVehicles] = useState<{id: string, name: string, class: string, plate: string, active: boolean}[]>([
+    {id: '1', name: 'Toyota Auris Hybrid (2019)', class: 'Swift Ride, Cargo Carrier', plate: 'LF69 SFT', active: true},
+    {id: '2', name: 'Cargo Electric E-Bike', class: 'Swift Eats Courier only', plate: 'BIKE-32X', active: false}
+  ]);
+  const [showAddVehicleForm, setShowAddVehicleForm] = useState<boolean>(false);
+  const [newVehicleName, setNewVehicleName] = useState<string>('');
+  const [newVehiclePlate, setNewVehiclePlate] = useState<string>('');
+  const [newVehicleClass, setNewVehicleClass] = useState<string>('Swift Ride');
+
+  // Working availability day state (M, T, W, T, F, S, S)
+  const [workingDays, setWorkingDays] = useState<boolean[]>([true, true, true, true, true, true, true]);
+  const [autoOnlineStartup, setAutoOnlineStartup] = useState<boolean>(true);
+
+  // Dynamic system notifications state
+  const [notifications, setNotifications] = useState<{id: string, title: string, desc: string, time: string, read: boolean}[]>([
+    {id: '1', title: 'London Soho Food Surge active', desc: 'Simulated food orders have 1.4x surge active due to heavy rain in Soho Central.', time: 'Just now', read: false},
+    {id: '2', title: 'Driver Biometrics audit passed', desc: 'Daily facial scanner validation completed. Safe matching enabled for 24 hours.', time: '2h ago', read: false},
+    {id: '3', title: 'Bonus pricing multiplier update', desc: 'Surgemeister levels updated to high multiplier factor across West End.', time: '5h ago', read: true}
+  ]);
+
+  // Support chatbot interactions state
+  const [supportMessages, setSupportMessages] = useState<{id: string, sender: 'driver' | 'system', text: string}[]>([
+    {id: '1', sender: 'system', text: "Hello! Welcome to Swift Driver Help Desk. Select any common system briefing below or ask a question directly:"}
+  ]);
+  const [supportInputMessage, setSupportInputMessage] = useState<string>('');
 
   useEffect(() => {
     localStorage.setItem('swift_active_eats_jobs', JSON.stringify(activeEatsJobs));
@@ -1890,15 +1918,9 @@ export default function App() {
                       </button>
 
                       <div className="flex items-center gap-1.5">
-                        <span className={`text-[10px] font-sans font-extrabold ${isOnline ? 'text-[#13AA52]' : (darkMode ? 'text-zinc-550' : 'text-gray-400')}`}>
-                          {isOnline ? 'Online' : 'Offline'}
+                        <span className={`px-2 py-0.5 rounded-full text-[9px] font-sans font-black uppercase tracking-wider ${isOnline ? 'bg-emerald-500/10 text-emerald-500' : 'bg-gray-100 text-gray-400 dark:bg-zinc-800 dark:text-zinc-500'}`}>
+                          {isOnline ? 'Active' : 'Offline'}
                         </span>
-                        <button
-                          onClick={() => handleSetOnline(!isOnline)}
-                          className={`w-8 h-4.5 rounded-full flex items-center px-0.5 transition-colors ${isOnline ? 'bg-[#13AA52]' : (darkMode ? 'bg-zinc-700' : 'bg-gray-300')}`}
-                        >
-                          <div className={`w-3.5 h-3.5 rounded-full bg-white shadow-md transform transition-transform ${isOnline ? 'translate-x-3.5' : 'translate-x-0'}`} />
-                        </button>
                       </div>
                     </div>
                   </nav>
@@ -1946,6 +1968,11 @@ export default function App() {
                           darkMode={darkMode}
                           simulateWandering={simulateWandering}
                           currentCity={currentCity}
+                          faceVerified={faceVerified}
+                          insuranceVerified={insuranceVerified}
+                          onSetOnline={handleSetOnline}
+                          boltCategories={boltCategories}
+                          setActiveTab={setActiveTab}
                         />
                       );
                     })()}
@@ -1970,17 +1997,7 @@ export default function App() {
                       </div>
                     )}
 
-                    {/* OFFLINE GO ONLINE FLOATING CTA BUTTON OVER MAP */}
-                    {!isOnline && (
-                      <div className="absolute bottom-5 left-4 right-4 z-20">
-                        <button
-                          onClick={() => handleSetOnline(true)}
-                          className="w-full py-3.5 bg-[#13AA52] hover:bg-[#0f8f44] text-white font-extrabold text-sm uppercase tracking-wide rounded-xl shadow-lg shadow-emerald-700/20 active:scale-98 transition flex items-center justify-center gap-1.5"
-                        >
-                          + Go Online
-                        </button>
-                      </div>
-                    )}
+
 
                     {/* Destination Filter Floating Button & Active Badge */}
                     {isOnline && mode === 'taxi' && tripProgress.stage === 'idle' && (
@@ -2529,19 +2546,20 @@ export default function App() {
 
                         {/* CUSTOM SLIDE TO ACTION TRACK (Exactly styled like real Swift Slider button!) */}
                         <div className="relative">
-                          <button
-                            onClick={handleSlideUnlock}
-                            className="w-full h-12 bg-[#13AA52] hover:bg-[#0f8f44] text-white font-extrabold text-[12px] uppercase tracking-wider rounded-xl relative flex items-center justify-center shadow-md select-none group active:scale-98 transition"
-                          >
-                            <div className="absolute left-1 top-1 bottom-1 w-10 bg-white/25 rounded-lg flex items-center justify-center">
-                              <ArrowRight className="w-4 h-4 text-white" />
-                            </div>
-                            <span className="pl-6 block">
-                              {tripProgress.stage === 'to_pickup' && 'Arrived at pickup'}
-                              {tripProgress.stage === 'arrived_pickup' && (mode === 'food' ? 'Confirm Pickup' : 'Start ride')}
-                              {(tripProgress.stage === 'to_destination' || tripProgress.stage === 'arrived_destination') && (mode === 'food' ? 'Complete delivery' : 'Complete ride')}
-                            </span>
-                          </button>
+                          <SwipeButton
+                            text={
+                              tripProgress.stage === 'to_pickup' ? 'Swipe: Arrived at pickup' :
+                              tripProgress.stage === 'arrived_pickup' ? (mode === 'food' ? 'Swipe to Confirm Pickup' : 'Swipe to Start Ride') :
+                              (mode === 'food' ? 'Swipe to Complete Delivery' : 'Swipe to Complete Ride')
+                            }
+                            onSwipeComplete={handleSlideUnlock}
+                            activeColorClass={
+                              tripProgress.stage === 'to_destination' || tripProgress.stage === 'arrived_destination' ? 'bg-[#ea4335]' : 'bg-[#13AA52]'
+                            }
+                            icon={
+                              <ArrowRight className="w-5 h-5 text-white" />
+                            }
+                          />
                         </div>
 
                         {/* Force Cancel link */}
@@ -2911,6 +2929,8 @@ export default function App() {
                         {menuSubScreen === 'categories' && 'Ride Tiers'}
                         {menuSubScreen === 'quests' && 'Driver Quests'}
                         {menuSubScreen === 'about' && 'About Simulator'}
+                        {menuSubScreen === 'notifications' && 'Notifications Inbox'}
+                        {menuSubScreen === 'help' && 'Driver Help & Chatbot'}
                       </span>
                       <div className="w-12" />
                     </div>
@@ -3058,7 +3078,7 @@ export default function App() {
 
                         {/* 3. Notifications */}
                         <button 
-                          onClick={() => { playSoundEffect('tap'); alert("Registered match events:\n1) London Soho Food Surge active at 1.4x\n2) Driver Biometrics audit passed successfully."); }}
+                          onClick={() => { playSoundEffect('tap'); setMenuSubScreen('notifications'); }}
                           className={`flex items-center justify-between py-3 px-2.5 rounded-xl transition text-left text-[11px] font-extrabold ${darkMode ? 'hover:bg-zinc-900 text-zinc-100' : 'hover:bg-gray-100 text-gray-800'}`}
                         >
                           <div className="flex items-center gap-3">
@@ -3069,16 +3089,18 @@ export default function App() {
                             </div>
                           </div>
                           <div className="flex items-center gap-1">
-                            <span className="bg-red-500 text-white font-black text-[9px] px-2 py-0.5 rounded-full leading-none">
-                              2
-                            </span>
+                            {notifications.filter(n => !n.read).length > 0 && (
+                              <span className="bg-red-500 text-white font-black text-[9px] px-2 py-0.5 rounded-full leading-none">
+                                {notifications.filter(n => !n.read).length}
+                              </span>
+                            )}
                             <ChevronRight className="w-3.5 h-3.5 text-gray-300" />
                           </div>
                         </button>
 
                         {/* 4. Help & support */}
                         <button 
-                          onClick={() => { playSoundEffect('tap'); alert("Swift Help & Support is active. Email developer if you experience issues."); }}
+                          onClick={() => { playSoundEffect('tap'); setMenuSubScreen('help'); }}
                           className={`flex items-center justify-between py-3 px-2.5 rounded-xl transition text-left text-[11px] font-extrabold ${darkMode ? 'hover:bg-zinc-900 text-zinc-100' : 'hover:bg-gray-100 text-gray-800'}`}
                         >
                           <div className="flex items-center gap-3">
@@ -3214,46 +3236,143 @@ export default function App() {
                   {/* SUB-SCREEN: MY VEHICLES */}
                   {menuSubScreen === 'vehicles' && (
                     <div className="flex-1 overflow-y-auto p-4 flex flex-col gap-3 animate-in fade-in slide-in-from-right duration-250 text-left">
-                      <h3 className="text-sm font-black tracking-tight mb-1">Approved Registry Vehicles</h3>
+                      <div className="flex items-center justify-between">
+                        <h3 className="text-sm font-black tracking-tight">Approved Registry Vehicles</h3>
+                        <span className="text-[8px] font-mono font-black uppercase text-gray-400 bg-gray-100 dark:bg-zinc-800 px-2 py-0.5 rounded-md">TFL APPROVED</span>
+                      </div>
                       
-                      {/* Active car */}
-                      <div className={`p-4 rounded-2xl border-2 flex flex-col gap-2 transition-colors duration-200 ${darkMode ? 'bg-zinc-900 border-[#13AA52]' : 'bg-emerald-50/30 border-[#13AA52]'}`}>
-                        <div className="flex justify-between items-start">
-                          <div>
-                            <span className="bg-[#13AA52] text-white text-[8px] font-bold font-mono px-1.5 py-0.2 rounded uppercase leading-none">ACTIVE DRIVING</span>
-                            <h4 className="text-sm font-black text-gray-905 mt-1.5">Toyota Auris Hybrid (2019)</h4>
-                            <p className="text-[10px] text-gray-400">Class: Swift Ride, Cargo Carrier</p>
+                      {/* Render dynamic vehicle list */}
+                      <div className="flex flex-col gap-2.5">
+                        {vehicles.map((vh) => (
+                          <div 
+                            key={vh.id} 
+                            onClick={() => {
+                              playSoundEffect('tap');
+                              setVehicles(vehicles.map(v => ({
+                                ...v,
+                                active: v.id === vh.id
+                              })));
+                              appendLog(`🚗 Switched active driving vehicle to ${vh.name} (${vh.plate})`, 'success');
+                            }}
+                            className={`p-3.5 rounded-2xl border-2 flex flex-col gap-2 transition-all duration-200 cursor-pointer ${
+                              vh.active 
+                                ? (darkMode ? 'bg-zinc-900 border-[#13AA52]' : 'bg-emerald-50/20 border-[#13AA52]') 
+                                : (darkMode ? 'bg-zinc-900/40 border-zinc-800 text-zinc-100 hover:border-zinc-700' : 'bg-gray-50 border-gray-150 text-gray-900 hover:border-gray-250')
+                            }`}
+                          >
+                            <div className="flex justify-between items-start">
+                              <div>
+                                <span className={`text-[8px] font-black font-mono px-1.5 py-0.5 rounded uppercase leading-none ${
+                                  vh.active ? 'bg-[#13AA52] text-white' : 'bg-zinc-350 dark:bg-zinc-700 text-zinc-800 dark:text-zinc-300'
+                                }`}>
+                                  {vh.active ? 'ACTIVE DRIVING' : 'STANDBY'}
+                                </span>
+                                <h4 className="text-xs font-black text-gray-905 mt-1.5">{vh.name}</h4>
+                                <p className="text-[9.5px] text-gray-500 dark:text-zinc-400">Class: {vh.class}</p>
+                              </div>
+                              <div className={`w-7.5 h-7.5 rounded-full flex items-center justify-center ${vh.active ? 'bg-[#13AA52]/10 text-[#13AA52]' : 'bg-zinc-200/50 dark:bg-zinc-800 text-zinc-400'}`}>
+                                <Car className="w-4 h-4" />
+                              </div>
+                            </div>
+                            <div className={`border-t border-dashed pt-2 flex items-center justify-between text-[9px] font-mono mt-1 ${vh.active ? 'border-[#13AA52]/20' : 'border-gray-300/40'}`}>
+                              <div>
+                                <span className="block text-[6.5px] text-gray-400">LICENSED PLATE</span>
+                                <span className={`font-extrabold ${vh.active ? 'text-[#13AA52]' : 'text-gray-600 dark:text-zinc-300'}`}>{vh.plate}</span>
+                              </div>
+                              <div>
+                                <span className="block text-[6.5px] text-gray-400">STATUS</span>
+                                <span className={`font-extrabold ${vh.active ? 'text-[#13AA52]' : 'text-zinc-400'}`}>APPROVED ✓</span>
+                              </div>
+                            </div>
                           </div>
-                          <div className={`w-8 h-8 rounded-full flex items-center justify-center ${darkMode ? 'bg-zinc-800' : 'bg-white shadow-sm'}`}>
-                            <Car className="w-4.5 h-4.5 text-[#13AA52]" />
-                          </div>
-                        </div>
-                        <div className="border-t border-dashed border-[#13AA52]/20 pt-2 flex items-center justify-between text-[10px] font-mono mt-1 text-gray-500">
-                          <div><span className="block text-[6.5px]">LICENSED PLATE</span><span className="font-extrabold text-[#13AA52]">LF69 SFT</span></div>
-                          <div><span className="block text-[6.5px]">STATUS</span><span className="font-extrabold text-[#13AA52]">APPROVED ✓</span></div>
-                        </div>
+                        ))}
                       </div>
 
-                      {/* Inactive car */}
-                      <div className={`p-4 rounded-2xl border flex flex-col gap-2 ${darkMode ? 'bg-zinc-900 border-zinc-800 text-zinc-100' : 'bg-gray-50 border-gray-150'}`}>
-                        <div className="flex justify-between items-start">
-                          <div>
-                            <span className="bg-zinc-400 text-white text-[8px] font-bold font-mono px-1.5 py-0.2 rounded uppercase leading-none">INACTIVE</span>
-                            <h4 className="text-sm font-black mt-1.5">Cargo Electric E-Bike</h4>
-                            <p className="text-[10px] text-zinc-400">Class: Swift Eats Courier only</p>
+                      {showAddVehicleForm ? (
+                        <div className={`p-4 rounded-2xl border flex flex-col gap-3 mt-2 ${darkMode ? 'bg-zinc-900 border-zinc-800' : 'bg-gray-50 border-gray-200'}`}>
+                          <h4 className="text-xs font-black uppercase tracking-wider text-gray-400">Register Additional Vehicle</h4>
+                          
+                          <div className="flex flex-col gap-1">
+                            <label className="text-[8px] font-bold text-gray-400 uppercase">Make & Model</label>
+                            <input 
+                              type="text" 
+                              value={newVehicleName}
+                              onChange={(e) => setNewVehicleName(e.target.value)}
+                              placeholder="e.g. Tesla Model 3 (2022)"
+                              className="px-2.5 py-1.5 rounded-xl border text-xs bg-white dark:bg-zinc-950 dark:border-zinc-800 text-zinc-800 dark:text-zinc-200 font-bold"
+                            />
                           </div>
-                          <div className={`w-8 h-8 rounded-full flex items-center justify-center ${darkMode ? 'bg-zinc-800 bg-opacity-20' : 'bg-white shadow-sm'}`}>
-                            <Zap className="w-4.5 h-4.5 text-zinc-300" />
+
+                          <div className="flex flex-col gap-1">
+                            <label className="text-[8px] font-bold text-gray-400 uppercase">Licensed Plate Registration</label>
+                            <input 
+                              type="text" 
+                              value={newVehiclePlate}
+                              onChange={(e) => setNewVehiclePlate(e.target.value)}
+                              placeholder="e.g. LC71 MTR"
+                              className="px-2.5 py-1.5 rounded-xl border text-xs bg-white dark:bg-zinc-950 dark:border-zinc-800 text-zinc-800 dark:text-zinc-200 font-bold uppercase font-mono"
+                            />
+                          </div>
+
+                          <div className="flex flex-col gap-1">
+                            <label className="text-[8px] font-bold text-gray-400 uppercase">Vehicle dispatch Class</label>
+                            <select 
+                              value={newVehicleClass}
+                              onChange={(e) => setNewVehicleClass(e.target.value)}
+                              className="px-2.5 py-1.5 rounded-xl border text-xs bg-white dark:bg-zinc-950 dark:border-zinc-800 text-zinc-800 dark:text-zinc-200 font-bold"
+                            >
+                              <option value="Swift Ride, Cargo Carrier">Swift Standard Ride</option>
+                              <option value="Swift Comfort, Executive Class">Swift Comfort (Luxury)</option>
+                              <option value="Swift Eats Courier only">Swift Eats Delivery</option>
+                            </select>
+                          </div>
+
+                          <div className="flex gap-2 mt-1">
+                            <button
+                              onClick={() => {
+                                playSoundEffect('tap');
+                                setShowAddVehicleForm(false);
+                              }}
+                              className="flex-1 py-2 rounded-xl text-[9px] font-black uppercase tracking-wider border text-zinc-500 hover:bg-zinc-100/50"
+                            >
+                              Cancel
+                            </button>
+                            <button
+                              onClick={() => {
+                                if (!newVehicleName || !newVehiclePlate) {
+                                  alert("Please specify Make & Model and Licensed Plate number.");
+                                  return;
+                                }
+                                playSoundEffect('complete');
+                                const newId = String(vehicles.length + 1);
+                                setVehicles([...vehicles, {
+                                  id: newId,
+                                  name: newVehicleName,
+                                  plate: newVehiclePlate.toUpperCase(),
+                                  class: newVehicleClass,
+                                  active: false
+                                }]);
+                                appendLog(`📝 Initiated TFL audit: Added ${newVehicleName} [${newVehiclePlate.toUpperCase()}] on standby catalog!`, 'success');
+                                setNewVehicleName('');
+                                setNewVehiclePlate('');
+                                setShowAddVehicleForm(false);
+                              }}
+                              className="flex-1 py-2 bg-[#13AA52] hover:bg-[#0f8f44] text-white rounded-xl text-[9px] font-black uppercase tracking-wider text-center"
+                            >
+                              Save TFL Vehicle
+                            </button>
                           </div>
                         </div>
-                      </div>
-
-                      <button
-                        onClick={() => { playSoundEffect('tap'); alert("Registered vehicle audit is controlled by Greater London Council. Additional vectors must be licensed on TFL Registry."); }}
-                        className="py-3 bg-zinc-250 hover:bg-zinc-305 text-zinc-700 font-extrabold text-[10px] uppercase tracking-wider rounded-xl transition text-center mt-2"
-                      >
-                        + Register another vehicle
-                      </button>
+                      ) : (
+                        <button
+                          onClick={() => { playSoundEffect('tap'); setShowAddVehicleForm(true); }}
+                          className={`py-3 text-[9px] uppercase tracking-wider rounded-xl transition text-center mt-2 font-black ${
+                            darkMode ? 'bg-zinc-900 border border-zinc-800 hover:bg-zinc-800 text-zinc-200' : 'bg-gray-105 hover:bg-gray-200 text-gray-700'
+                          }`}
+                        >
+                          + Register another vehicle
+                        </button>
+                      )}
                     </div>
                   )}
 
@@ -3270,20 +3389,40 @@ export default function App() {
                         
                         {/* Weekly nodes */}
                         <div className="grid grid-cols-7 gap-1 text-center font-mono my-1">
-                          {['M','T','W','T','F','S','S'].map((day, idx) => (
-                            <div key={idx} className="flex flex-col gap-1 items-center">
-                              <span className="text-[8px] text-zinc-450">{day}</span>
-                              <div className="w-6 h-6 rounded-full bg-[#13AA52] text-white text-[9px] font-extrabold flex items-center justify-center">
-                                ✓
-                              </div>
-                            </div>
-                          ))}
+                          {['M','T','W','T','F','S','S'].map((day, idx) => {
+                            const active = workingDays[idx];
+                            return (
+                              <button 
+                                key={idx} 
+                                onClick={() => {
+                                  playSoundEffect('tap');
+                                  const nextDays = [...workingDays];
+                                  nextDays[idx] = !nextDays[idx];
+                                  setWorkingDays(nextDays);
+                                  appendLog(`📅 Toggled scheduler: ${day} is now ${nextDays[idx] ? 'ACTIVE' : 'OFFLINE'}`, 'info');
+                                }}
+                                className="flex flex-col gap-1 items-center bg-transparent border-0 cursor-pointer focus:outline-none"
+                              >
+                                <span className="text-[8px] text-zinc-455">{day}</span>
+                                <div className={`w-6 h-6 rounded-full text-[9px] font-extrabold flex items-center justify-center transition-all ${
+                                  active 
+                                    ? 'bg-[#13AA52] text-white' 
+                                    : 'bg-gray-250 dark:bg-zinc-800 text-gray-400 dark:text-zinc-600'
+                                }`}>
+                                  {active ? '✓' : '✕'}
+                                </div>
+                              </button>
+                            );
+                          })}
                         </div>
 
                         <div className="border-t border-dashed border-gray-200 pt-2.5 flex items-center justify-between">
                           <span className="text-[10px] font-bold">Auto-online at startup</span>
-                          <button className="w-8 h-4.5 rounded-full flex items-center px-0.5 bg-[#13AA52] pointer-events-none">
-                            <div className="w-3.5 h-3.5 rounded-full bg-white shadow-md transform translate-x-3.5" />
+                          <button 
+                            onClick={() => { playSoundEffect('tap'); setAutoOnlineStartup(!autoOnlineStartup); }}
+                            className={`w-8 h-4.5 rounded-full flex items-center px-0.5 transition-colors cursor-pointer ${autoOnlineStartup ? 'bg-[#13AA52]' : 'bg-gray-300 dark:bg-zinc-700'}`}
+                          >
+                            <div className={`w-3.5 h-3.5 rounded-full bg-white shadow-md transform transition-transform ${autoOnlineStartup ? 'translate-x-3.5' : 'translate-x-0'}`} />
                           </button>
                         </div>
                       </div>
@@ -3754,6 +3893,194 @@ export default function App() {
                           );
                         })}
                       </div>
+                    </div>
+                  )}
+
+                  {/* SUB-SCREEN: NOTIFICATIONS INBOX */}
+                  {menuSubScreen === 'notifications' && (
+                    <div className="flex-1 overflow-y-auto p-4 flex flex-col gap-3.5 animate-in fade-in slide-in-from-right duration-250 text-left">
+                      <div className="flex items-center justify-between">
+                        <h3 className="text-sm font-black tracking-tight">System Briefing Notifications</h3>
+                        {notifications.length > 0 && (
+                          <button
+                            onClick={() => {
+                              playSoundEffect('tap');
+                              setNotifications([]);
+                              appendLog("🗑️ Cleared all notifications inbox.", "info");
+                            }}
+                            className="bg-transparent border-0 text-[9px] font-black text-rose-500 uppercase tracking-wider cursor-pointer hover:underline"
+                          >
+                            Clear All
+                          </button>
+                        )}
+                      </div>
+
+                      {notifications.length === 0 ? (
+                        <div className="flex-1 flex flex-col items-center justify-center py-16 px-6 text-center">
+                          <CheckCircle className="w-12 h-12 text-[#13AA52]/25 mb-3" />
+                          <h4 className="text-xs font-black uppercase text-gray-400 tracking-wider">Inbox Cleared!</h4>
+                          <p className="text-[10px] text-gray-450 mt-1 leading-normal max-w-xs font-sans">
+                            You are fully up to date. We will ping you as soon as new surges, zone multipliers or match events occur.
+                          </p>
+                        </div>
+                      ) : (
+                        <div className="flex flex-col gap-2.5">
+                          {notifications.map((notif) => (
+                            <div 
+                              key={notif.id}
+                              onClick={() => {
+                                playSoundEffect('tap');
+                                setNotifications(notifications.map(n => n.id === notif.id ? {...n, read: true} : n));
+                              }}
+                              className={`p-3 rounded-2xl border flex flex-col gap-1.5 transition duration-150 cursor-pointer ${
+                                notif.read 
+                                  ? (darkMode ? 'bg-zinc-900/30 border-zinc-850 opacity-60' : 'bg-gray-50/50 border-gray-100 opacity-75')
+                                  : (darkMode ? 'bg-zinc-900 border-zinc-800' : 'bg-white border-gray-200 shadow-xs')
+                              }`}
+                            >
+                              <div className="flex items-center justify-between font-sans">
+                                <div className="flex items-center gap-1.5">
+                                  <div className={`w-1.5 h-1.5 rounded-full ${notif.read ? 'bg-transparent' : 'bg-amber-500 animate-ping'}`} />
+                                  <h4 className="text-[10.5px] font-black uppercase tracking-wide truncate max-w-[180px]">{notif.title}</h4>
+                                </div>
+                                <span className="text-[8px] font-mono text-gray-400 text-right">{notif.time}</span>
+                              </div>
+                              <p className="text-[9.5px] text-gray-550 dark:text-zinc-400 leading-relaxed pl-3 font-medium">
+                                {notif.desc}
+                              </p>
+                              {!notif.read && (
+                                <button
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    playSoundEffect('tap');
+                                    setNotifications(notifications.map(n => n.id === notif.id ? {...n, read: true} : n));
+                                  }}
+                                  className="w-fit self-end text-[7.5px] font-black uppercase tracking-widest text-[#13AA52] hover:underline cursor-pointer py-0.5 mt-1 border-0 bg-transparent font-sans"
+                                >
+                                  Mark as read ✓
+                                </button>
+                              )}
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  )}
+
+                  {/* SUB-SCREEN: SUPPORT HELP CENTER & CHATBOT */}
+                  {menuSubScreen === 'help' && (
+                    <div className="flex-1 flex flex-col overflow-hidden animate-in fade-in slide-in-from-right duration-250 text-left">
+                      
+                      {/* Help Header Stats Desk */}
+                      <div className={`p-3 border-b flex items-center justify-between shrink-0 ${darkMode ? 'bg-zinc-900/40 border-zinc-850' : 'bg-gray-50/50 border-gray-100'}`}>
+                        <div className="flex items-center gap-2 font-sans">
+                          <div className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse" />
+                          <div>
+                            <span className="text-[10px] font-black uppercase tracking-wider block">Support Agent Sarah</span>
+                            <span className="text-[7.5px] text-gray-400 block font-mono">SIMULATION CO-DISPATCHED</span>
+                          </div>
+                        </div>
+                        <span className="text-[8.5px] font-mono bg-[#13AA52]/10 text-[#13AA52] px-1.5 py-0.5 rounded-md font-black uppercase tracking-wider">ONLINE</span>
+                      </div>
+
+                      {/* Message Thread Feed */}
+                      <div className="flex-1 overflow-y-auto p-3 flex flex-col gap-2.5">
+                        {supportMessages.map((msg) => (
+                          <div 
+                            key={msg.id}
+                            className={`max-w-[82%] p-2.5 rounded-2xl text-[10.5px] leading-relaxed font-sans ${
+                              msg.sender === 'driver'
+                                ? 'bg-[#13AA52] text-white self-end font-extrabold rounded-tr-none'
+                                : (darkMode ? 'bg-zinc-900 border border-zinc-800 text-zinc-200' : 'bg-gray-100 text-gray-800') + ' self-start font-medium rounded-tl-none'
+                            }`}
+                          >
+                            {msg.text}
+                          </div>
+                        ))}
+                      </div>
+
+                      {/* Quick FAQ Interactive Action Chips */}
+                      <div className={`p-2 shrink-0 border-t flex flex-col gap-1 ${darkMode ? 'bg-zinc-950 border-zinc-850/60' : 'bg-gray-50/55 border-gray-150'}`}>
+                        <span className="text-[7.5px] font-black uppercase text-gray-400 pl-1">Suggested inquiries:</span>
+                        <div className="flex flex-wrap gap-1">
+                          {[
+                            "Why am I not getting jobs?",
+                            "How do point Incentives work?",
+                            "How to trigger Heathrow virtual pen?"
+                          ].map((faq, index) => (
+                            <button
+                              key={index}
+                              onClick={() => {
+                                playSoundEffect('tap');
+                                const userMsgId = String(supportMessages.length + 1);
+                                const userMsg = { id: userMsgId, sender: 'driver' as const, text: faq };
+                                
+                                let replyText = "";
+                                if (index === 0) {
+                                  replyText = "Hello! To receive match jobs: Make sure you are ONLINE (press Go Online on home map). Check that simulated GPS is enabled. Confirm that Daily Selfie check and policy registrations are VERIFIED in the main list.";
+                                } else if (index === 1) {
+                                  replyText = "Point Incentives (Quests) are added immediately as multipliers to your earnings. Once completed, checkout your Profile > Campaigns or view your instant balance in the Wallet tab.";
+                                } else {
+                                  replyText = "Heathrow Virtual Queue pen activates near London Heathrow Airport. Tap 'Opportunities' inside your Offline banner, select Airport Virtual Queue, and tap 'Check In' to join the waitlist!";
+                                }
+
+                                const replyId = String(supportMessages.length + 2);
+                                const botReply = { id: replyId, sender: 'system' as const, text: replyText };
+
+                                setSupportMessages(prev => [...prev, userMsg, botReply]);
+                                setTimeout(() => {
+                                  playSoundEffect('complete');
+                                }, 300);
+                              }}
+                              className={`border-0 rounded-full px-2.5 py-1 text-[8.5px] font-black uppercase tracking-wider text-left cursor-pointer transition ${
+                                darkMode ? 'bg-zinc-800 hover:bg-zinc-700 text-zinc-300' : 'bg-white hover:bg-gray-100 text-gray-650 border border-gray-200'
+                              }`}
+                            >
+                              {faq}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+
+                      {/* Custom input bar */}
+                      <form 
+                        onSubmit={(e) => {
+                          e.preventDefault();
+                          if (!supportInputMessage.trim()) return;
+                          playSoundEffect('tap');
+                          
+                          const userMsgId = String(supportMessages.length + 1);
+                          const userMsg = { id: userMsgId, sender: 'driver' as const, text: supportInputMessage };
+                          const textArg = supportInputMessage;
+                          setSupportInputMessage('');
+
+                          let replyText = `Thanks for your inquiry about "${textArg}". Support desk systems have analyzed your telemetry. Make sure Service Mode is taxi/food. Agent Sarah has been dispatched to trace your request successfully!`;
+                          const replyId = String(supportMessages.length + 2);
+                          const botReply = { id: replyId, sender: 'system' as const, text: replyText };
+
+                          setSupportMessages(prev => [...prev, userMsg, botReply]);
+                          setTimeout(() => {
+                            playSoundEffect('complete');
+                          }, 320);
+                        }}
+                        className={`p-2.5 border-t shrink-0 flex gap-2 ${darkMode ? 'bg-zinc-900 border-zinc-850' : 'bg-white border-gray-150'}`}
+                      >
+                        <input
+                          type="text"
+                          value={supportInputMessage}
+                          onChange={(e) => setSupportInputMessage(e.target.value)}
+                          placeholder="Type simulated inquiry..."
+                          className={`flex-1 px-3 py-2 rounded-xl text-xs font-bold ${
+                            darkMode ? 'bg-zinc-950 border-zinc-800 text-zinc-200 placeholder-zinc-500' : 'bg-gray-50 border-gray-200 text-gray-800'
+                          }`}
+                        />
+                        <button
+                          type="submit"
+                          className="px-3.5 bg-[#13AA52] hover:bg-[#0f8f44] text-white rounded-xl text-xs font-black uppercase tracking-wide border-0 cursor-pointer flex items-center justify-center font-sans"
+                        >
+                          Send
+                        </button>
+                      </form>
                     </div>
                   )}
                 </div>

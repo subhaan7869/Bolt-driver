@@ -1,19 +1,29 @@
 import React, { useEffect, useRef, useState, useMemo } from 'react';
-import { TripProgress, RideRequest } from '../types';
+import { TripProgress, RideRequest, DriverStats } from '../types';
 import L from 'leaflet';
-import { MapPin, Navigation, Zap, Compass, Target } from 'lucide-react';
+import { MapPin, Navigation, Zap, Compass, Target, ShieldCheck, CheckCircle2, User, Sliders, Radio, Globe, ArrowRight, Play, Volume2, VolumeX, Battery, BatteryCharging, RefreshCw, ArrowUp, CornerUpLeft, CornerUpRight, Award, BarChart2, Plane, ChevronRight, ChevronDown, Clock, Plus, Search, Sparkles, Check, Mail, X } from 'lucide-react';
+import { SwipeButton } from './SwipeButton';
 
 interface MapSimulatorProps {
   tripProgress: TripProgress;
   isOnline: boolean;
   surgeLevel: 'low' | 'medium' | 'high';
   onSpawnRideFromZone?: (multiplier: number, areaName: string, coords: { x: number; y: number }) => void;
-  mode?: 'taxi' | 'food';
+  mode?: 'taxi' | 'food' | 'courier';
   realCoords: { lat: number; lon: number; accuracy: number; address: string } | null;
   useRealGPS: boolean;
   darkMode: boolean;
   simulateWandering: boolean;
   currentCity?: string;
+  faceVerified?: boolean;
+  insuranceVerified?: boolean;
+  onSetOnline?: (online: boolean) => void;
+  boltCategories?: string[];
+  setActiveTab?: (tab: 'home' | 'earnings' | 'activity' | 'inbox' | 'profile') => void;
+  stats?: DriverStats;
+  onSetMode?: (mode: 'taxi' | 'food') => void;
+  onSetCurrentCity?: (city: string) => void;
+  onSetMenuSubScreen?: (screen: string) => void;
 }
 
 // Logical surge coordinates relative to the 400x500 virtual grid
@@ -46,10 +56,233 @@ export const MapSimulator: React.FC<MapSimulatorProps> = ({
   darkMode,
   simulateWandering,
   currentCity = 'London',
+  faceVerified = false,
+  insuranceVerified = false,
+  onSetOnline,
+  boltCategories = [],
+  setActiveTab,
+  stats,
+  onSetMode,
+  onSetCurrentCity,
+  onSetMenuSubScreen,
 }) => {
   const mapElementRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<L.Map | null>(null);
   const tileLayerRef = useRef<L.TileLayer | null>(null);
+
+  // Cockpit telemetry state variables
+  const [speed, setSpeed] = useState<number>(0);
+  const [speedLimit, setSpeedLimit] = useState<number>(30);
+  const [evBattery, setEvBattery] = useState<number>(() => {
+    const saved = localStorage.getItem('swift_ev_battery');
+    return saved ? parseFloat(saved) : 88.5;
+  });
+  const [isCharging, setIsCharging] = useState<boolean>(false);
+  const [voiceMuted, setVoiceMuted] = useState<boolean>(() => {
+    return localStorage.getItem('swift_navigator_voice_muted') === 'true';
+  });
+  const [lastSpokenStep, setLastSpokenStep] = useState<string>('');
+
+  useEffect(() => {
+    localStorage.setItem('swift_ev_battery', evBattery.toFixed(1));
+  }, [evBattery]);
+
+  useEffect(() => {
+    localStorage.setItem('swift_navigator_voice_muted', String(voiceMuted));
+  }, [voiceMuted]);
+
+  // Special Bolt features: Peak Hours modal, Airport Queue modal, and City selector
+  const [showPeakModal, setShowPeakModal] = useState<boolean>(false);
+  const [showAirportQueueModal, setShowAirportQueueModal] = useState<boolean>(false);
+  const [isJoinedQueue, setIsJoinedQueue] = useState<boolean>(false);
+  const [queueProgress, setQueueProgress] = useState<number>(14);
+  const [showCityDropdown, setShowCityDropdown] = useState<boolean>(false);
+
+  // Airport Virtual Queue countdown interval helper
+  useEffect(() => {
+    if (!isJoinedQueue || !showAirportQueueModal) return;
+
+    const interval = setInterval(() => {
+      setQueueProgress(prev => {
+        if (prev <= 1) {
+          clearInterval(interval);
+          // Auto trigger airport dispatch ride!
+          if (window.dispatchEvent) {
+            window.dispatchEvent(new CustomEvent('add-simulation-log', {
+              detail: { text: "✈️ Virtual queue position #1! Loading incoming premium Heathrow Airport dispatch offer...", type: "success" }
+            }));
+            window.dispatchEvent(new CustomEvent('play-sound', { detail: 'complete' }));
+          }
+          // After 2 seconds, trigger a ride spawn!
+          setTimeout(() => {
+            if (onSetOnline) onSetOnline(true);
+            setTimeout(() => {
+              if (onSpawnRideFromZone) {
+                onSpawnRideFromZone(2.4, "Heathrow Terminal 5", { x: 310, y: 380 });
+              }
+            }, 600);
+            setShowAirportQueueModal(false);
+            setIsJoinedQueue(false);
+          }, 2000);
+          return 1;
+        }
+        
+        // Decrement rank
+        const dec = Math.floor(Math.random() * 2) + 1;
+        if (window.dispatchEvent) {
+          window.dispatchEvent(new CustomEvent('add-simulation-log', {
+            detail: { text: `✈️ Virtual Heathrow Queue progress: position #${Math.max(1, prev - dec)}`, type: "info" }
+          }));
+          window.dispatchEvent(new CustomEvent('play-sound', { detail: 'tap' }));
+        }
+        return Math.max(1, prev - dec);
+      });
+    }, 4500);
+
+    return () => clearInterval(interval);
+  }, [isJoinedQueue, showAirportQueueModal, onSpawnRideFromZone, onSetOnline]);
+
+  // Drain EV battery as navigation progress advances
+  const prevNavProgressRef = useRef<number>(0);
+  useEffect(() => {
+    const { stage, navigationProgress } = tripProgress;
+    if (isOnline && (stage === 'to_pickup' || stage === 'to_destination')) {
+      if (navigationProgress !== prevNavProgressRef.current) {
+        setEvBattery(prev => {
+          const next = Math.max(1, prev - 0.08); // small battery depletion
+          return parseFloat(next.toFixed(1));
+        });
+        prevNavProgressRef.current = navigationProgress;
+      }
+    }
+  }, [tripProgress.navigationProgress, tripProgress.stage, isOnline]);
+
+  // Handle EV Charging cycle animation
+  useEffect(() => {
+    if (!isCharging) return;
+    
+    const interval = setInterval(() => {
+      setEvBattery(prev => {
+        if (prev >= 100) {
+          setIsCharging(false);
+          if (window.dispatchEvent) {
+            window.dispatchEvent(new CustomEvent('add-simulation-log', {
+              detail: { text: "🔋 EV Supercharger completed! Battery capacity calibrated at 100%.", type: "success" }
+            }));
+            window.dispatchEvent(new CustomEvent('play-sound', { detail: 'complete' }));
+          }
+          return 100;
+        }
+        return Math.min(100, prev + 2.5); // rapid charge +2.5% per tick
+      });
+    }, 150);
+
+    return () => clearInterval(interval);
+  }, [isCharging]);
+
+  // Speedometer simulator drifting
+  useEffect(() => {
+    const { stage } = tripProgress;
+    if (!isOnline || stage === 'idle' || stage === 'arrived_pickup' || stage === 'arrived_destination' || isCharging) {
+      setSpeed(0);
+      return;
+    }
+
+    const interval = setInterval(() => {
+      setSpeed(() => {
+        const baseSpeed = stage === 'to_pickup' ? 24 : 32;
+        const speedLimitVal = stage === 'to_pickup' ? 20 : 30;
+        setSpeedLimit(speedLimitVal);
+        const drift = (Math.random() * 8 - 4);
+        return Math.max(5, Math.round(baseSpeed + drift));
+      });
+    }, 1000);
+
+    return () => clearInterval(interval);
+  }, [isOnline, tripProgress.stage, isCharging]);
+
+  // Compute Turn Instructions based on active city and progress ratio
+  const activeNavigationStep = useMemo(() => {
+    const { stage, currentRide, navigationProgress } = tripProgress;
+    if (!isOnline || !currentRide || stage === 'idle' || stage === 'offering') {
+      return null;
+    }
+
+    const normCity = currentCity.trim().toLowerCase();
+    const cityStreets = normCity === 'london'
+      ? ['Regent Street', 'The Mall', 'Charing Cross Road', 'Piccadilly Circus', 'Park Lane', 'Oxford Street', 'Shaftesbury Avenue', 'Baker Street']
+      : normCity === 'birmingham'
+      ? ['Broad Street', 'Corporation Street', 'New Street', 'Hagley Road', 'Bristol Road', 'Colmore Row']
+      : ['High Street', 'Station Road', 'Church Street', 'London Road', 'Victoria Road', 'The Avenue'];
+
+    const routeSeed = currentRide.passengerName ? currentRide.passengerName.charCodeAt(0) : 0;
+    const st1 = cityStreets[routeSeed % cityStreets.length];
+    const st2 = cityStreets[(routeSeed + 2) % cityStreets.length];
+    const st3 = cityStreets[(routeSeed + 4) % cityStreets.length];
+
+    const isPickup = stage === 'to_pickup' || stage === 'arrived_pickup';
+    const targetDest = isPickup ? currentRide.pickupAddress : currentRide.dropoffAddress;
+
+    if (stage === 'arrived_pickup') {
+      return {
+        text: `Arrived at pickup location`,
+        sub: `Waiting for passenger ${currentRide.passengerName}`,
+        type: 'arrive',
+        distanceText: '0m',
+      };
+    }
+
+    if (navigationProgress < 30) {
+      const remainingDist = Math.max(40, Math.round((30 - navigationProgress) * 7.5));
+      return {
+        text: `Turn right onto ${st1}`,
+        sub: `Head toward ${isPickup ? 'pickup node' : 'destination sector'}`,
+        type: 'right',
+        distanceText: `${remainingDist}m`,
+      };
+    } else if (navigationProgress < 65) {
+      const remainingDist = Math.max(30, Math.round((65 - navigationProgress) * 8.5));
+      return {
+        text: `At roundabout, take exit onto ${st2}`,
+        sub: `Simulated traffic flows green`,
+        type: 'roundabout',
+        distanceText: `${remainingDist}m`,
+      };
+    } else if (navigationProgress < 90) {
+      const remainingDist = Math.max(20, Math.round((90 - navigationProgress) * 6));
+      return {
+        text: `Continue straight on ${st3}`,
+        sub: `Nearing target geospatial coordinates`,
+        type: 'straight',
+        distanceText: `${remainingDist}m`,
+      };
+    } else {
+      return {
+        text: `Arriving shortly at ${targetDest}`,
+        sub: `Prepare to decelerate near final curb`,
+        type: 'arrive',
+        distanceText: 'Soon',
+      };
+    }
+  }, [isOnline, tripProgress, currentCity]);
+
+  // Trigger verbal voice synthesis guidance assistant
+  useEffect(() => {
+    if (activeNavigationStep && activeNavigationStep.text !== lastSpokenStep && !voiceMuted && !isCharging) {
+      setLastSpokenStep(activeNavigationStep.text);
+      if ('speechSynthesis' in window) {
+        try {
+          window.speechSynthesis.cancel();
+          const utterance = new SpeechSynthesisUtterance(activeNavigationStep.text);
+          utterance.rate = 1.05;
+          utterance.pitch = 1.05;
+          window.speechSynthesis.speak(utterance);
+        } catch (e) {
+          console.log('Speech synthetics interrupted', e);
+        }
+      }
+    }
+  }, [activeNavigationStep, lastSpokenStep, voiceMuted, isCharging]);
   
   // Custom Leaflet objects referencing active simulation layer maps
   const driverMarkerRef = useRef<L.Marker | null>(null);
@@ -474,28 +707,437 @@ export const MapSimulator: React.FC<MapSimulatorProps> = ({
         )}
       </div>
 
-      {/* Offline screen cover */}
       {!isOnline && (
-        <div className={`absolute inset-0 flex flex-col items-center justify-center p-4 text-center z-15 backdrop-blur-xs transition-colors duration-250 ${
-          darkMode ? 'bg-zinc-950/92' : 'bg-white/92'
-        }`}>
-          <Navigation className="w-8 h-8 text-[#13AA52] mb-1.5 animate-bounce" />
-          <h4 className={`text-sm font-black ${darkMode ? 'text-zinc-50' : 'text-zinc-950'}`}>Swift Driver Offline</h4>
-          <p className={`text-[11px] max-w-[240px] leading-tight mt-1 ${darkMode ? 'text-zinc-400' : 'text-gray-500'}`}>
-            Please tap the <span className="font-extrabold text-[#13AA52]">+ Go Online</span> button below to start simulating requests.
-          </p>
+        <>
+          {/* Top Floating Status toggle capsule */}
+          <div className="absolute top-4 left-4 right-4 z-20 mx-auto max-w-sm bg-white dark:bg-zinc-950 px-4 py-3 border border-gray-150 dark:border-zinc-850 rounded-3xl flex items-center justify-between shadow-xl transition-all duration-300 transform animate-in slide-in-from-top-4 duration-300 pointer-events-auto">
+            {/* Pulsing indicator bullet for inactive state */}
+            <div className="flex h-5 w-5 relative items-center justify-center mr-2 shrink-0">
+              <span className="animate-ping absolute inline-flex h-3 w-3 rounded-full bg-rose-400 opacity-75"></span>
+              <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-rose-600"></span>
+            </div>
+
+            {/* Offline details text */}
+            <div className="flex-1 text-left min-w-0">
+              <span className="text-gray-900 dark:text-zinc-50 text-[13px] font-black block tracking-tight">Offline</span>
+              <span className="text-[10px] text-gray-500 dark:text-zinc-400 block truncate mt-0.5 font-bold font-sans leading-none">
+                Go online to start receiving trips
+              </span>
+            </div>
+
+            {/* Settings Slider Trigger */}
+            <button 
+              onClick={() => {
+                if (window.dispatchEvent) window.dispatchEvent(new CustomEvent('play-sound', { detail: 'tap' }));
+                setActiveTab?.('profile');
+                onSetMenuSubScreen?.('categories');
+              }}
+              className="w-8 h-8 rounded-full flex items-center justify-center hover:bg-gray-100 dark:hover:bg-zinc-900 text-gray-700 dark:text-zinc-350 transition shrink-0 border-0 bg-transparent cursor-pointer"
+              title="Active Booking Tiers"
+            >
+              <Sliders className="w-4 h-4" />
+            </button>
+          </div>
+
+          {/* Draggable/Swipable Bottom Sheet Drawer */}
+          <div className="absolute bottom-0 left-0 right-0 z-20 rounded-t-[28px] border-t bg-white/95 dark:bg-zinc-950/98 dark:border-zinc-850 p-4 pb-6 shadow-[0_-8px_30px_rgba(0,0,0,0.08)] flex flex-col pointer-events-auto w-full max-w-sm mx-auto md:bottom-2 md:rounded-3xl md:border">
+            {/* Pull Bar Indicator */}
+            <div className="w-10 h-1 bg-gray-200 dark:bg-zinc-850 rounded-full mx-auto mb-3" />
+
+            {/* Today's earnings row link */}
+            <div 
+              onClick={() => {
+                if (window.dispatchEvent) window.dispatchEvent(new CustomEvent('play-sound', { detail: 'tap' }));
+                setActiveTab?.('earnings');
+              }}
+              className="flex items-center justify-between cursor-pointer group mb-1"
+            >
+              <span className="text-[9.5px] font-extrabold uppercase text-gray-400 tracking-wider font-sans group-hover:text-gray-600 dark:group-hover:text-zinc-300 transition-colors">
+                Today's earnings
+              </span>
+              <ChevronRight className="w-3.5 h-3.5 text-gray-300 group-hover:translate-x-0.5 transition duration-150" />
+            </div>
+
+            {/* Main Balance display */}
+            <div className="flex items-baseline mb-3.5 text-left select-text">
+              <span className="text-xl font-bold font-sans text-gray-905 dark:text-zinc-50 mr-0.5">£</span>
+              <span className="text-3.5xl font-black tracking-tight text-gray-905 dark:text-zinc-50 font-mono leading-none">
+                {(stats?.todayEarnings ?? 0).toFixed(2)}
+              </span>
+            </div>
+
+            {/* Grid Matrix microdashboard */}
+            <div className="grid grid-cols-3 gap-1 py-2.5 border-y border-gray-100 dark:border-zinc-900 text-center select-none bg-gray-50/10 dark:bg-transparent mb-3.5">
+              <div className="flex flex-col animate-in fade-in duration-150">
+                <span className="text-gray-905 dark:text-zinc-150 font-black font-mono text-sm leading-none">
+                  {stats?.completedTripsCount ?? 0}
+                </span>
+                <span className="text-gray-400 text-[8px] font-extrabold uppercase mt-1 tracking-wide leading-none font-sans">Trips</span>
+              </div>
+              <div className="flex flex-col border-x border-gray-100 dark:border-zinc-900 animate-in fade-in duration-200">
+                <span className="text-gray-905 dark:text-zinc-150 font-black font-mono text-sm leading-none col-span-1">
+                  {stats ? `${Math.floor(stats.hoursOnline)}h ${Math.round((stats.hoursOnline % 1) * 60)}m` : '0h 0m'}
+                </span>
+                <span className="text-gray-400 text-[8px] font-extrabold uppercase mt-1 tracking-wide leading-none font-sans">Online time</span>
+              </div>
+              <div className="flex flex-col animate-in fade-in duration-250">
+                <span className="text-[#13AA52] font-black font-mono text-sm leading-none font-sans font-extrabold">
+                  {(stats?.completedTripsCount ?? 0) * 15}
+                </span>
+                <span className="text-gray-400 text-[8px] font-extrabold uppercase mt-1 tracking-wide leading-none font-sans">Points</span>
+              </div>
+            </div>
+
+            {/* Opportunities Heading */}
+            <div className="flex items-center justify-between mb-2 select-none">
+              <span className="text-xs font-black tracking-tight text-gray-900 dark:text-zinc-50 font-sans">Opportunities</span>
+              <span 
+                onClick={() => {
+                  if (window.dispatchEvent) window.dispatchEvent(new CustomEvent('play-sound', { detail: 'tap' }));
+                  setActiveTab?.('profile');
+                  onSetMenuSubScreen?.('quests');
+                }}
+                className="text-[9.5px] text-[#13AA52] hover:underline font-extrabold cursor-pointer uppercase tracking-wider font-sans border-0 bg-transparent p-0"
+              >
+                See all
+              </span>
+            </div>
+
+            {/* Horizontally scrolling opportunities carousel */}
+            <div className="flex items-center gap-2 overflow-x-auto pb-3 w-full scrollbar-none flex-nowrap mb-3.5">
+              
+              {/* Card 1: Weekly bonus */}
+              <div 
+                onClick={() => {
+                  if (window.dispatchEvent) {
+                    window.dispatchEvent(new CustomEvent('play-sound', { detail: 'chime' }));
+                  }
+                  setActiveTab?.('profile');
+                  onSetMenuSubScreen?.('quests');
+                }}
+                className="flex-1 min-w-[130px] p-2.5 rounded-2xl border border-emerald-500/10 dark:border-emerald-500/5 bg-emerald-500/5 hover:bg-emerald-500/10 dark:bg-emerald-500/[5%] transition duration-150 cursor-pointer text-left focus:outline-none"
+              >
+                <div className="w-6.5 h-6.5 rounded-lg bg-[#13AA52]/10 flex items-center justify-center text-[#13AA52] mb-2">
+                  <Award className="w-4 h-4 text-emerald-500" />
+                </div>
+                <span className="text-[10px] font-black block text-gray-900 dark:text-zinc-50 leading-none">Weekly bonus</span>
+                <span className="text-[7.5px] text-[#13AA52] font-extrabold mt-1.5 block tracking-wide font-sans">Earn up to £120 ➔</span>
+              </div>
+
+              {/* Card 2: Peak hours graph trigger */}
+              <div 
+                onClick={() => {
+                  if (window.dispatchEvent) window.dispatchEvent(new CustomEvent('play-sound', { detail: 'tap' }));
+                  setShowPeakModal(true);
+                }}
+                className="flex-1 min-w-[130px] p-2.5 rounded-2xl border border-amber-500/10 dark:border-amber-500/5 bg-amber-500/5 hover:bg-amber-500/10 transition duration-150 cursor-pointer text-left focus:outline-none"
+              >
+                <div className="w-6.5 h-6.5 rounded-lg bg-amber-500/10 flex items-center justify-center text-amber-500 mb-2">
+                  <BarChart2 className="w-4 h-4 text-amber-500" />
+                </div>
+                <span className="text-[10px] font-black block text-gray-900 dark:text-zinc-50 leading-none">Peak hours</span>
+                <span className="text-[7.5px] text-amber-600 font-extrabold mt-1.5 block tracking-wide font-sans">See busy times ➔</span>
+              </div>
+
+              {/* Card 3: Airport virtual queue board */}
+              <div 
+                onClick={() => {
+                  if (window.dispatchEvent) window.dispatchEvent(new CustomEvent('play-sound', { detail: 'tap' }));
+                  setShowAirportQueueModal(true);
+                }}
+                className="flex-1 min-w-[130px] p-2.5 rounded-2xl border border-purple-500/10 dark:border-purple-500/5 bg-purple-500/5 hover:bg-purple-500/10 transition duration-150 cursor-pointer text-left focus:outline-none"
+              >
+                <div className="w-6.5 h-6.5 rounded-lg bg-purple-500/10 flex items-center justify-center text-purple-500 mb-2">
+                  <Plane className="w-4 h-4 text-purple-500" />
+                </div>
+                <span className="text-[10px] font-black block text-gray-900 dark:text-zinc-50 leading-none">Airport queues</span>
+                <span className="text-[7.5px] text-purple-600 font-extrabold mt-1.5 block tracking-wide font-sans">Heathrow Terminal ➔</span>
+              </div>
+            </div>
+
+            {/* Service Filter Toggles: Bolt | Food | Courier */}
+            <div className="bg-gray-100/70 dark:bg-zinc-900/60 p-1 rounded-2xl grid grid-cols-3 gap-1 mb-4 select-none mt-1 border dark:border-zinc-800">
+              {(['taxi', 'food', 'courier'] as const).map((profile) => {
+                const isActive = profile === 'courier' ? false : (mode === profile);
+                return (
+                  <button
+                    key={profile}
+                    type="button"
+                    onClick={() => {
+                      if (window.dispatchEvent) window.dispatchEvent(new CustomEvent('play-sound', { detail: 'tap' }));
+                      
+                      if (profile === 'courier') {
+                        if (window.dispatchEvent) {
+                          window.dispatchEvent(new CustomEvent('add-simulation-log', {
+                            detail: { text: "📦 Courier dispatch profile loaded. Priority document delivery activated on central network.", type: "info" }
+                          }));
+                        }
+                      } else if (onSetMode) {
+                        onSetMode(profile);
+                      }
+                    }}
+                    className={`py-1.5 text-[9.5px] font-black text-center rounded-xl font-sans transition py-1 border-0 ${
+                      isActive
+                        ? 'bg-[#13AA52] text-white shadow-md'
+                        : 'text-gray-550 hover:text-gray-800 dark:text-zinc-400 dark:hover:text-zinc-200 bg-transparent font-bold'
+                    }`}
+                  >
+                    {profile === 'taxi' ? 'Bolt' : profile === 'food' ? 'Food' : 'Courier'}
+                  </button>
+                );
+              })}
+            </div>
+
+            {/* Swipe to Go Online */}
+            <div className="w-full">
+              <SwipeButton
+                text="Swipe to Go Online"
+                onSwipeComplete={() => {
+                  if (window.dispatchEvent) {
+                    window.dispatchEvent(new CustomEvent('play-sound', { detail: 'complete' }));
+                    window.dispatchEvent(new CustomEvent('add-simulation-log', {
+                      detail: { text: "⚡ Driver connecting... Handshaking dispatch servers. Status ACTIVE", type: "success" }
+                    }));
+                  }
+                  onSetOnline?.(true);
+                }}
+                activeColorClass="bg-[#13AA52]"
+                icon={<ArrowRight className="w-4 h-4 text-white" />}
+              />
+            </div>
+          </div>
+        </>
+      )}
+
+      {/* MODAL 1: EXTREME PEAK HOURS VISUAL CHART OVERLAY */}
+      {showPeakModal && (
+        <div className="absolute inset-0 z-50 flex items-center justify-center bg-zinc-950/80 backdrop-blur-xs p-4 animate-in fade-in duration-205 pointer-events-auto">
+          <div className={`w-full max-w-sm rounded-[24px] border p-4 shadow-2xl animate-in zoom-in-95 duration-200 text-left ${
+            darkMode ? 'bg-zinc-900 border-zinc-805 text-zinc-100' : 'bg-white border-gray-150 text-gray-900'
+          }`}>
+            <div className="flex items-center justify-between border-b pb-2 mb-3 dark:border-zinc-800 font-sans">
+              <div className="flex items-center gap-1.5">
+                <BarChart2 className="w-4.5 h-4.5 text-amber-500 animate-bounce" />
+                <h4 className="text-[12.5px] font-black uppercase tracking-wide">Predictive Peak Hours</h4>
+              </div>
+              <button 
+                onClick={() => {
+                  if (window.dispatchEvent) window.dispatchEvent(new CustomEvent('play-sound', { detail: 'tap' }));
+                  setShowPeakModal(false);
+                }}
+                className={`w-6.5 h-6.5 rounded-full flex items-center justify-center border-0 text-[11px] font-black ${
+                  darkMode ? 'bg-zinc-800 hover:bg-zinc-700 text-zinc-300' : 'bg-gray-100 hover:bg-gray-205 text-gray-500'
+                }`}
+              >
+                ✕
+              </button>
+            </div>
+
+            <p className="text-[10px] text-gray-550 dark:text-zinc-400 font-medium mb-4 leading-normal font-sans">
+              High surge multipliers trigger heavy ridership demand. Tap any spike segment below to temporarily inject instant peak pricing!
+            </p>
+
+            {/* Custom Interactive Vertical Bar chart */}
+            <div className="h-32 flex items-end justify-between px-2 pt-4 border-b dark:border-zinc-800 relative mb-4 select-none">
+              {[
+                { time: "08:00", multiplier: 1.8, label: "MORN SPURT", color: "bg-amber-500" },
+                { time: "12:00", multiplier: 1.4, label: "LUNCH CRUSH", color: "bg-emerald-500" },
+                { time: "17:00", multiplier: 2.2, label: "RUSH HOUR", color: "bg-rose-550 animate-pulse" },
+                { time: "21:00", multiplier: 1.6, label: "NIGHT FERRY", color: "bg-purple-550" }
+              ].map((item, idx) => {
+                const heightVal = (item.multiplier / 2.5) * 100;
+                return (
+                  <div 
+                    key={idx} 
+                    onClick={() => {
+                      if (window.dispatchEvent) {
+                        window.dispatchEvent(new CustomEvent('play-sound', { detail: 'chime' }));
+                        window.dispatchEvent(new CustomEvent('add-simulation-log', {
+                          detail: { text: `🔥 Simulated pricing adjustments: ${item.label} active! Surge is set to ${item.multiplier}x`, type: "warn" }
+                        }));
+                      }
+                      setShowPeakModal(false);
+                    }}
+                    className="flex flex-col items-center flex-1 cursor-pointer group hover:scale-105 transition-all"
+                  >
+                    <span className="text-[8px] font-black font-mono text-[#13AA52] mb-1 opacity-100">
+                      +{item.multiplier}x
+                    </span>
+                    <div className="w-8 bg-gray-100/50 dark:bg-zinc-800 rounded-t-lg h-20 flex items-end justify-center overflow-hidden">
+                      <div className={`w-full rounded-t-md transition-all ${item.color}`} style={{ height: `${heightVal}%` }} />
+                    </div>
+                    <span className="text-[8.5px] font-black mt-2 font-mono">{item.time}</span>
+                  </div>
+                );
+              })}
+            </div>
+
+            <div className={`p-2.5 rounded-xl border flex items-center gap-2 text-[9px] font-bold leading-normal font-sans/80 ${
+              darkMode ? 'bg-zinc-950/50 border-zinc-805 text-zinc-400' : 'bg-gray-50 border-gray-150 text-gray-505'
+            }`}>
+              <Zap className="w-4 h-4 text-amber-500 fill-amber-500/20 shrink-0" />
+              <span>Highest weekend payout occurs during 17:00 Rush (x2.2 multiplier active in central zones).</span>
+            </div>
+          </div>
         </div>
       )}
 
-      {/* Online, Idle Searching Pulse */}
+      {/* MODAL 2: HEATHROW AIRPORT DISPATCH CONTROL BOARD & VIRTUAL QUEUE */}
+      {showAirportQueueModal && (
+        <div className="absolute inset-0 z-50 flex items-center justify-center bg-zinc-950/80 backdrop-blur-xs p-4 animate-in fade-in duration-200 pointer-events-auto">
+          <div className={`w-full max-w-sm rounded-[24px] border p-4 shadow-2xl animate-in zoom-in-95 duration-200 text-left ${
+            darkMode ? 'bg-zinc-900 border-zinc-800 text-zinc-100' : 'bg-white border-gray-150 text-gray-905'
+          }`}>
+            <div className="flex items-center justify-between border-b pb-2 mb-3 dark:border-zinc-800 font-sans">
+              <div className="flex items-center gap-1.5">
+                <Plane className="w-4.5 h-4.5 text-[#13AA52] animate-pulse" />
+                <h4 className="text-[12.5px] font-black uppercase tracking-wide">Airport Dispatch Dashboard</h4>
+              </div>
+              <button 
+                onClick={() => {
+                  if (window.dispatchEvent) window.dispatchEvent(new CustomEvent('play-sound', { detail: 'tap' }));
+                  setShowAirportQueueModal(false);
+                }}
+                className={`w-6.5 h-6.5 rounded-full flex items-center justify-center border-0 text-[11px] font-black ${
+                  darkMode ? 'bg-zinc-800 hover:bg-zinc-700 text-zinc-300' : 'bg-gray-100 hover:bg-gray-200 text-gray-500'
+                }`}
+              >
+                ✕
+              </button>
+            </div>
+
+            {/* Airport details */}
+            <div className="flex items-center justify-between mb-3 bg-gray-50 dark:bg-zinc-950/50 p-2.5 rounded-xl border dark:border-zinc-850 font-sans">
+              <div className="text-left font-sans text-xs">
+                <span className="text-[7.5px] font-mono font-black uppercase text-gray-400">ACTIVE REGION</span>
+                <span className="text-[11.5px] font-black block mt-0.5 whitespace-nowrap">London Heathrow Airport</span>
+              </div>
+              <div className="text-right font-sans text-xs">
+                <span className="text-[7.5px] font-mono font-black uppercase text-gray-400">QUEUED DRIVERS</span>
+                <span className="text-[11.5px] text-[#13AA52] font-black block mt-0.5 font-mono">14 Waiting</span>
+              </div>
+            </div>
+
+            {!isJoinedQueue ? (
+              <>
+                <p className="text-[10px] text-gray-505 dark:text-zinc-400 mb-3.5 leading-normal font-sans font-medium">
+                  London Heathrow virtual taxi pen is active. Join the dispatch queue below to receive automatic high-fare airport long distance bookings!
+                </p>
+
+                <button
+                  onClick={() => {
+                    if (window.dispatchEvent) {
+                      window.dispatchEvent(new CustomEvent('play-sound', { detail: 'complete' }));
+                      window.dispatchEvent(new CustomEvent('add-simulation-log', {
+                        detail: { text: "✈️ Checked in at Heathrow Virtual Queue pen! Position #14 assigned.", type: "info" }
+                      }));
+                    }
+                    setIsJoinedQueue(true);
+                    setQueueProgress(14);
+                  }}
+                  className="w-full py-3 bg-[#13AA52] hover:bg-[#0f8f44] text-white font-extrabold text-[11px] uppercase tracking-wider rounded-xl transition duration-155 border-0 cursor-pointer shadow-md font-sans"
+                >
+                  Join Virtual Queue
+                </button>
+              </>
+            ) : (
+              <div className="text-center py-2 font-sans">
+                {/* Circular queue ticket */}
+                <div className="w-18 h-18 rounded-full border-4 border-dashed border-[#13AA52] flex flex-col items-center justify-center mx-auto mb-3.5 relative animate-spin-slow">
+                  <div className="absolute inset-0 flex flex-col items-center justify-center font-sans">
+                    <span className="text-[8px] font-bold text-gray-400 uppercase leading-none">RANK</span>
+                    <span className="text-lg font-mono font-black text-[#13AA52] mt-0.5">#{queueProgress}</span>
+                  </div>
+                </div>
+
+                <p className="text-[10px] font-semibold text-gray-500 dark:text-zinc-350 leading-snug mb-4 max-w-[240px] mx-auto font-sans">
+                  Connected! Your dispatch rank is progressing. Remain in the geo-fenced waiting zone to preserve priority.
+                </p>
+
+                <div className="flex gap-2">
+                  <button
+                    onClick={() => {
+                      if (window.dispatchEvent) {
+                        window.dispatchEvent(new CustomEvent('play-sound', { detail: 'tap' }));
+                        window.dispatchEvent(new CustomEvent('add-simulation-log', {
+                          detail: { text: "✈️ Voluntarily exited Heathrow virtual queue.", type: "warning" }
+                        }));
+                      }
+                      setIsJoinedQueue(false);
+                    }}
+                    className={`flex-1 py-1.5 rounded-xl text-[10px] font-black uppercase tracking-wider border transition font-sans ${
+                      darkMode ? 'border-zinc-705 bg-zinc-800 text-zinc-350 hover:bg-zinc-750' : 'border-gray-200 bg-gray-50 text-gray-600 hover:bg-gray-100'
+                    }`}
+                  >
+                    Leave Queue
+                  </button>
+                  <button
+                    onClick={() => {
+                      // Instantly jump queue to #1
+                      if (window.dispatchEvent) window.dispatchEvent(new CustomEvent('play-sound', { detail: 'complete' }));
+                      setQueueProgress(1);
+                    }}
+                    className="flex-1 py-1.5 bg-purple-600 hover:bg-purple-705 text-white rounded-xl text-[10px] font-black uppercase tracking-wider transition border-0 cursor-pointer font-sans"
+                  >
+                    💳 Jump Queue (+£2)
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Draggable/Swipable Bottom Sheet Drawer when Online and Idle */}
       {isOnline && tripProgress.stage === 'idle' && (
-        <div className={`absolute bottom-3 left-1/2 -translate-x-1/2 border px-3 py-1 rounded-full shadow-lg flex items-center gap-1.5 animate-pulse z-10 transition-colors duration-250 ${
-          darkMode ? 'bg-zinc-900/95 border-zinc-850' : 'bg-white/95 border-gray-100'
-        }`}>
-          <div className="w-1.5 h-1.5 rounded-full bg-[#13AA52] animate-ping" />
-          <span className="text-[9.5px] font-sans font-bold text-[#13AA52] uppercase tracking-wider">
-            Waiting for jobs...
-          </span>
+        <div className="absolute bottom-0 left-0 right-0 z-20 rounded-t-[28px] border-t bg-white/95 dark:bg-[#0a0a0a]/98 border-gray-150 dark:border-zinc-850 p-4 pb-6 shadow-[0_-8px_30px_rgba(0,0,0,0.08)] flex flex-col pointer-events-auto w-full max-w-sm mx-auto md:bottom-2 md:rounded-3xl md:border">
+          {/* Pull Bar Indicator */}
+          <div className="w-10 h-1 bg-gray-200 dark:bg-zinc-800 rounded-full mx-auto mb-3" />
+
+          {/* Connected status indicator */}
+          <div className="flex items-center justify-between mb-3">
+            <div className="flex items-center gap-2">
+              <span className="relative flex h-2.5 w-2.5">
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-[#13AA52]"></span>
+              </span>
+              <span className="text-xs font-black uppercase tracking-wider text-[#13AA52] font-sans">
+                Online & Searching
+              </span>
+            </div>
+            <span className="text-[8px] font-mono text-gray-400 dark:text-zinc-500 uppercase font-bold">
+              Dispatch Terminal Active
+            </span>
+          </div>
+
+          {/* Compact metrics row */}
+          <div className="grid grid-cols-2 gap-2 text-center text-xs font-bold mb-4 font-mono py-2 rounded-xl bg-gray-50/50 dark:bg-zinc-900/30 border border-gray-100 dark:border-zinc-900">
+            <div className="flex flex-col">
+              <span className="text-gray-400 dark:text-zinc-550 text-[8px] uppercase font-extrabold tracking-wide mb-0.5 font-sans">Today's Cash</span>
+              <span className="text-gray-900 dark:text-zinc-150 font-black">£{(stats?.todayEarnings ?? 0).toFixed(2)}</span>
+            </div>
+            <div className="flex flex-col border-l border-gray-100 dark:border-zinc-900">
+              <span className="text-gray-400 dark:text-zinc-550 text-[8px] uppercase font-extrabold tracking-wide mb-0.5 font-sans">Jobs Completed</span>
+              <span className="text-[#13AA52] font-black">{stats?.completedTripsCount ?? 0}</span>
+            </div>
+          </div>
+
+          <div className="w-full">
+            <SwipeButton
+              text="Swipe to Go Offline"
+              onSwipeComplete={() => {
+                if (window.dispatchEvent) {
+                  window.dispatchEvent(new CustomEvent('play-sound', { detail: 'tap' }));
+                  window.dispatchEvent(new CustomEvent('add-simulation-log', {
+                    detail: { text: "🔌 Logging out to Offline. Disconnected matches.", type: "warn" }
+                  }));
+                }
+                onSetOnline?.(false);
+              }}
+              activeColorClass="bg-rose-600"
+              icon={<X className="w-4 h-4 text-white" />}
+            />
+          </div>
         </div>
       )}
 
@@ -510,33 +1152,116 @@ export const MapSimulator: React.FC<MapSimulatorProps> = ({
 
       {/* Turn Navigation Info Banner */}
       {isOnline && (tripProgress.stage === 'to_pickup' || tripProgress.stage === 'to_destination') && (
-        <div className={`absolute top-2 left-2 right-2 border rounded-lg p-2 flex items-center gap-2.5 shadow-md animate-in fade-in slide-in-from-top-2 duration-200 z-10 transition-colors duration-250 ${
-          darkMode ? 'bg-zinc-900/95 border-zinc-800 text-zinc-100' : 'bg-white border text-gray-900 border-gray-100'
+        <div className={`absolute top-2.5 left-2.5 right-2.5 border rounded-2xl p-3 flex items-center gap-3 shadow-lg animate-in fade-in slide-in-from-top-3 duration-250 z-10 transition-colors duration-250 ${
+          darkMode ? 'bg-zinc-950/95 border-zinc-850 text-zinc-100 shadow-emerald-950/10' : 'bg-white border text-gray-900 border-gray-150/80 shadow-gray-200/50'
         }`}>
-          <div className="w-7 h-7 rounded-full bg-[#13AA52] flex items-center justify-center text-white shrink-0 shadow-sm">
-            <Navigation className="w-3.5 h-3.5 transform -rotate-45 fill-white" />
+          {/* Tactical Turn Left/Right Directional Arrow Container */}
+          <div className="w-9 h-9 rounded-xl bg-[#13AA52] flex items-center justify-center text-white shrink-0 shadow-md shadow-emerald-500/10">
+            {(!activeNavigationStep || activeNavigationStep.type === 'straight') && (
+              <ArrowUp className="w-5 h-5 text-white stroke-[3.5]" />
+            )}
+            {activeNavigationStep?.type === 'right' && (
+              <CornerUpRight className="w-5 h-5 text-white stroke-[3.5]" />
+            )}
+            {activeNavigationStep?.type === 'roundabout' && (
+              <RefreshCw className="w-5 h-5 text-white stroke-[3.5] animate-spin-slow" />
+            )}
+            {activeNavigationStep?.type === 'arrive' && (
+              <MapPin className="w-5 h-5 text-white fill-white animate-bounce" />
+            )}
           </div>
-          <div className="flex-1 min-w-0">
-            <h5 className="text-[10.5px] font-black leading-none">
-              {tripProgress.stage === 'to_pickup'
-                ? (mode === 'food' ? 'Pickup order at Restaurant' : 'Navigating to passenger')
-                : 'Navigating to destination'
-              }
+
+          <div className="flex-1 min-w-0 text-left">
+            <span className="text-[7.5px] font-mono font-black uppercase tracking-wider text-[#13AA52] block leading-none mb-0.5">
+              SWIFT TURN NAVIGATOR
+            </span>
+            <h5 className="text-[11.5px] font-black leading-tight truncate">
+              {activeNavigationStep?.text || (tripProgress.stage === 'to_pickup' ? 'Proceed to pickup run' : 'Proceed to destination') }
             </h5>
-            <p className={`text-[9px] truncate leading-snug mt-1 ${darkMode ? 'text-zinc-450' : 'text-gray-500'}`}>
-              {tripProgress.stage === 'to_pickup'
-                ? `${tripProgress.currentRide?.pickupAddress}`
-                : `${tripProgress.currentRide?.dropoffAddress}`
-              }
+            <p className={`text-[9.5px] font-bold truncate leading-tight mt-1 ${darkMode ? 'text-zinc-400' : 'text-gray-500'}`}>
+              {activeNavigationStep?.sub || (tripProgress.stage === 'to_pickup' ? tripProgress.currentRide?.pickupAddress : tripProgress.currentRide?.dropoffAddress)}
             </p>
           </div>
-          <div className="text-right whitespace-nowrap leading-tight">
-            <span className="text-[11px] font-black text-[#13AA52] block">
-              {Math.ceil(tripProgress.currentRide?.distance ? (tripProgress.currentRide.distance * (1 - tripProgress.navigationProgress/100)) : 2.5).toFixed(1)} km
-            </span>
-            <span className={`text-[8.5px] block font-mono font-bold mt-0.5 ${darkMode ? 'text-zinc-500' : 'text-gray-400'}`}>
-              {Math.ceil((tripProgress.currentRide?.estimatedMinutes || 5) * (1 - tripProgress.navigationProgress/100))} min
-            </span>
+
+          {/* Right side countdown or voice toggle controls */}
+          <div className="flex items-center gap-2.5 pl-2 border-l border-dashed border-gray-200/20">
+            <div className="text-right whitespace-nowrap leading-none">
+              <span className="text-[12px] font-mono font-black text-[#13AA52] block">
+                {activeNavigationStep?.distanceText || `${Math.ceil(tripProgress.currentRide?.distance ? (tripProgress.currentRide.distance * (1 - tripProgress.navigationProgress/100)) : 2).toFixed(1)} km`}
+              </span>
+              <span className={`text-[8.5px] block font-mono font-bold mt-1 ${darkMode ? 'text-zinc-550' : 'text-gray-400'}`}>
+                {Math.ceil((tripProgress.currentRide?.estimatedMinutes || 5) * (1 - tripProgress.navigationProgress/100))} min
+              </span>
+            </div>
+
+            {/* In-app Voice assistant mute controls button */}
+            <button
+              onClick={() => {
+                const nextMuted = !voiceMuted;
+                setVoiceMuted(nextMuted);
+                if (window.dispatchEvent) {
+                  window.dispatchEvent(new CustomEvent('play-sound', { detail: 'tap' }));
+                  window.dispatchEvent(new CustomEvent('add-simulation-log', {
+                    detail: { 
+                      text: nextMuted ? '🔇 Verbal Voice Assistant muted.' : '🔊 Verbal Voice Co-Pilot activated! Speech guides enabled.',
+                      type: 'info'
+                    }
+                  }));
+                }
+              }}
+              className={`w-7 h-7 rounded-lg border flex items-center justify-center transition pointer-events-auto ${
+                voiceMuted 
+                  ? darkMode ? 'bg-zinc-900 border-zinc-800 text-zinc-400' : 'bg-gray-50 border-gray-200 text-gray-400'
+                  : 'bg-emerald-500/10 border-emerald-500/20 text-[#13AA52]'
+              }`}
+              title={voiceMuted ? "Unmute Voice Navigator" : "Mute Voice Navigator"}
+            >
+              {voiceMuted ? <VolumeX className="w-3.5 h-3.5" /> : <Volume2 className="w-3.5 h-3.5 animate-pulse" />}
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Immersive HUD Telemetry Cockpit Panel */}
+      {isOnline && (
+        <div id="hud-telemetry-cockpit" className={`absolute bottom-3.5 left-3.5 p-2 rounded-xl flex items-center gap-2.5 shadow-md border pointer-events-auto z-10 transition-all ${
+          darkMode ? 'bg-zinc-950/95 border-zinc-850 text-zinc-100' : 'bg-white border text-gray-950 border-gray-150/80'
+        }`}>
+          {/* Circular UI Speedometer */}
+          <div className="flex items-center gap-1.5 text-left">
+            <div className={`w-8 h-8 rounded-full border-2 flex flex-col items-center justify-center leading-none shrink-0 ${
+              speed > speedLimit 
+                ? 'border-rose-500 bg-rose-500/10 text-rose-500 animate-pulse' 
+                : 'border-[#13AA52] bg-[#13AA52]/5 text-[#13AA52]'
+            }`}>
+              <span className="text-[11px] font-mono font-black">{speed}</span>
+              <span className="text-[6px] font-bold uppercase">mph</span>
+            </div>
+            
+            {/* Speed Limit UK Sign Ring */}
+            <div className="w-5.5 h-5.5 rounded-full border border-rose-600 bg-white flex items-center justify-center font-black text-[8px] text-gray-950 shadow-xs" title="Road Speed Limit">
+              {speedLimit}
+            </div>
+          </div>
+
+          <div className="h-5 w-px bg-zinc-200/20" />
+
+          {/* EV Battery Cluster */}
+          <div className="flex items-center gap-1 bg-transparent">
+            <div className="relative">
+              {evBattery > 20 ? (
+                <Battery className={`w-4 h-4 ${evBattery < 40 ? 'text-amber-500' : 'text-emerald-500'}`} />
+              ) : (
+                <Battery className="w-4 h-4 text-rose-500 animate-bounce" />
+              )}
+              {isCharging && (
+                <BatteryCharging className="w-3.5 h-3.5 text-emerald-400 absolute -top-1 -right-1 animate-pulse" />
+              )}
+            </div>
+            <div className="text-left font-mono leading-none">
+              <span className="text-[9.5px] font-black">{evBattery}%</span>
+              <span className="text-[6px] text-gray-400 block font-bold uppercase mt-0.5">EV BATT</span>
+            </div>
           </div>
         </div>
       )}

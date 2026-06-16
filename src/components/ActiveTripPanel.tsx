@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { TripProgress, ActiveChat } from '../types';
 import { playTapSound } from '../utils/SoundGenerator';
 import { MessageSquare, Phone, MapPin, X, Compass, CheckCircle2, Navigation, MessageCircle } from 'lucide-react';
+import { SwipeButton } from './SwipeButton';
 
 interface ActiveTripPanelProps {
   tripProgress: TripProgress;
@@ -116,40 +117,20 @@ export const ActiveTripPanel: React.FC<ActiveTripPanelProps> = ({
 
       {/* Slide-to-Action Slider (The core driver experience!) */}
       <div className="relative mt-1">
-        <div className="w-full h-14 bg-slate-950/60 border border-slate-800 rounded-xl relative flex items-center justify-center overflow-hidden">
-          {/* Neon moving glow bar in track background */}
-          <div 
-            className="absolute left-0 top-0 bottom-0 bg-emerald-500/10 transition-all duration-75"
-            style={{ width: `${sliderVal}%` }}
-          />
-
-          {/* Core instruction display behind the slider thumb */}
-          <span className="text-xs font-bold pointer-events-none uppercase tracking-wider text-gray-400 animate-pulse select-none z-0">
-            {stage === 'to_pickup' && 'Slide to Confirm Arrival'}
-            {stage === 'arrived_pickup' && 'Slide to Start Trip'}
-            {stage === 'to_destination' && 'Slide to Complete Trip'}
-          </span>
-
-          <input
-            id="trip-action-slider"
-            type="range"
-            min="0"
-            max="100"
-            value={sliderVal}
-            onChange={handleSliderChange}
-            onMouseUp={handleSliderRelease}
-            onTouchEnd={handleSliderRelease}
-            className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10"
-          />
-
-          {/* Simulated sliding handle */}
-          <div
-            className="absolute left-1.5 top-1.5 bottom-1.5 w-11 rounded-lg bg-emerald-500 flex items-center justify-center shadow-lg transition-all duration-75 pointer-events-none z-20 flex-col"
-            style={{ transform: `translateX(${sliderVal * 2.15}px)` }}
-          >
-            <Navigation className="w-5 h-5 text-slate-950 font-black fill-slate-950 transform rotate-90" />
-          </div>
-        </div>
+        <SwipeButton
+          text={
+            stage === 'to_pickup' ? 'Swipe to Confirm Arrival' :
+            stage === 'arrived_pickup' ? 'Swipe to Start Trip' :
+            'Swipe to Complete Trip'
+          }
+          onSwipeComplete={onAdvanceStage}
+          activeColorClass={
+            stage === 'to_destination' ? 'bg-[#ea4335]' : 'bg-[#13AA52]'
+          }
+          icon={
+            <Navigation className="w-5 h-5 text-white font-black fill-white transform rotate-90" />
+          }
+        />
       </div>
 
       {/* Cancel ride button */}
