@@ -1088,59 +1088,6 @@ export const MapSimulator: React.FC<MapSimulatorProps> = ({
         </div>
       )}
 
-      {/* Draggable/Swipable Bottom Sheet Drawer when Online and Idle */}
-      {isOnline && tripProgress.stage === 'idle' && (
-        <div className="absolute bottom-0 left-0 right-0 z-20 rounded-t-[28px] border-t bg-white/95 dark:bg-[#0a0a0a]/98 border-gray-150 dark:border-zinc-850 p-4 pb-6 shadow-[0_-8px_30px_rgba(0,0,0,0.08)] flex flex-col pointer-events-auto w-full max-w-sm mx-auto md:bottom-2 md:rounded-3xl md:border">
-          {/* Pull Bar Indicator */}
-          <div className="w-10 h-1 bg-gray-200 dark:bg-zinc-800 rounded-full mx-auto mb-3" />
-
-          {/* Connected status indicator */}
-          <div className="flex items-center justify-between mb-3">
-            <div className="flex items-center gap-2">
-              <span className="relative flex h-2.5 w-2.5">
-                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-                <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-[#13AA52]"></span>
-              </span>
-              <span className="text-xs font-black uppercase tracking-wider text-[#13AA52] font-sans">
-                Online & Searching
-              </span>
-            </div>
-            <span className="text-[8px] font-mono text-gray-400 dark:text-zinc-500 uppercase font-bold">
-              Dispatch Terminal Active
-            </span>
-          </div>
-
-          {/* Compact metrics row */}
-          <div className="grid grid-cols-2 gap-2 text-center text-xs font-bold mb-4 font-mono py-2 rounded-xl bg-gray-50/50 dark:bg-zinc-900/30 border border-gray-100 dark:border-zinc-900">
-            <div className="flex flex-col">
-              <span className="text-gray-400 dark:text-zinc-550 text-[8px] uppercase font-extrabold tracking-wide mb-0.5 font-sans">Today's Cash</span>
-              <span className="text-gray-900 dark:text-zinc-150 font-black">£{(stats?.todayEarnings ?? 0).toFixed(2)}</span>
-            </div>
-            <div className="flex flex-col border-l border-gray-100 dark:border-zinc-900">
-              <span className="text-gray-400 dark:text-zinc-550 text-[8px] uppercase font-extrabold tracking-wide mb-0.5 font-sans">Jobs Completed</span>
-              <span className="text-[#13AA52] font-black">{stats?.completedTripsCount ?? 0}</span>
-            </div>
-          </div>
-
-          <div className="w-full">
-            <SwipeButton
-              text="Swipe to Go Offline"
-              onSwipeComplete={() => {
-                if (window.dispatchEvent) {
-                  window.dispatchEvent(new CustomEvent('play-sound', { detail: 'tap' }));
-                  window.dispatchEvent(new CustomEvent('add-simulation-log', {
-                    detail: { text: "🔌 Logging out to Offline. Disconnected matches.", type: "warn" }
-                  }));
-                }
-                onSetOnline?.(false);
-              }}
-              activeColorClass="bg-rose-600"
-              icon={<X className="w-4 h-4 text-white" />}
-            />
-          </div>
-        </div>
-      )}
-
       {/* Click Hotspot Guide */}
       {isOnline && tripProgress.stage === 'idle' && (
         <div className={`absolute top-2.5 right-2.5 border px-1.5 py-0.5 rounded text-[8px] font-bold z-10 shadow-xs transition-colors duration-250 ${

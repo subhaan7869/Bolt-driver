@@ -542,7 +542,7 @@ export default function App() {
     }
   };
 
-  const [isOnline, setIsOnline] = useState<boolean>(true);
+  const [isOnline, setIsOnline] = useState<boolean>(false);
   const [isOnBreak, setIsOnBreak] = useState<boolean>(false);
   const [surgeLevel, setSurgeLevel] = useState<'low' | 'medium' | 'high'>('high');
   const [simSpeed, setSimSpeed] = useState<number>(2);
@@ -601,7 +601,7 @@ export default function App() {
 
   // Working availability day state (M, T, W, T, F, S, S)
   const [workingDays, setWorkingDays] = useState<boolean[]>([true, true, true, true, true, true, true]);
-  const [autoOnlineStartup, setAutoOnlineStartup] = useState<boolean>(true);
+  const [autoOnlineStartup, setAutoOnlineStartup] = useState<boolean>(false);
 
   // Dynamic system notifications state
   const [notifications, setNotifications] = useState<{id: string, title: string, desc: string, time: string, read: boolean}[]>([
@@ -1917,11 +1917,21 @@ export default function App() {
                         {darkMode ? <Sun className="w-3.5 h-3.5 text-yellow-400 fill-yellow-400/20" /> : <Moon className="w-3.5 h-3.5 fill-amber-600/10" />}
                       </button>
 
-                      <div className="flex items-center gap-1.5">
-                        <span className={`px-2 py-0.5 rounded-full text-[9px] font-sans font-black uppercase tracking-wider ${isOnline ? 'bg-emerald-500/10 text-emerald-500' : 'bg-gray-100 text-gray-400 dark:bg-zinc-800 dark:text-zinc-500'}`}>
-                          {isOnline ? 'Active' : 'Offline'}
-                        </span>
-                      </div>
+                      <button
+                        onClick={() => {
+                          playSoundEffect('tap');
+                          handleSetOnline(!isOnline);
+                        }}
+                        className={`px-2 py-0.5 rounded-full text-[9px] font-sans font-black uppercase tracking-wider flex items-center gap-1.5 transition-all border shrink-0 cursor-pointer active:scale-95 ${
+                          isOnline 
+                            ? 'bg-[#13AA52]/10 text-[#13AA52] border-[#13AA52]/20 hover:bg-[#13AA52]/20' 
+                            : 'bg-rose-500 text-white border-rose-600 hover:bg-rose-600 shadow-sm animate-pulse'
+                        }`}
+                        title={isOnline ? "Switch to Offline Mode" : "Switch to Online Mode"}
+                      >
+                        <span className={`w-1.5 h-1.5 rounded-full ${isOnline ? 'bg-[#13AA52] animate-ping' : 'bg-white'}`} />
+                        {isOnline ? 'Active' : 'Go Online'}
+                      </button>
                     </div>
                   </nav>
 
@@ -2469,14 +2479,33 @@ export default function App() {
                             </div>
 
                             {!isOnBreak ? (
-                              <div className="text-center py-2.5">
-                                <span className="text-[9.5px] text-gray-400 uppercase font-black tracking-widest block leading-none">Queued matching</span>
-                                <span className="text-[11px] text-gray-600 block mt-1">Driving streets of London, UK ...</span>
+                              <div className="flex flex-col gap-2 mt-1.5">
+                                <div className="text-center py-1 flex items-center justify-center gap-1.5">
+                                  <span className="relative flex h-2 w-2">
+                                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                                    <span className="relative inline-flex rounded-full h-2 w-2 bg-[#13AA52]"></span>
+                                  </span>
+                                  <span className="text-[9.5px] text-[#13AA52] uppercase font-black tracking-widest">Active & Searching</span>
+                                </div>
+                                <SwipeButton
+                                  text="Swipe to Go Offline"
+                                  onSwipeComplete={() => handleSetOnline(false)}
+                                  activeColorClass="bg-rose-600"
+                                  icon={<X className="w-5 h-5 text-white" />}
+                                />
                               </div>
                             ) : (
-                              <div className="text-center py-4 bg-amber-50/50 border border-dashed border-amber-200 rounded-xl my-1">
-                                <span className="text-[9.5px] text-amber-600 uppercase font-black tracking-widest block leading-none">Dispatcher Paused</span>
-                                <span className="text-[11px] text-amber-700 block mt-1 font-bold">Enjoying tea & biscuits in London 🇬🇧</span>
+                              <div className="flex flex-col gap-2 mt-1.5">
+                                <div className="text-center py-2.5 bg-amber-50/50 dark:bg-amber-500/5 border border-dashed border-amber-200 dark:border-amber-500/20 rounded-xl">
+                                  <span className="text-[9.5px] text-amber-600 uppercase font-black tracking-widest block leading-none">Dispatcher Paused</span>
+                                  <span className="text-[11px] text-amber-700 dark:text-amber-500 block mt-1 font-bold">Enjoying tea & biscuits in London 🇬🇧</span>
+                                </div>
+                                <SwipeButton
+                                  text="Swipe to Go Offline"
+                                  onSwipeComplete={() => handleSetOnline(false)}
+                                  activeColorClass="bg-rose-600"
+                                  icon={<X className="w-5 h-5 text-white" />}
+                                />
                               </div>
                             )}
                           </div>
