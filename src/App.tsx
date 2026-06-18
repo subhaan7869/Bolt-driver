@@ -10,7 +10,7 @@ import {
   Navigation, Star, Zap, Clock, Landmark, Sparkles, Compass, MessageSquare, 
   AlertTriangle, CheckCircle, Smartphone, Wifi, Battery, Menu, Bell, 
   ChevronRight, ChevronLeft, Info, Car, HelpCircle, Settings, LogOut, Check, ArrowRight, X, Phone, User, Calendar, Coffee,
-  Globe, Lock, ShieldAlert, Video, WifiOff, Sun, Moon
+  Globe, Lock, ShieldAlert, Video, WifiOff, Sun, Moon, Sliders, Mail
 } from 'lucide-react';
 
 // Live Firebase client and authentications
@@ -346,7 +346,8 @@ export default function App() {
 
   // Compliance variables (per user account / local storage fallback)
   const [faceVerified, setFaceVerified] = useState<boolean>(() => {
-    return localStorage.getItem('swift_face_verified') === 'true';
+    const saved = localStorage.getItem('swift_face_verified');
+    return saved !== 'false'; // Default to true so it works automatically!
   });
   const [faceSelfieUrl, setFaceSelfieUrl] = useState<string>(() => {
     return localStorage.getItem('swift_face_selfie_url') || '';
@@ -543,6 +544,7 @@ export default function App() {
   };
 
   const [isOnline, setIsOnline] = useState<boolean>(false);
+  const [isMinimized, setIsMinimized] = useState<boolean>(false);
   const [isOnBreak, setIsOnBreak] = useState<boolean>(false);
   const [surgeLevel, setSurgeLevel] = useState<'low' | 'medium' | 'high'>('high');
   const [simSpeed, setSimSpeed] = useState<number>(2);
@@ -1874,19 +1876,288 @@ export default function App() {
       {/* Smartphone Hardware Frame Body Shell */}
       <div className="w-full h-full md:max-w-[390px] md:h-[844px] md:rounded-[50px] md:shadow-[0_25px_60px_rgba(0,0,0,0.85)] md:border-[11px] md:border-zinc-800 bg-white relative flex flex-col overflow-hidden">
         
-        {/* Top Camera Notch bar */}
-        <div className="hidden md:flex absolute top-0 left-1/2 -translate-x-1/2 w-40 h-6.5 bg-zinc-950 rounded-b-2xl z-55 items-center justify-center gap-1.5 pointer-events-none">
-          <span className="w-1.5 h-1.5 rounded-full bg-black/80" /> 
-          <span className="w-12 h-0.5 bg-zinc-805 rounded" /> 
+        {/* Top Camera Notch/Dynamic Island bar */}
+        <div 
+          onClick={() => {
+            if (isMinimized) {
+              playSoundEffect('complete');
+              setIsMinimized(false);
+              appendLog("📲 Restored Swift Driver simulation from iOS Dynamic Island.", "success");
+            }
+          }}
+          className={`hidden md:flex absolute top-0 left-1/2 -translate-x-1/2 h-6.5 rounded-b-2xl z-55 items-center justify-center gap-1.5 transition-all duration-300 ${
+            isMinimized && isOnline 
+              ? 'w-48 bg-[#007AFF] shadow-[0_0_12px_rgba(0,122,255,0.7)] cursor-pointer hover:bg-blue-500 scale-105 active:scale-98' 
+              : 'w-40 bg-zinc-950 pointer-events-none'
+          }`}
+          title={isMinimized && isOnline ? "Active Background Tracking - Click to Restore App" : undefined}
+        >
+          {isMinimized && isOnline ? (
+            <div className="flex items-center gap-1 px-2.5 py-0.5 text-[8.5px] font-black tracking-widest text-white select-none animate-pulse">
+              <Navigation className="w-2.5 h-2.5 fill-white text-white rotate-45" />
+              <span>ACTIVE SYSTEM</span>
+            </div>
+          ) : (
+            <>
+              <span className="w-1.5 h-1.5 rounded-full bg-black/80" /> 
+              <span className="w-12 h-0.5 bg-zinc-805 rounded" /> 
+            </>
+          )}
         </div>
 
         {/* Simulated status bar */}
-        <div className="h-7 px-6 bg-white flex items-end justify-end text-[11px] text-zinc-900 select-none shrink-0 font-extrabold z-20 pb-1.5 pt-1.5">
-          <Wifi className="w-3.5 h-3.5 text-zinc-900" />
+        <div 
+          onClick={() => {
+            if (isMinimized) {
+              playSoundEffect('complete');
+              setIsMinimized(false);
+              appendLog("📲 Restored Swift Driver from active status bar.", "success");
+            }
+          }}
+          className={`h-7 px-5 flex items-center justify-between text-[10px] select-none shrink-0 font-black z-20 pb-0.5 pt-1 transition-all duration-300 border-b ${
+            isMinimized && isOnline 
+              ? 'bg-[#007AFF] text-white cursor-pointer hover:bg-blue-600 border-blue-500 shadow-md' 
+              : darkMode 
+                ? 'bg-zinc-950 text-zinc-100 border-zinc-900/50' 
+                : 'bg-white text-zinc-900 border-zinc-100/50'
+          }`}
+          title={isMinimized && isOnline ? "Active Background Tracking - Click Bar to Restore App" : undefined}
+        >
+          {/* Left: iOS Location Indicator displaying the time */}
+          <div className="flex items-center gap-1">
+            {isOnline ? (
+              <div 
+                onClick={(e) => {
+                  e.stopPropagation();
+                  if (isMinimized) {
+                    playSoundEffect('complete');
+                    setIsMinimized(false);
+                  } else {
+                    handleSetOnline(false);
+                  }
+                }}
+                className="bg-[#007AFF] text-white px-2.5 py-0.5 rounded-full flex items-center gap-1 font-sans text-[10px] font-black tracking-normal select-none cursor-pointer hover:bg-blue-600 transition-all active:scale-95 animate-pulse shadow-xs"
+                title={isMinimized ? "Active Location - Click to Open App" : "Location Active (Online) - Tap to toggle Offline"}
+              >
+                <Navigation className="w-2.5 h-2.5 text-white fill-white" style={{ transform: 'rotate(45deg)' }} />
+                <span>{currentTimeStr}</span>
+              </div>
+            ) : (
+              <div 
+                onClick={(e) => {
+                  e.stopPropagation();
+                  if (isMinimized) {
+                    playSoundEffect('complete');
+                    setIsMinimized(false);
+                  } else {
+                    handleSetOnline(true);
+                  }
+                }}
+                className="flex items-center gap-1 cursor-pointer select-none py-0.5 font-extrabold"
+                title={isMinimized ? "App Minimized - Click to Open App" : "Location Inactive (Offline) - Tap to Go Online"}
+              >
+                <span className="font-sans font-black text-[11px] tracking-tight">{currentTimeStr}</span>
+                <Navigation className="w-2.5 h-2.5 text-zinc-350 dark:text-zinc-650" style={{ transform: 'rotate(45deg)' }} />
+              </div>
+            )}
+          </div>
+
+          {/* Right: iOS signal, Wi-Fi network system & battery stats */}
+          <div className="flex items-center gap-2">
+            {/* Simulated cellular bars */}
+            <div className="flex items-end gap-[1.5px] h-2.5" title="Cellular Strength">
+              <div className="w-[2px] h-[3px] bg-current rounded-full" />
+              <div className="w-[2px] h-[5.5px] bg-current rounded-full" />
+              <div className={`w-[2px] h-[7.5px] rounded-full ${isInternetConnected ? 'bg-current' : 'bg-zinc-300 dark:bg-zinc-700 opacity-40'}`} />
+              <div className={`w-[2px] h-[9.5px] rounded-full ${isInternetConnected ? 'bg-current' : 'bg-zinc-300 dark:bg-zinc-700 opacity-40'}`} />
+            </div>
+
+            {/* Wifi indicating line connection */}
+            {isInternetConnected ? (
+              <Wifi className="w-3.5 h-3.5 animate-pulse" title="Connected to Network" />
+            ) : (
+              <WifiOff className="w-3.5 h-3.5 text-rose-500" title="Offline Status - Cloud Backup Idle" />
+            )}
+
+            {/* Battery status representing actual level */}
+            <div className="flex items-center gap-1 font-mono text-[9px] font-extrabold" title={`Battery Level: ${batteryLevel}%`}>
+              <span>{batteryLevel}%</span>
+              <div className="w-5.5 h-3 border border-current rounded-[4px] p-[1.5px] flex items-center relative gap-[0.5px]">
+                <div 
+                  className={`h-full rounded-[1px] transition-all duration-300 ${batteryLevel <= 20 ? 'bg-rose-500' : 'bg-current'}`} 
+                  style={{ width: `${batteryLevel}%` }} 
+                />
+                <div className="w-[1.2px] h-1.5 bg-current absolute -right-[2px] rounded-r-[1px]" />
+              </div>
+            </div>
+          </div>
         </div>
 
         {/* INTERNAL PHONE SCREEN PORTAL */}
         <div className={`flex-1 flex flex-col overflow-hidden relative select-none transition-colors duration-200 ${darkMode ? 'bg-zinc-950 text-zinc-100' : 'bg-white text-gray-900'}`}>
+              
+              {/* Optional iOS Home Screen Overlay when minimized */}
+              {isMinimized && (
+                <div 
+                  className="absolute inset-0 z-50 flex flex-col justify-between overflow-hidden p-5 text-white bg-[#0f172a]"
+                  style={{
+                    backgroundImage: 'radial-gradient(circle at top right, rgba(99, 102, 241, 0.25), transparent), radial-gradient(circle at bottom left, rgba(244, 63, 94, 0.15), transparent), linear-gradient(135deg, #090d16 0%, #020617 100%)'
+                  }}
+                >
+                  {/* Location active background banner */}
+                  {isOnline && (
+                    <div 
+                      onClick={() => { playSoundEffect('complete'); setIsMinimized(false); }}
+                      className="absolute top-2.5 left-3.5 right-3.5 bg-[#007AFF] hover:bg-blue-600 text-white py-2.5 px-3 rounded-2xl flex items-center justify-between text-[11px] font-black tracking-normal shadow-lg cursor-pointer transform hover:scale-[1.01] active:scale-[0.99] transition-all z-55 animate-pulse"
+                    >
+                      <div className="flex items-center gap-1.5">
+                        <Navigation className="w-3.5 h-3.5 fill-white text-white rotate-45" />
+                        <span>Swift Driver • GPS Location Active</span>
+                      </div>
+                      <span className="text-[8px] bg-white/20 px-2.5 py-0.5 rounded-full uppercase tracking-wider font-extrabold font-mono">Return</span>
+                    </div>
+                  )}
+
+                  {/* Date & Time display */}
+                  <div className={`flex flex-col items-center transition-all ${isOnline ? 'mt-14' : 'mt-8'}`}>
+                    <span className="text-[11px] font-black text-slate-400 tracking-wider uppercase font-sans">
+                      {new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric' })}
+                    </span>
+                    <span className="text-4xl font-light tracking-tight mt-1 text-slate-100 font-sans">
+                      {currentTimeStr}
+                    </span>
+                  </div>
+
+                  {/* iOS Style Icons Grid */}
+                  <div className="grid grid-cols-4 gap-x-3 gap-y-5 px-1 mt-6 flex-1 items-start content-start">
+                    {/* SWIFT DRIVER APP ICON */}
+                    <div 
+                      onClick={() => { playSoundEffect('complete'); setIsMinimized(false); }}
+                      className="flex flex-col items-center gap-1 group cursor-pointer animate-fade-in"
+                    >
+                      <div className="relative w-11 h-11 bg-[#13AA52] rounded-[11px] flex items-center justify-center shadow-lg transform group-active:scale-95 transition-all">
+                        <Navigation className="w-6 h-6 text-white text-center rotate-45" />
+                        {isOnline ? (
+                          <span className="absolute -top-1 -right-1 flex h-3.5 w-3.5">
+                            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                            <span className="relative inline-flex rounded-full h-3.5 w-3.5 bg-emerald-500 border border-white flex items-center justify-center" />
+                          </span>
+                        ) : null}
+                      </div>
+                      <span className="text-[9.5px] font-bold text-slate-200 text-center truncate w-full">Swift Driver</span>
+                    </div>
+
+                    {/* MAPS ICON */}
+                    <div 
+                      onClick={() => { playSoundEffect('tap'); }}
+                      className="flex flex-col items-center gap-1 group cursor-pointer"
+                    >
+                      <div className="w-11 h-11 bg-white rounded-[11px] flex items-center justify-center shadow-lg transform group-active:scale-95 transition-all relative overflow-hidden">
+                        <div className="absolute inset-0 bg-blue-100/50 flex flex-col">
+                          <div className="h-full bg-emerald-200 w-2.5 absolute left-1/3 rotate-12" />
+                          <div className="h-1.5 bg-amber-200 w-full absolute top-1/2" />
+                          <div className="w-2.5 h-2.5 rounded-full bg-red-500 absolute top-1/3 left-1/2 border border-white" />
+                        </div>
+                      </div>
+                      <span className="text-[9.5px] font-bold text-slate-200 text-center truncate w-full">Maps</span>
+                    </div>
+
+                    {/* SETTINGS ICON */}
+                    <div 
+                      onClick={() => { playSoundEffect('tap'); setDarkMode(!darkMode); }}
+                      className="flex flex-col items-center gap-1 group cursor-pointer"
+                    >
+                      <div className="w-11 h-11 bg-slate-400 rounded-[11px] flex items-center justify-center shadow-lg transform group-active:scale-95 transition-all">
+                        <Sliders className="w-5 h-5 text-slate-800" />
+                      </div>
+                      <span className="text-[9.5px] font-bold text-slate-200 text-center truncate w-full">Settings</span>
+                    </div>
+
+                    {/* PHONE ICON */}
+                    <div 
+                      onClick={() => playSoundEffect('tap')}
+                      className="flex flex-col items-center gap-1 group cursor-pointer"
+                    >
+                      <div className="w-11 h-11 bg-[#22C55E] rounded-[11px] flex items-center justify-center shadow-lg transform group-active:scale-95 transition-all">
+                        <Smartphone className="w-5 h-5 text-white" />
+                      </div>
+                      <span className="text-[9.5px] font-bold text-slate-200 text-center truncate w-full">Phone</span>
+                    </div>
+
+                    {/* SAFARI ICON */}
+                    <div 
+                      onClick={() => playSoundEffect('tap')}
+                      className="flex flex-col items-center gap-1 group cursor-pointer"
+                    >
+                      <div className="w-11 h-11 bg-white rounded-[11px] flex items-center justify-center shadow-lg transform group-active:scale-95 transition-all overflow-hidden relative">
+                        <div className="w-8 h-8 rounded-full border-[1.5px] border-blue-400 flex items-center justify-center rotate-45">
+                          <div className="w-0.5 h-6 bg-[#FF3B30] relative before:absolute before:bottom-0 before:left-0 before:w-0.5 before:h-3 before:bg-[#007AFF]" />
+                        </div>
+                      </div>
+                      <span className="text-[9.5px] font-bold text-slate-200 text-center truncate w-full">Safari</span>
+                    </div>
+
+                    {/* MESSAGES ICON */}
+                    <div 
+                      onClick={() => playSoundEffect('tap')}
+                      className="flex flex-col items-center gap-1 group cursor-pointer"
+                    >
+                      <div className="w-11 h-11 bg-emerald-400 rounded-[11px] flex items-center justify-center shadow-lg transform group-active:scale-95 transition-all">
+                        <Mail className="w-5 h-5 text-white" />
+                      </div>
+                      <span className="text-[9.5px] font-bold text-slate-200 text-center truncate w-full">Messages</span>
+                    </div>
+
+                    {/* APP STORE ICON */}
+                    <div 
+                      onClick={() => playSoundEffect('tap')}
+                      className="flex flex-col items-center gap-1 group cursor-pointer"
+                    >
+                      <div className="w-11 h-11 bg-[#007AFF] rounded-[11px] flex items-center justify-center shadow-lg transform group-active:scale-95 transition-all">
+                        <div className="text-white font-sans font-black text-xs tracking-wider">A</div>
+                      </div>
+                      <span className="text-[9.5px] font-bold text-slate-200 text-center truncate w-full">App Store</span>
+                    </div>
+
+                    {/* COMPASS ICON */}
+                    <div 
+                      onClick={() => playSoundEffect('tap')}
+                      className="flex flex-col items-center gap-1 group cursor-pointer"
+                    >
+                      <div className="w-11 h-11 bg-zinc-900 rounded-[11px] flex items-center justify-center shadow-lg transform group-active:scale-95 transition-all">
+                        <Compass className="w-5 h-5 text-rose-500 fill-rose-500/20" />
+                      </div>
+                      <span className="text-[9.5px] font-bold text-slate-200 text-center truncate w-full">Compass</span>
+                    </div>
+                  </div>
+
+                  {/* iOS Style Bottom Translucent Dock */}
+                  <div className="bg-white/10 dark:bg-black/25 backdrop-blur-xl border border-white/5 rounded-3xl py-2.5 px-4 flex items-center justify-around mx-1 mb-8 shadow-2xl relative">
+                    <div onClick={() => playSoundEffect('tap')} className="cursor-pointer active:scale-90 transition-transform">
+                      <div className="w-11 h-11 bg-emerald-400 rounded-[11px] flex items-center justify-center shadow-md">
+                        <Mail className="w-5 h-5 text-white" />
+                      </div>
+                    </div>
+                    <div onClick={() => playSoundEffect('tap')} className="cursor-pointer active:scale-90 transition-transform">
+                      <div className="w-11 h-11 bg-white rounded-[11px] flex items-center justify-center shadow-md overflow-hidden relative">
+                        <div className="w-8 h-8 rounded-full border-[1.5px] border-blue-400 flex items-center justify-center rotate-[60deg]">
+                          <div className="w-0.5 h-6 bg-[#FF3B30] relative before:absolute before:bottom-0 before:left-0 before:w-0.5 before:h-3 before:bg-[#007AFF]" />
+                        </div>
+                      </div>
+                    </div>
+                    <div onClick={() => playSoundEffect('tap')} className="cursor-pointer active:scale-90 transition-transform">
+                      <div className="w-11 h-11 bg-[#22C55E] rounded-[11px] flex items-center justify-center shadow-md">
+                        <Smartphone className="w-5 h-5 text-white" />
+                      </div>
+                    </div>
+                    <div onClick={() => { playSoundEffect('complete'); setIsMinimized(false); }} className="cursor-pointer active:scale-90 transition-transform relative group" title="Return to Swift Driver app">
+                      <div className="w-11 h-11 bg-[#13AA52] rounded-[11px] flex items-center justify-center shadow-md">
+                        <Navigation className="w-5 h-5 text-white rotate-45" />
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
               
               {/* 1. HOME TAB COMPONENT VIEW */}
               {activeTab === 'home' && (
@@ -4232,8 +4503,17 @@ export default function App() {
             </div>
 
             {/* Simulated Smartphone bottom screen safearea pill */}
-            <div className="hidden md:flex h-5.5 bg-white items-center justify-center shrink-0 rounded-b-[42px] select-none pb-1">
-              <span className="w-24 h-1 bg-gray-300 rounded-full" />
+            <div 
+              onClick={() => {
+                playSoundEffect('tap');
+                setIsMinimized(m => !m);
+              }}
+              className={`hidden md:flex h-5.5 items-center justify-center shrink-0 rounded-b-[42px] select-none pb-1 cursor-pointer transition-all hover:bg-slate-50 dark:hover:bg-zinc-900 active:scale-98 ${
+                isMinimized ? 'bg-[#0b172a] border-t border-slate-900' : 'bg-white border-t border-slate-50/50'
+              }`}
+              title={isMinimized ? "Maximize Swift Driver App" : "Minimize to iOS Home Screen"}
+            >
+              <span className={`w-24 h-1 rounded-full transition ${isMinimized ? 'bg-slate-750' : 'bg-gray-300'}`} />
             </div>
 
           </div>

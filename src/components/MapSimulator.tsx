@@ -888,11 +888,10 @@ export const MapSimulator: React.FC<MapSimulatorProps> = ({
               })}
             </div>
 
-            {/* Swipe to Go Online */}
+            {/* Click to Go Online Button */}
             <div className="w-full">
-              <SwipeButton
-                text="Swipe to Go Online"
-                onSwipeComplete={() => {
+              <button
+                onClick={() => {
                   if (window.dispatchEvent) {
                     window.dispatchEvent(new CustomEvent('play-sound', { detail: 'complete' }));
                     window.dispatchEvent(new CustomEvent('add-simulation-log', {
@@ -901,9 +900,11 @@ export const MapSimulator: React.FC<MapSimulatorProps> = ({
                   }
                   onSetOnline?.(true);
                 }}
-                activeColorClass="bg-[#13AA52]"
-                icon={<ArrowRight className="w-4 h-4 text-white" />}
-              />
+                className="w-full py-3.5 bg-[#13AA52] hover:bg-[#0f8f44] text-white font-extrabold text-xs uppercase tracking-wider rounded-2xl shadow-md active:scale-98 transition-all flex items-center justify-center gap-2 cursor-pointer border-0"
+              >
+                <div className="w-2 h-2 rounded-full bg-white animate-ping" />
+                Go Online
+              </button>
             </div>
           </div>
         </>
