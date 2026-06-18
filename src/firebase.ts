@@ -1,12 +1,27 @@
 import { initializeApp } from 'firebase/app';
 import { getAuth, GoogleAuthProvider, signInWithPopup, signOut } from 'firebase/auth';
-import { getFirestore, doc, getDoc, getDocFromServer, setDoc, updateDoc, deleteDoc, collection, getDocs } from 'firebase/firestore';
+import { getFirestore, doc, getDoc, getDocFromServer, setDoc, updateDoc, deleteDoc, collection, getDocs, enableMultiTabIndexedDbPersistence } from 'firebase/firestore';
 import firebaseConfig from '../firebase-applet-config.json';
 
 const app = initializeApp(firebaseConfig);
 export const db = getFirestore(app, firebaseConfig.firestoreDatabaseId);
+
+// Enable offline IndexedDB persistence for seamless offline app sync
+enableMultiTabIndexedDbPersistence(db).catch((err) => {
+  if (err.code === 'failed-precondition') {
+    // Multiple tabs open, persistence can only be enabled in one tab at a time.
+    console.warn('Firestore offline persistence enabled in other tab.');
+  } else if (err.code === 'unimplemented') {
+    // The current browser does not support all of the features required to enable persistence
+    console.warn('Firestore offline persistence is not supported by this browser.');
+  } else {
+    console.error('Firestore offline persistence error:', err);
+  }
+});
+
 export const auth = getAuth();
 export const googleProvider = new GoogleAuthProvider();
+
 
 export enum OperationType {
   CREATE = 'create',
