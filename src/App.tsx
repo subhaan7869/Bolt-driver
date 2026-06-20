@@ -684,21 +684,78 @@ export default function App() {
     };
   }, [appendLog, playSoundEffect]);
 
-  // Real Notification helper (Alerts even when in background)
-  const sendRealNotification = useCallback((title: string, body: string) => {
+  // Real Notification helper (Alerts even when in background or minimized)
+  const lastNoteRef = useRef<{ title: string; body: string; time: number } | null>(null);
+
+  const sendRealNotification = useCallback((title: string, body: string, type: 'info' | 'success' | 'alert' | 'message' = 'info') => {
     if (!notificationsEnabled) return;
+    const now = Date.now();
+
+    // Prevent duplicate notifications firing in rapid succession
+    if (
+      lastNoteRef.current &&
+      lastNoteRef.current.title === title &&
+      lastNoteRef.current.body === body &&
+      now - lastNoteRef.current.time < 1000
+    ) {
+      return;
+    }
+    lastNoteRef.current = { title, body, time: now };
+
+    // Real Notification Delivery via Browser API
     if (typeof window !== 'undefined' && 'Notification' in window && Notification.permission === 'granted') {
       try {
-        new Notification(title, {
-          body,
-          icon: '/manifest.webmanifest',
-          silent: false,
-        });
+        // Prefer Service Worker showNotification for reliable background delivery on Android/PWA
+        if (navigator.serviceWorker && navigator.serviceWorker.ready) {
+          navigator.serviceWorker.ready.then((registration) => {
+            registration.showNotification(title, {
+              body,
+              icon: "https://img.icons8.com/color/512/taxi.png",
+              badge: "https://img.icons8.com/color/512/taxi.png",
+              vibrate: [200, 100, 200],
+              tag: title,
+              renotify: true,
+              silent: false,
+            } as any).catch(() => {
+              new Notification(title, {
+                body,
+                icon: "https://img.icons8.com/color/512/taxi.png",
+                tag: title
+              });
+            });
+          });
+        } else {
+          new Notification(title, {
+            body,
+            icon: "https://img.icons8.com/color/512/taxi.png",
+            tag: title
+          });
+        }
       } catch (e) {
-        console.error("Failed to send browser Notification:", e);
+        console.warn("Notification API failed, trying direct fallback:", e);
+        try {
+          new Notification(title, { body, tag: title });
+        } catch (err) {}
       }
     }
-  }, [notificationsEnabled]);
+
+    // Trigger feedback sound effects based on notification type
+    if (type === 'success') {
+      playSoundEffect('complete');
+    } else if (type === 'alert' || type === 'message') {
+      playSoundEffect('offer');
+    }
+
+    // Append to in-simulation notifications list
+    const newNotif = {
+      id: Math.random().toString(),
+      title: title,
+      desc: body,
+      time: 'Just now',
+      read: false
+    };
+    setNotifications((prev) => [newNotif, ...prev.slice(0, 49)]);
+  }, [notificationsEnabled, playSoundEffect]);
 
   const [currentTimeStr, setCurrentTimeStr] = useState('09:41');
 
@@ -988,6 +1045,30 @@ export default function App() {
 
     return () => unsubscribe();
   }, [appendLog]);
+
+  // FCM Token Synchronization Effect
+  useEffect(() => {
+    if (user && notificationsEnabled && typeof window !== 'undefined' && 'Notification' in window) {
+      if (Notification.permission === 'granted') {
+        const mockFcmToken = localStorage.getItem('swift_fcm_token') || `fcm_token_swift_${Math.random().toString(36).substring(2, 12)}_${user.uid.substring(0, 5)}`;
+        localStorage.setItem('swift_fcm_token', mockFcmToken);
+        
+        const syncFcmToken = async () => {
+          try {
+            const ref = doc(db, 'drivers', user.uid);
+            await updateDoc(ref, { 
+              fcmToken: mockFcmToken,
+              updatedAt: new Date().toISOString()
+            });
+            appendLog(`📲 Background Push Token (FCM) synchronised with drivers/${user.uid.substring(0, 5)}...`, "success");
+          } catch (err) {
+            console.warn("FCM Profile sync skipped or delayed:", err);
+          }
+        };
+        syncFcmToken();
+      }
+    }
+  }, [user, notificationsEnabled, appendLog]);
 
   // Auto push statistics updates to Firestore
   useEffect(() => {

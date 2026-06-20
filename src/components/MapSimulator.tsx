@@ -1,7 +1,7 @@
 import React, { useEffect, useRef, useState, useMemo } from 'react';
 import { TripProgress, RideRequest, DriverStats } from '../types';
 import L from 'leaflet';
-import { MapPin, Navigation, Zap, Compass, Target, ShieldCheck, CheckCircle2, User, Sliders, Radio, Globe, ArrowRight, Play, Volume2, VolumeX, Battery, BatteryCharging, RefreshCw, ArrowUp, CornerUpLeft, CornerUpRight, Award, BarChart2, Plane, ChevronRight, ChevronDown, Clock, Plus, Search, Sparkles, Check, Mail, X } from 'lucide-react';
+import { MapPin, Navigation, Zap, Compass, Target, ShieldCheck, CheckCircle2, User, Sliders, Radio, Globe, ArrowRight, Play, Volume2, VolumeX, Battery, BatteryCharging, RefreshCw, ArrowUp, CornerUpLeft, CornerUpRight, Award, BarChart2, Plane, ChevronRight, ChevronDown, Clock, Plus, Search, Sparkles, Check, Mail, X, Flame, Info } from 'lucide-react';
 import { SwipeButton } from './SwipeButton';
 
 interface MapSimulatorProps {
@@ -28,10 +28,12 @@ interface MapSimulatorProps {
 
 // Logical surge coordinates relative to the 400x500 virtual grid
 const SURGE_ZONES_OFFSET = [
-  { id: 'london-soho', name: 'West End Soho', x: 200, y: 120, radius: 110, multiplier: 1.8 },
-  { id: 'london-mayfair', name: 'Mayfair Central', x: 310, y: 380, radius: 120, multiplier: 2.2 },
-  { id: 'london-city', name: 'Financial Core', x: 90, y: 280, radius: 100, multiplier: 1.4 },
-  { id: 'london-kensington', name: 'Kensington High', x: 100, y: 100, radius: 90, multiplier: 1.2 },
+  { id: 'london-city', name: 'City of London', x: 200, y: 160, radius: 110, multiplier: 2.3 },
+  { id: 'london-brixton', name: 'Brixton', x: 220, y: 340, radius: 120, multiplier: 2.1 },
+  { id: 'london-stratford', name: 'Stratford', x: 330, y: 100, radius: 100, multiplier: 1.8 },
+  { id: 'london-canary', name: 'Canary Wharf', x: 340, y: 220, radius: 90, multiplier: 1.7 },
+  { id: 'london-kensington', name: 'Kensington', x: 80, y: 220, radius: 100, multiplier: 1.6 },
+  { id: 'london-wandsworth', name: 'Wandsworth', x: 100, y: 360, radius: 85, multiplier: 1.1 }
 ];
 
 const CITY_COORDINATES: Record<string, { lat: number; lon: number }> = {
@@ -290,6 +292,10 @@ export const MapSimulator: React.FC<MapSimulatorProps> = ({
   const pickupPinRef = useRef<L.Marker | null>(null);
   const dropoffPinRef = useRef<L.Marker | null>(null);
   const surgeCirclesRef = useRef<Map<string, { circle: L.Circle; pulse: L.Circle; marker?: L.Marker }>>(new Map());
+  const labelMarkersRef = useRef<L.Marker[]>([]);
+
+  // Toggle state for the premium Heat Map Details sidebar/drawer
+  const [isHeatMapPanelOpen, setIsHeatMapPanelOpen] = useState(false);
 
   // Sine/Cosine variables for idle wandering simulation
   const [wanderAngle, setWanderAngle] = useState(0);
@@ -502,7 +508,7 @@ export const MapSimulator: React.FC<MapSimulatorProps> = ({
     }));
   }, [currentPosition, useRealGPS, tripProgress.stage]);
 
-  // Sync Surge Heat Hot Zones atop Leaflet Map
+  // Sync Surge Heat Hot Zones & District Labels atop Leaflet Map
   useEffect(() => {
     if (!mapRef.current) return;
     const mapObj = mapRef.current;
@@ -515,51 +521,173 @@ export const MapSimulator: React.FC<MapSimulatorProps> = ({
     });
     surgeCirclesRef.current.clear();
 
+    // Clear old neighbourhood text labels and road shields
+    labelMarkersRef.current.forEach((m) => m.remove());
+    labelMarkersRef.current = [];
+
     if (!isOnline) return;
 
+    // Add high-fidelity real-time district labels and major signs
+    const normCity = currentCity.trim().toLowerCase();
+    
+    let cityLabels = [
+      { name: 'WEST END Soho', x: 200, y: 120 },
+      { name: 'FINANCIAL CORE', x: 90, y: 280 },
+      { name: 'KENSINGTON HIGH', x: 100, y: 100 }
+    ];
+    let cityShields = [
+      { name: 'A401', x: 190, y: 100 },
+      { name: 'A1', x: 270, y: 110 }
+    ];
+
+    if (normCity === 'london') {
+      cityLabels = [
+        { name: 'WEMBLEY', x: 40, y: 80 },
+        { name: 'HOLLOWAY', x: 240, y: 80 },
+        { name: 'STRATFORD', x: 370, y: 110 },
+        { name: 'NOTTING HILL', x: 50, y: 160 },
+        { name: 'CITY OF LONDON', x: 250, y: 170 },
+        { name: 'CANARY WHARF', x: 385, y: 220 },
+        { name: 'BRIXTON', x: 220, y: 340 },
+        { name: 'WANDSWORTH', x: 105, y: 360 }
+      ];
+      cityShields = [
+        { name: 'A406', x: 110, y: 60 },
+        { name: 'A40', x: 40, y: 125 },
+        { name: 'A11', x: 360, y: 70 },
+        { name: 'A1', x: 270, y: 110 },
+        { name: 'A2', x: 350, y: 320 },
+        { name: 'A3', x: 50, y: 330 },
+        { name: 'A205', x: 155, y: 440 }
+      ];
+    } else if (normCity === 'birmingham') {
+      cityLabels = [
+        { name: 'ASTON', x: 100, y: 80 },
+        { name: 'BULLRING', x: 250, y: 175 },
+        { name: 'DIGBETH', x: 220, y: 340 },
+        { name: 'EDGBASTON', x: 80, y: 220 },
+        { name: 'SUTTON COLDFIELD', x: 330, y: 100 }
+      ];
+      cityShields = [
+        { name: 'A38', x: 270, y: 110 },
+        { name: 'A45', x: 350, y: 320 },
+        { name: 'M6', x: 40, y: 80 }
+      ];
+    } else if (normCity === 'manchester') {
+      cityLabels = [
+        { name: 'SALFORD', x: 60, y: 80 },
+        { name: 'SPINNINGFIELDS', x: 250, y: 170 },
+        { name: 'ANCOATS', x: 330, y: 100 },
+        { name: 'DIDSBURY', x: 220, y: 340 },
+        { name: 'CHORLTON', x: 80, y: 220 }
+      ];
+      cityShields = [
+        { name: 'M60', x: 110, y: 60 },
+        { name: 'A56', x: 270, y: 110 },
+        { name: 'A57', x: 350, y: 320 }
+      ];
+    }
+
+    // Render district typography labels in capital modern format
+    cityLabels.forEach((label) => {
+      const latLng = getLatLngFromXY(label.x, label.y);
+      const labelHtml = `
+        <div class="text-[7.5px] uppercase font-black font-sans tracking-[0.14em] select-none text-[#8d909c] dark:text-zinc-550 whitespace-nowrap opacity-85" style="text-shadow: 0 1px 2px rgba(0,0,0,0.4)">
+          ${label.name}
+        </div>
+      `;
+      const marker = L.marker(latLng, {
+        icon: L.divIcon({
+          html: labelHtml,
+          className: 'clear-div-icon',
+          iconSize: [120, 16],
+          iconAnchor: [60, 8]
+        }),
+        interactive: false
+      }).addTo(mapObj);
+      labelMarkersRef.current.push(marker);
+    });
+
+    // Render UK standard Ax route sign shields
+    cityShields.forEach((shield) => {
+      const latLng = getLatLngFromXY(shield.x, shield.y);
+      const shieldHtml = `
+        <div class="bg-emerald-950/80 border border-emerald-500/35 text-[5.8px] font-mono font-black text-emerald-400 px-1 py-0.5 rounded leading-none whitespace-nowrap shadow-xs select-none">
+          ${shield.name}
+        </div>
+      `;
+      const marker = L.marker(latLng, {
+        icon: L.divIcon({
+          html: shieldHtml,
+          className: 'clear-div-icon',
+          iconSize: [26, 12],
+          iconAnchor: [13, 6]
+        }),
+        interactive: false
+      }).addTo(mapObj);
+      labelMarkersRef.current.push(marker);
+    });
+
+    // Render multi-layered heat maps & pricing speech bubble capsules
     mappedSurgeZones.forEach((zone) => {
       const zoneLatLng = getLatLngFromXY(zone.x, zone.y);
       const mult = surgeLevel === 'high' ? zone.multiplier : surgeLevel === 'medium' ? Math.max(1.1, +(zone.multiplier * 0.7).toFixed(1)) : 1.0;
 
       if (mult <= 1.0) return; // Hide standard multiplier spots
 
-      // Determine dynamic colors & animations matching heat multiplier intensity
-      let surgeColor = '#10B981'; // Mint Green (Default / Low)
-      let badgeClass = 'bg-[#13AA52] border-emerald-450 badge-pulse';
+      // Determine colors matching the standard Heat Map guidelines
+      let surgeColor = '#10B981'; // Low Mint Green
+      let badgeColorClass = 'bg-[#13AA52] border-emerald-400 text-[#13AA52]';
 
       if (mult >= 2.0) {
-        surgeColor = '#EF4444'; // Red-Crimson (High Demand)
-        badgeClass = 'bg-red-600 border-red-400 badge-pulse-red';
-      } else if (mult >= 1.6) {
-        surgeColor = '#F97316'; // Deep Orange (Medium-High Demand)
-        badgeClass = 'bg-orange-600 border-orange-400 badge-pulse-orange';
+        surgeColor = '#EF4444'; // Red-Crimson
+        badgeColorClass = 'bg-[#ea4335] border-[#ea4335] text-[#ea4335]';
+      } else if (mult >= 1.5) {
+        surgeColor = '#F97316'; // Deep Orange
+        badgeColorClass = 'bg-[#f97316] border-[#f97316] text-[#f97316]';
       } else if (mult >= 1.2) {
-        surgeColor = '#F59E0B'; // Amber Core (Medium Demand)
-        badgeClass = 'bg-amber-600 border-amber-400 badge-pulse-amber';
+        surgeColor = '#F59E0B'; // Amber Core
+        badgeColorClass = 'bg-[#f59e0b] border-[#f59e0b] text-[#f59e0b]';
       }
 
+      // 1. Layered Gaussian Heat Gradient - Outer Faint Glow
       const mainCircle = L.circle(zoneLatLng, {
-        radius: zone.radius,
-        color: surgeColor,
-        weight: 1.5,
-        fillColor: surgeColor,
-        fillOpacity: darkMode ? 0.08 : 0.05,
-        className: 'surge-pulse-path',
-      }).addTo(mapObj);
-
-      const pulseCircle = L.circle(zoneLatLng, {
-        radius: zone.radius * 0.45,
+        radius: zone.radius * 1.8,
         color: surgeColor,
         weight: 0,
         fillColor: surgeColor,
-        fillOpacity: 0.12,
-        className: 'surge-pulse-path-inner',
+        fillOpacity: darkMode ? 0.05 : 0.03,
       }).addTo(mapObj);
 
-      // Simple interactive custom popup/marker badge with pulsing glow ring matching heat level
+      // 2. Layered Gaussian Heat Gradient - Medium Glow
+      const pulseCircle = L.circle(zoneLatLng, {
+        radius: zone.radius * 1.1,
+        color: surgeColor,
+        weight: 0,
+        fillColor: surgeColor,
+        fillOpacity: darkMode ? 0.13 : 0.08,
+      }).addTo(mapObj);
+
+      // 3. Layered Gaussian Heat Gradient - Central Core Glow
+      const coreCircle = L.circle(zoneLatLng, {
+        radius: zone.radius * 0.5,
+        color: surgeColor,
+        weight: 0,
+        fillColor: surgeColor,
+        fillOpacity: darkMode ? 0.30 : 0.19,
+      }).addTo(mapObj);
+
+      // Speech bubble multiplier badge matching the Bolt visual guidelines
+      const bgClass = badgeColorClass.split(' ')[0];
+      const borderClass = badgeColorClass.split(' ')[1];
+      const textClass = badgeColorClass.split(' ')[2];
+
       const badgeHtml = `
-        <div class="cursor-pointer ${badgeClass} text-white text-[9.5px] font-black font-sans px-2 py-0.5 rounded-full shadow-md flex items-center justify-center gap-0.5 border hover:scale-110 active:scale-95 transition-all duration-150">
-          <span class="leading-none text-shadow-sm">+${mult}x</span>
+        <div class="cursor-pointer flex flex-col items-center select-none transform hover:scale-110 active:scale-95 transition-all duration-150">
+          <div class="${bgClass} border ${borderClass} text-white font-sans font-black text-[9.5px] px-2.5 py-0.5 rounded-full shadow-md flex items-center justify-center gap-0.5 border-white/20">
+            <span class="leading-none text-shadow-xs">${mult.toFixed(1)}x</span>
+          </div>
+          <div class="w-1.5 h-1 border-t-[4px] border-r-[3.5px] border-l-[3.5px] border-transparent ${textClass.replace('text-', 'border-t-')} -mt-[1px]"></div>
         </div>
       `;
 
@@ -568,7 +696,7 @@ export const MapSimulator: React.FC<MapSimulatorProps> = ({
           html: badgeHtml,
           className: 'clear-div-icon',
           iconSize: [42, 18],
-          iconAnchor: [21, 9]
+          iconAnchor: [21, 14]
         })
       }).addTo(mapObj);
 
@@ -581,9 +709,13 @@ export const MapSimulator: React.FC<MapSimulatorProps> = ({
         pulse: pulseCircle,
         marker: badgeMarker
       });
+
+      // Automatically clean up coreCircle and extra rings by storing references if needed or adding them to Map Ref
+      // By storing them as children inside the main circle structure
+      (mainCircle as any).coreCircle = coreCircle;
     });
 
-  }, [isOnline, surgeLevel, darkMode, anchorLat, anchorLon, mappedSurgeZones]);
+  }, [isOnline, surgeLevel, darkMode, anchorLat, anchorLon, mappedSurgeZones, currentCity]);
 
   // Dynamic Routing Path overlay syncing with travel progress
   useEffect(() => {
@@ -1248,6 +1380,28 @@ export const MapSimulator: React.FC<MapSimulatorProps> = ({
           </button>
         )}
 
+        {/* Heat Map Directory legend panel toggle */}
+        {isOnline && (
+          <button
+            onClick={() => {
+              setIsHeatMapPanelOpen(!isHeatMapPanelOpen);
+              if (window.dispatchEvent) {
+                window.dispatchEvent(new CustomEvent('play-sound', { detail: 'tap' }));
+              }
+            }}
+            className={`w-9 h-9 rounded-full flex items-center justify-center shadow-md border transition duration-150 active:scale-95 cursor-pointer self-end ${
+              isHeatMapPanelOpen
+                ? 'bg-rose-600 border-rose-500 text-white'
+                : darkMode 
+                  ? 'bg-zinc-900/98 border-zinc-800 hover:bg-zinc-800 text-[#13AA52]' 
+                  : 'bg-white/98 border-gray-150 hover:bg-gray-50 text-[#13AA52]'
+            }`}
+            title="Toggle Heat Map Directory"
+          >
+            <Flame className={`w-4.5 h-4.5 ${isHeatMapPanelOpen ? 'text-white animate-pulse' : 'text-rose-500 fill-rose-500/10'}`} />
+          </button>
+        )}
+
         {/* Recenter Map Button */}
         {isOnline && (
           <button
@@ -1271,6 +1425,171 @@ export const MapSimulator: React.FC<MapSimulatorProps> = ({
           </button>
         )}
       </div>
+
+      {/* RENDER THE SCREEN-CLONED PREMIUM BOLT HEAT MAP DETAILS PANEL */}
+      {isOnline && (
+        <div 
+          style={{ transition: 'all 300ms cubic-bezier(0.4, 0, 0.2, 1)' }}
+          className={`absolute right-0 top-0 bottom-0 z-30 border-l flex flex-col shadow-2xl ${
+            isHeatMapPanelOpen 
+              ? 'w-[270px] translate-x-0 opacity-100' 
+              : 'w-0 translate-x-full opacity-0 pointer-events-none'
+          } ${
+            darkMode 
+              ? 'bg-[#090A10]/98 border-zinc-800 text-zinc-100 backdrop-blur-md' 
+              : 'bg-white/98 border-gray-250 text-gray-905 backdrop-blur-md'
+          }`}
+        >
+          {/* Header row */}
+          <div className="p-3 border-b border-gray-200/10 dark:border-zinc-850 flex items-center justify-between">
+            <div className="flex items-center gap-1.5 text-left">
+              <Flame className="w-4 h-4 text-rose-500 fill-rose-500/15" />
+              <h2 className="text-[11px] font-black uppercase tracking-wider font-sans">Heat map</h2>
+              <div className="w-4 h-4 rounded-full bg-gray-500/10 flex items-center justify-center cursor-pointer" title="About Surge Pricing">
+                <Info className="w-2.5 h-2.5 text-gray-400" />
+              </div>
+            </div>
+            
+            <button 
+              onClick={() => setIsHeatMapPanelOpen(false)}
+              className="w-5.5 h-5.5 rounded-lg flex items-center justify-center hover:bg-gray-500/10 transition border-0 bg-transparent cursor-pointer"
+            >
+              <X className="w-3.5 h-3.5 text-gray-400" />
+            </button>
+          </div>
+
+          <div className="p-3 flex-1 flex flex-col gap-3.5 overflow-y-auto scrollbar-none">
+            {/* Live Demand Status heading banner */}
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-1.5">
+                <div className="relative flex h-2 w-2">
+                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-[#13AA52] opacity-75"></span>
+                  <span className="relative inline-flex rounded-full h-2 w-2 bg-[#13AA52]"></span>
+                </div>
+                <span className="text-[9px] font-black uppercase tracking-wider text-gray-800 dark:text-zinc-200">Live Demand</span>
+              </div>
+              <span className="text-[8px] font-bold text-gray-500 dark:text-zinc-450 font-mono">
+                Updates every 2 min
+              </span>
+            </div>
+
+            {/* Gradient pricing indicator bar */}
+            <div className="bg-gray-550/5 dark:bg-zinc-900/30 p-2.5 rounded-2xl border border-gray-200/10 dark:border-zinc-850/60">
+              <span className="text-[8.5px] font-extrabold uppercase text-gray-500 dark:text-zinc-400 font-sans tracking-wide block mb-1.5 text-left">
+                Pricing multiplier range
+              </span>
+              <div className="h-2 w-full rounded-full bg-gradient-to-r from-sky-450 via-amber-400 to-[#ea4335]" />
+              <div className="flex items-center justify-between text-[7px] font-black tracking-wider text-gray-400 uppercase mt-1">
+                <span>Low</span>
+                <span>Moderate</span>
+                <span>High</span>
+              </div>
+            </div>
+
+            {/* High Demand advisory alert capsule */}
+            <div className="bg-emerald-500/5 border border-emerald-500/10 dark:border-emerald-500/5 p-2.5 rounded-2xl flex gap-2 text-left">
+              <div className="w-7 h-7 rounded-full bg-[#13AA52]/10 flex items-center justify-center shrink-0">
+                <Flame className="w-4 h-4 text-[#13AA52]" />
+              </div>
+              <div>
+                <h4 className="text-[9px] font-black text-gray-905 dark:text-zinc-100 uppercase tracking-wide">
+                  High demand in area
+                </h4>
+                <p className="text-[8px] font-bold text-gray-550 dark:text-zinc-400 mt-0.5 leading-snug">
+                  Multiplier fares active! Average earnings are valued up to <strong className="text-[#13AA52] font-black">2.3x</strong> higher than normal.
+                </p>
+              </div>
+            </div>
+
+            {/* List Header */}
+            <div>
+              <span className="text-[8.5px] font-extrabold uppercase text-gray-500 dark:text-zinc-400 font-sans tracking-wide block mb-1.5 text-left">
+                Top high demand areas
+              </span>
+
+              {/* Hardcoded exactly as shown in reference Bolt image */}
+              <div className="flex flex-col gap-1 z-10">
+                {[
+                  { id: 1, name: 'City of London', mult: 2.3, color: 'text-[#ea4335]' },
+                  { id: 2, name: 'Brixton', mult: 2.1, color: 'text-[#ea4335]' },
+                  { id: 3, name: 'Stratford', mult: 1.8, color: 'text-orange-500' },
+                  { id: 4, name: 'Canary Wharf', mult: 1.7, color: 'text-orange-500' },
+                  { id: 5, name: 'Kensington', mult: 1.6, color: 'text-amber-500' }
+                ].map((area) => (
+                  <div 
+                    key={area.id}
+                    onClick={() => {
+                      const matchZone = SURGE_ZONES_OFFSET.find(z => z.name === area.name);
+                      if (matchZone) {
+                        const latLng = getLatLngFromXY(matchZone.x, matchZone.y);
+                        mapRef.current?.setView(L.latLng(latLng[0], latLng[1]), 15, { animate: true });
+                        if (window.dispatchEvent) {
+                          window.dispatchEvent(new CustomEvent('play-sound', { detail: 'tap' }));
+                          window.dispatchEvent(new CustomEvent('add-simulation-log', {
+                            detail: { text: `🧭 Inspection: Map viewport panned to ${area.name} (+${area.mult}x Peak Surge)`, type: 'info' }
+                          }));
+                        }
+                      }
+                    }}
+                    className="flex items-center justify-between p-1.5 rounded-xl hover:bg-gray-500/10 border border-transparent hover:border-gray-500/5 cursor-pointer transition text-left"
+                  >
+                    <div className="flex items-center gap-2">
+                      <span className="w-4 h-4 rounded-full bg-gray-500/15 dark:bg-zinc-850 text-[9px] font-mono font-black text-gray-500 dark:text-zinc-400 flex items-center justify-center shrink-0">
+                        {area.id}
+                      </span>
+                      <span className="text-[10px] font-black truncate text-gray-805 dark:text-zinc-200">
+                        {area.name}
+                      </span>
+                    </div>
+
+                    <div className="flex items-center gap-1">
+                      <span className={`text-[10px] font-black font-mono ${area.color}`}>
+                        {area.mult.toFixed(1)}x
+                      </span>
+                      <ChevronRight className="w-3 h-3 text-gray-500 shrink-0" />
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* Compass Hotspot Row Button */}
+            <div className="mt-auto pt-2.5 border-t border-gray-200/10 dark:border-zinc-850">
+              <button
+                onClick={() => {
+                  const firstZone = SURGE_ZONES_OFFSET[0];
+                  const latLng = getLatLngFromXY(firstZone.x, firstZone.y);
+                  setSimulationAnchor({ lat: latLng[0], lon: latLng[1] });
+                  mapRef.current?.setView(L.latLng(latLng[0], latLng[1]), 15, { animate: true });
+                  
+                  if (window.dispatchEvent) {
+                    window.dispatchEvent(new CustomEvent('play-sound', { detail: 'complete' }));
+                    window.dispatchEvent(new CustomEvent('add-simulation-log', {
+                      detail: { text: `🎯 Dispatch Co-Pilot locked navigation on top hotspot: ${firstZone.name} (+2.3x Demand Surge)`, type: 'success' }
+                    }));
+                  }
+                }}
+                className="w-full p-2 rounded-xl bg-[#13AA52]/10 border border-[#13AA52]/20 hover:bg-[#13AA52]/15 transition flex items-center justify-between text-left group cursor-pointer border-solid bg-transparent"
+              >
+                <div className="flex items-center gap-2 min-w-0">
+                  <div className="w-6.5 h-6.5 rounded-full bg-[#13AA52]/20 flex items-center justify-center shrink-0">
+                    <Compass className="w-3.5 h-3.5 text-[#13AA52] animate-spin-slow" />
+                  </div>
+                  <div className="min-w-0">
+                    <h5 className="text-[8.5px] font-black text-[#13AA52] uppercase tracking-wide leading-none">
+                      Navigate to Hotspot
+                    </h5>
+                    <p className="text-[8.5px] font-bold text-gray-500 dark:text-zinc-400 mt-1 truncate">
+                       {SURGE_ZONES_OFFSET[0]?.name} (2.3x)
+                    </p>
+                  </div>
+                </div>
+                <ChevronRight className="w-4 h-4 text-[#13AA52] group-hover:translate-x-0.5 transition duration-150 shrink-0" />
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

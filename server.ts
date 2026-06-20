@@ -3,8 +3,42 @@ import path from 'path';
 import { createServer as createViteServer } from 'vite';
 import { GoogleGenAI } from '@google/genai';
 import dotenv from 'dotenv';
+import firebaseAdmin from 'firebase-admin';
+import fs from 'fs';
+
+const admin = firebaseAdmin as any;
 
 dotenv.config();
+
+// Initialize Firebase Admin SDK safely
+if (!admin.apps.length) {
+  try {
+    let serviceAccount: any = null;
+    const serviceAccountVar = process.env.FIREBASE_SERVICE_ACCOUNT;
+    
+    if (serviceAccountVar) {
+      serviceAccount = JSON.parse(serviceAccountVar);
+    } else {
+      const localPath = path.join(process.cwd(), 'firebase-service-account.json');
+      if (fs.existsSync(localPath)) {
+        console.log('Using local firebase-service-account.json fallback.');
+        const fileContent = fs.readFileSync(localPath, 'utf8');
+        serviceAccount = JSON.parse(fileContent);
+      }
+    }
+
+    if (serviceAccount) {
+      admin.initializeApp({
+        credential: admin.credential.cert(serviceAccount)
+      });
+      console.log('Firebase Admin SDK initialized successfully.');
+    } else {
+      console.warn('FIREBASE_SERVICE_ACCOUNT and local backup config file are both missing.');
+    }
+  } catch (error) {
+    console.error('Failed to initialize Firebase Admin SDK:', error);
+  }
+}
 
 // Lazy initialize Gemini API client to prevent startup failure if key is missing
 let aiClient: GoogleGenAI | null = null;
@@ -102,6 +136,88 @@ async function startServer() {
         text: "🚨 (Connection Timeout fallback) Hey driver, Swift dispatch servers are busy right now. Make sure to drive safely and check your current heat coordinates on the surge map overlay!",
         sender: 'support',
         timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+      });
+    }
+  });
+
+  // API Route - FCM background push gateway
+  app.post('/api/send-push', async (req, res) => {
+    const { token, title, body, orderId } = req.body;
+
+    if (!token) {
+      return res.status(400).json({ error: 'Missing destination fcmToken (token).' });
+    }
+
+    const notificationTitle = title || 'New Delivery Available 🍔';
+    const notificationBody = body || 'McBurger • £8.50 • 2.3 miles away';
+
+    try {
+      if (!admin.apps.length || !process.env.FIREBASE_SERVICE_ACCOUNT) {
+        // Safe simulated response when FIREBASE_SERVICE_ACCOUNT is unset
+        console.log('[Push Simulation] FIREBASE_SERVICE_ACCOUNT not configured. Simulating dispatch match:', {
+          token, title: notificationTitle, body: notificationBody, orderId
+        });
+        return res.status(200).json({
+          success: true,
+          simulated: true,
+          messageId: 'simulated_fcm_message_id_' + Math.random().toString(36).substring(2, 10),
+          data: { title: notificationTitle, body: notificationBody, orderId }
+        });
+      }
+
+      // Construct high-priority message payloads for Mobile & Web Applications
+      const message: any = {
+        token: token,
+        notification: {
+          title: notificationTitle,
+          body: notificationBody,
+        },
+        data: {
+          title: notificationTitle,
+          body: notificationBody,
+          orderId: orderId || '',
+          click_action: `/?action=view&orderId=${orderId || ''}`,
+          url: `/?action=view&orderId=${orderId || ''}`
+        },
+        android: {
+          priority: 'high',
+          notification: {
+            icon: 'icon',
+            color: '#090a0f',
+            sound: 'default',
+            clickAction: 'FLUTTER_NOTIFICATION_CLICK',
+            notificationCount: 1,
+          },
+        },
+        webpush: {
+          headers: { Urgency: 'high' },
+          notification: {
+            title: notificationTitle,
+            body: notificationBody,
+            icon: 'https://img.icons8.com/color/512/taxi.png',
+            badge: 'https://img.icons8.com/color/512/taxi.png',
+            vibrate: [200, 100, 200, 100, 200],
+            actions: [
+              { action: 'accept', title: 'Accept ✅' },
+              { action: 'decline', title: 'Decline ❌' }
+            ] as any
+          },
+          fcmOptions: {
+            link: `/?action=view&orderId=${orderId || ''}`
+          }
+        }
+      };
+
+      const response = await admin.messaging().send(message);
+      return res.status(200).json({
+        success: true,
+        messageId: response
+      });
+    } catch (error: any) {
+      console.error('FCM Dispatch failure:', error);
+      return res.status(500).json({
+        error: 'Failed to send FCM push notification',
+        details: error.message
       });
     }
   });
