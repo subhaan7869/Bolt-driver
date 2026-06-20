@@ -547,6 +547,7 @@ export default function App() {
   const [isMinimized, setIsMinimized] = useState<boolean>(false);
   const [isOnBreak, setIsOnBreak] = useState<boolean>(false);
   const [surgeLevel, setSurgeLevel] = useState<'low' | 'medium' | 'high'>('high');
+  const [selectedPeak, setSelectedPeak] = useState<'breakfast' | 'lunch' | 'dinner' | 'offpeak'>('dinner');
   const [simSpeed, setSimSpeed] = useState<number>(2);
   const [batteryLevel, setBatteryLevel] = useState<number>(71);
   const [autoAccept, setAutoAccept] = useState<boolean>(false);
@@ -1238,6 +1239,46 @@ export default function App() {
           foodItem: '4 x Premium Fish & Chips with Mushy Peas (Royal Catch)'
         };
       }
+
+      // Automatically customize foodItem based on the active simulated peak schedule
+      let customFood = preset.foodItem || 'Tandoori Mixed Grill';
+      if (selectedPeak === 'breakfast') {
+        const breakfastItems = [
+          '🍳 Traditional Full English Breakfast with Buttered Toast & PG Tips Tea',
+          '🥞 Smoked Bacon Stacked Pancakes & Organic Maple Syrup',
+          '🥐 3x Warm Butter Croissants, Raspberry Conserve & Caffe Latte',
+          '🥑 Smashed Avocado on Organic Sourdough with Poached Eggs & Green Tea'
+        ];
+        customFood = breakfastItems[Math.floor(Math.random() * breakfastItems.length)];
+      } else if (selectedPeak === 'lunch') {
+        const lunchItems = [
+          '🥪 Meal Deal: Chicken & Bacon Club Sandwich + Salt & Vinegar Crisps + Coca-Cola',
+          '🌯 Spicy Pulled Pork Burrito with Tortilla Chips, Lime & Guacamole',
+          '🥗 Classic Caesar Salad with Grilled Chicken Breast & Warm Focaccia',
+          '🍱 Chicken Katsu Curry Bento Box with Sticky Jasmine Rice & Edamame'
+        ];
+        customFood = lunchItems[Math.floor(Math.random() * lunchItems.length)];
+      } else if (selectedPeak === 'dinner') {
+        const dinnerItems = [
+          '🍣 Premium Sunset Sushi & Sashimi Chef Platter (16 pieces + Wasabi)',
+          '🥩 28-Day Aged Ribeye Steak, Rosemary Truffle Fries & Bearnaise Sauce',
+          '🍔 The Big Truffle Beast Bacon Cheeseburger with Triple Cooked Chips',
+          '🍝 Handmade Carbonara Tagliatelle with Parmesan & Freshly Ground Pepper'
+        ];
+        customFood = dinnerItems[Math.floor(Math.random() * dinnerItems.length)];
+      } else {
+        const snackItems = [
+          '🍩 Box of 4 Glazed Krispy Kreme Donuts & Warm Salted Caramel Latte',
+          '🥤 Triple Chocolate Milkshake, Warm Fudge Brownies & Cream',
+          '🍕 Late-night Double Pepperoni Pizza with Spicy Garlic & Herb Dip'
+        ];
+        customFood = snackItems[Math.floor(Math.random() * snackItems.length)];
+      }
+
+      preset = {
+        ...preset,
+        foodItem: customFood
+      };
     }
 
     // Dynamic passenger and courier names (UK theme)
@@ -2335,6 +2376,7 @@ export default function App() {
                           onSetOnline={handleSetOnline}
                           boltCategories={boltCategories}
                           setActiveTab={setActiveTab}
+                          selectedPeak={selectedPeak}
                         />
                       );
                     })()}
@@ -3888,6 +3930,41 @@ export default function App() {
                           >
                             Rich Tip 💎
                           </button>
+                        </div>
+                      </div>
+
+                      {/* Peak Schedule Times */}
+                      <div>
+                        <span className="text-[9px] text-[#13AA52] font-black uppercase tracking-wider block mb-1">⏰ SIMULATED PEAK PERIOD</span>
+                        <div className="grid grid-cols-2 gap-1.5 mb-1.5">
+                          {[
+                            { id: 'breakfast', label: '🥞 Breakfast', desc: '07:30-09:30', surge: 'medium' as const, note: 'Morning commute & breakfast runs' },
+                            { id: 'lunch', label: '🍱 Lunch Rush', desc: '12:00-13:30', surge: 'medium' as const, note: 'Business lunch deliveries & rapid office taxi rides' },
+                            { id: 'dinner', label: '🍷 Dinner Peak', desc: '18:00-21:00', surge: 'high' as const, note: 'Mega restaurant orders & social evening rides' },
+                            { id: 'offpeak', label: '💤 Off-Peak', desc: 'Other times', surge: 'low' as const, note: 'Idle off-rush dispatch levels' }
+                          ].map(p => {
+                            const isSelected = selectedPeak === p.id;
+                            return (
+                              <button
+                                key={p.id}
+                                onClick={() => {
+                                  playSoundEffect('tap');
+                                  setSelectedPeak(p.id as any);
+                                  setSurgeLevel(p.surge);
+                                  appendLog(`⏰ Peak Period Shift: Set simulation clock to ${p.label} (${p.desc}). Surge factor aligned to ${p.surge === 'high' ? 'High 🔥' : p.surge === 'medium' ? 'Medium ⚡' : 'Low 🍃'}.`, 'info');
+                                }}
+                                className={`p-1.5 rounded-xl border flex flex-col justify-between text-left h-12 transition-all cursor-pointer ${
+                                  isSelected 
+                                    ? 'bg-[#13AA52]/10 border-[#13AA52]/40 text-[#13AA52]' 
+                                    : 'bg-zinc-100 dark:bg-zinc-900 border-zinc-200 dark:border-zinc-805 text-zinc-650 dark:text-zinc-400 hover:bg-zinc-200'
+                                }`}
+                                title={p.note}
+                              >
+                                <span className="text-[8.5px] font-black uppercase tracking-wide truncate">{p.label}</span>
+                                <span className="text-[7.5px] font-bold text-zinc-450 dark:text-zinc-500">{p.desc}</span>
+                              </button>
+                            );
+                          })}
                         </div>
                       </div>
 

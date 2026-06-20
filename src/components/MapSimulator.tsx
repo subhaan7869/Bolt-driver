@@ -24,6 +24,7 @@ interface MapSimulatorProps {
   onSetMode?: (mode: 'taxi' | 'food') => void;
   onSetCurrentCity?: (city: string) => void;
   onSetMenuSubScreen?: (screen: string) => void;
+  selectedPeak?: 'breakfast' | 'lunch' | 'dinner' | 'offpeak';
 }
 
 // Logical surge coordinates relative to the 400x500 virtual grid
@@ -67,6 +68,7 @@ export const MapSimulator: React.FC<MapSimulatorProps> = ({
   onSetMode,
   onSetCurrentCity,
   onSetMenuSubScreen,
+  selectedPeak = 'dinner',
 }) => {
   const mapElementRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<L.Map | null>(null);
@@ -307,21 +309,30 @@ export const MapSimulator: React.FC<MapSimulatorProps> = ({
     
     if (normCity === 'london') return SURGE_ZONES_OFFSET;
     
-    let localizedNames = ['High Street Core', 'Central Boulevard', 'Commercial Hub', 'Station Side'];
+    let localizedNames = [
+      'High Street Core',
+      'Central Boulevard',
+      'Commercial Hub',
+      'Station Side',
+      'West End Quarter',
+      'North Side Gate'
+    ];
     if (normCity === 'birmingham') {
-      localizedNames = ['Bullring Core', 'Broad Street', 'Mailbox Plaza', 'Digbeth Creative'];
+      localizedNames = ['Bullring Core', 'Broad Street', 'Mailbox Plaza', 'Digbeth Creative', 'Edgbaston High', 'Aston Quarter'];
     } else if (normCity === 'nottingham') {
-      localizedNames = ['Lace Market', 'Hockley Square', 'Old Market Centre', 'Trent Bridge'];
+      localizedNames = ['Lace Market', 'Hockley Square', 'Old Market Centre', 'Trent Bridge', 'Wollaton Park', 'Beeston Central'];
     } else if (normCity === 'manchester') {
-      localizedNames = ['Spinningfields', 'Northern Quarter', 'MediaCity Basin', 'Ancoats Core'];
+      localizedNames = ['Spinningfields', 'Northern Quarter', 'MediaCity Basin', 'Ancoats Core', 'Chorlton West', 'Didsbury Heights'];
     } else if (normCity === 'leeds') {
-      localizedNames = ['Briggate Core', 'Headingley Quarter', 'Trinity Hub', 'Clarence Dock'];
+      localizedNames = ['Briggate Core', 'Headingley Quarter', 'Trinity Hub', 'Clarence Dock', 'University Area', 'Roundhay Park'];
     } else {
       localizedNames = [
         `${currentCity} Centre`,
-        `${currentCity} Waterfront`,
-        `${currentCity} Station`,
-        `${currentCity} Plaza`
+        `${currentCity} West End`,
+        `${currentCity} North`,
+        `${currentCity} Harbour`,
+        `${currentCity} Financial`,
+        `${currentCity} Quarter`
       ];
     }
     
@@ -1473,6 +1484,19 @@ export const MapSimulator: React.FC<MapSimulatorProps> = ({
               </span>
             </div>
 
+            {/* Simulated Period Info Banner */}
+            <div className="bg-[#13AA52]/5 border border-[#13AA52]/10 dark:border-[#13AA52]/20 p-2 rounded-2xl flex items-center justify-between">
+              <div className="flex flex-col text-left">
+                <span className="text-[7.5px] uppercase tracking-wider text-gray-400 font-extrabold font-sans block">Simulated Period</span>
+                <span className="text-[9.5px] font-black uppercase text-[#13AA52] tracking-wide mt-0.5 font-sans">
+                  {selectedPeak === 'breakfast' ? '🥞 Breakfast Peak' : selectedPeak === 'lunch' ? '🍱 Lunch Rush' : selectedPeak === 'dinner' ? '🍷 Dinner Peak' : '💤 Off-Peak / Slow'}
+                </span>
+              </div>
+              <span className="text-[7.5px] font-mono font-bold bg-[#13AA52]/10 text-[#13AA52] px-1.5 py-0.5 rounded-lg border border-[#13AA52]/10">
+                {selectedPeak === 'breakfast' ? '07:30-09:30' : selectedPeak === 'lunch' ? '12:00-13:30' : selectedPeak === 'dinner' ? '18:00-21:00' : 'Other Hours'}
+              </span>
+            </div>
+
             {/* Gradient pricing indicator bar */}
             <div className="bg-gray-550/5 dark:bg-zinc-900/30 p-2.5 rounded-2xl border border-gray-200/10 dark:border-zinc-850/60">
               <span className="text-[8.5px] font-extrabold uppercase text-gray-500 dark:text-zinc-400 font-sans tracking-wide block mb-1.5 text-left">
@@ -1507,49 +1531,53 @@ export const MapSimulator: React.FC<MapSimulatorProps> = ({
                 Top high demand areas
               </span>
 
-              {/* Hardcoded exactly as shown in reference Bolt image */}
+              {/* Dynamically mapped local city zones based on location/city */}
               <div className="flex flex-col gap-1 z-10">
-                {[
-                  { id: 1, name: 'City of London', mult: 2.3, color: 'text-[#ea4335]' },
-                  { id: 2, name: 'Brixton', mult: 2.1, color: 'text-[#ea4335]' },
-                  { id: 3, name: 'Stratford', mult: 1.8, color: 'text-orange-500' },
-                  { id: 4, name: 'Canary Wharf', mult: 1.7, color: 'text-orange-500' },
-                  { id: 5, name: 'Kensington', mult: 1.6, color: 'text-amber-500' }
-                ].map((area) => (
-                  <div 
-                    key={area.id}
-                    onClick={() => {
-                      const matchZone = SURGE_ZONES_OFFSET.find(z => z.name === area.name);
-                      if (matchZone) {
-                        const latLng = getLatLngFromXY(matchZone.x, matchZone.y);
+                {mappedSurgeZones.slice(0, 5).map((zone, idx) => {
+                  const mult = surgeLevel === 'high' ? zone.multiplier : surgeLevel === 'medium' ? Math.max(1.1, +(zone.multiplier * 0.7).toFixed(1)) : 1.0;
+                  
+                  let badgeColorClass = 'text-[#13AA52]';
+                  if (mult >= 2.0) {
+                    badgeColorClass = 'text-[#ea4335]';
+                  } else if (mult >= 1.5) {
+                    badgeColorClass = 'text-orange-500';
+                  } else if (mult >= 1.2) {
+                    badgeColorClass = 'text-amber-500';
+                  }
+
+                  return (
+                    <div 
+                      key={zone.id}
+                      onClick={() => {
+                        const latLng = getLatLngFromXY(zone.x, zone.y);
                         mapRef.current?.setView(L.latLng(latLng[0], latLng[1]), 15, { animate: true });
                         if (window.dispatchEvent) {
                           window.dispatchEvent(new CustomEvent('play-sound', { detail: 'tap' }));
                           window.dispatchEvent(new CustomEvent('add-simulation-log', {
-                            detail: { text: `🧭 Inspection: Map viewport panned to ${area.name} (+${area.mult}x Peak Surge)`, type: 'info' }
+                            detail: { text: `🧭 Inspection: Map viewport panned to ${zone.name} (+${mult.toFixed(1)}x Peak Surge)`, type: 'info' }
                           }));
                         }
-                      }
-                    }}
-                    className="flex items-center justify-between p-1.5 rounded-xl hover:bg-gray-500/10 border border-transparent hover:border-gray-500/5 cursor-pointer transition text-left"
-                  >
-                    <div className="flex items-center gap-2">
-                      <span className="w-4 h-4 rounded-full bg-gray-500/15 dark:bg-zinc-850 text-[9px] font-mono font-black text-gray-500 dark:text-zinc-400 flex items-center justify-center shrink-0">
-                        {area.id}
-                      </span>
-                      <span className="text-[10px] font-black truncate text-gray-805 dark:text-zinc-200">
-                        {area.name}
-                      </span>
-                    </div>
+                      }}
+                      className="flex items-center justify-between p-1.5 rounded-xl hover:bg-gray-500/10 border border-transparent hover:border-gray-500/5 cursor-pointer transition text-left"
+                    >
+                      <div className="flex items-center gap-2">
+                        <span className="w-4 h-4 rounded-full bg-gray-500/15 dark:bg-zinc-850 text-[9px] font-mono font-black text-gray-500 dark:text-zinc-400 flex items-center justify-center shrink-0">
+                          {idx + 1}
+                        </span>
+                        <span className="text-[10px] font-black truncate text-gray-805 dark:text-zinc-200">
+                          {zone.name}
+                        </span>
+                      </div>
 
-                    <div className="flex items-center gap-1">
-                      <span className={`text-[10px] font-black font-mono ${area.color}`}>
-                        {area.mult.toFixed(1)}x
-                      </span>
-                      <ChevronRight className="w-3 h-3 text-gray-500 shrink-0" />
+                      <div className="flex items-center gap-1">
+                        <span className={`text-[10px] font-black font-mono ${badgeColorClass}`}>
+                          {mult.toFixed(1)}x
+                        </span>
+                        <ChevronRight className="w-3 h-3 text-gray-500 shrink-0" />
+                      </div>
                     </div>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             </div>
 
@@ -1557,15 +1585,18 @@ export const MapSimulator: React.FC<MapSimulatorProps> = ({
             <div className="mt-auto pt-2.5 border-t border-gray-200/10 dark:border-zinc-850">
               <button
                 onClick={() => {
-                  const firstZone = SURGE_ZONES_OFFSET[0];
+                  const firstZone = mappedSurgeZones[0];
+                  if (!firstZone) return;
                   const latLng = getLatLngFromXY(firstZone.x, firstZone.y);
                   setSimulationAnchor({ lat: latLng[0], lon: latLng[1] });
                   mapRef.current?.setView(L.latLng(latLng[0], latLng[1]), 15, { animate: true });
                   
+                  const mult = surgeLevel === 'high' ? firstZone.multiplier : surgeLevel === 'medium' ? Math.max(1.1, +(firstZone.multiplier * 0.7).toFixed(1)) : 1.0;
+
                   if (window.dispatchEvent) {
                     window.dispatchEvent(new CustomEvent('play-sound', { detail: 'complete' }));
                     window.dispatchEvent(new CustomEvent('add-simulation-log', {
-                      detail: { text: `🎯 Dispatch Co-Pilot locked navigation on top hotspot: ${firstZone.name} (+2.3x Demand Surge)`, type: 'success' }
+                      detail: { text: `🎯 Dispatch Co-Pilot locked navigation on top hotspot: ${firstZone.name} (+${mult.toFixed(1)}x Demand Surge)`, type: 'success' }
                     }));
                   }
                 }}
@@ -1580,7 +1611,7 @@ export const MapSimulator: React.FC<MapSimulatorProps> = ({
                       Navigate to Hotspot
                     </h5>
                     <p className="text-[8.5px] font-bold text-gray-500 dark:text-zinc-400 mt-1 truncate">
-                       {SURGE_ZONES_OFFSET[0]?.name} (2.3x)
+                       {mappedSurgeZones[0]?.name || 'Local Hotspot'} ({(surgeLevel === 'high' ? (mappedSurgeZones[0]?.multiplier ?? 2.3) : surgeLevel === 'medium' ? Math.max(1.1, +((mappedSurgeZones[0]?.multiplier ?? 2.3) * 0.7).toFixed(1)) : 1.0).toFixed(1)}x)
                     </p>
                   </div>
                 </div>
