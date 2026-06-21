@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
+import { AnimatePresence, motion } from 'motion/react';
 import { 
   DriverStats, RideRequest, TripProgress, SimulatorLog, CompletedTrip, ActiveChat, TripStage 
 } from './types';
@@ -685,11 +686,28 @@ export default function App() {
     };
   }, [appendLog, playSoundEffect]);
 
+  // 1. Initial Permission Setup on App Mount
+  useEffect(() => {
+    if ("Notification" in window && Notification.permission === "default") {
+      Notification.requestPermission();
+    }
+  }, []);
+
+  // 2. In-App Toasts State and Dispatcher
+  const [toasts, setToasts] = useState<{ id: string; title: string; body: string; type?: 'info' | 'success' | 'alert' | 'message' }[]>([]);
+
+  const addToast = useCallback((title: string, body: string, type: 'info' | 'success' | 'alert' | 'message' = 'info') => {
+    const id = Date.now().toString(36) + Math.random().toString(36).substring(2, 7);
+    setToasts((prev) => [{ id, title, body, type }, ...prev.slice(0, 3)]); // Keep maximum of 4 active toasts
+    setTimeout(() => {
+      setToasts((prev) => prev.filter((t) => t.id !== id));
+    }, 5000);
+  }, []);
+
   // Real Notification helper (Alerts even when in background or minimized)
   const lastNoteRef = useRef<{ title: string; body: string; time: number } | null>(null);
 
   const sendRealNotification = useCallback((title: string, body: string, type: 'info' | 'success' | 'alert' | 'message' = 'info') => {
-    if (!notificationsEnabled) return;
     const now = Date.now();
 
     // Prevent duplicate notifications firing in rapid succession
@@ -704,15 +722,15 @@ export default function App() {
     lastNoteRef.current = { title, body, time: now };
 
     // Real Notification Delivery via Browser API
-    if (typeof window !== 'undefined' && 'Notification' in window && Notification.permission === 'granted') {
+    if (notificationsEnabled && typeof window !== 'undefined' && 'Notification' in window && Notification.permission === 'granted') {
       try {
         // Prefer Service Worker showNotification for reliable background delivery on Android/PWA
         if (navigator.serviceWorker && navigator.serviceWorker.ready) {
           navigator.serviceWorker.ready.then((registration) => {
             registration.showNotification(title, {
               body,
-              icon: "https://img.icons8.com/color/512/taxi.png",
-              badge: "https://img.icons8.com/color/512/taxi.png",
+              icon: "https://www.gstatic.com/images/branding/product/1x/googleg_48dp.png",
+              badge: "https://www.gstatic.com/images/branding/product/1x/googleg_48dp.png",
               vibrate: [200, 100, 200],
               tag: title,
               renotify: true,
@@ -720,7 +738,7 @@ export default function App() {
             } as any).catch(() => {
               new Notification(title, {
                 body,
-                icon: "https://img.icons8.com/color/512/taxi.png",
+                icon: "https://www.gstatic.com/images/branding/product/1x/googleg_48dp.png",
                 tag: title
               });
             });
@@ -728,7 +746,7 @@ export default function App() {
         } else {
           new Notification(title, {
             body,
-            icon: "https://img.icons8.com/color/512/taxi.png",
+            icon: "https://www.gstatic.com/images/branding/product/1x/googleg_48dp.png",
             tag: title
           });
         }
@@ -756,7 +774,12 @@ export default function App() {
       read: false
     };
     setNotifications((prev) => [newNotif, ...prev.slice(0, 49)]);
-  }, [notificationsEnabled, playSoundEffect]);
+
+    // Render the in-app UI Toast as a visual fallback in the driver's interface
+    addToast(title, body, type);
+  }, [notificationsEnabled, playSoundEffect, addToast]);
+
+  const sendNotification = sendRealNotification;
 
   const [currentTimeStr, setCurrentTimeStr] = useState('09:41');
 
@@ -1998,6 +2021,57 @@ export default function App() {
       {/* Smartphone Hardware Frame Body Shell */}
       <div className="w-full h-full md:max-w-[390px] md:h-[844px] md:rounded-[50px] md:shadow-[0_25px_60px_rgba(0,0,0,0.85)] md:border-[11px] md:border-zinc-800 bg-white relative flex flex-col overflow-hidden">
         
+        {/* IN-APP TOAST PORTAL OVERLAY */}
+        <div className="absolute top-10 left-3 right-3 z-100 pointer-events-none flex flex-col gap-2">
+          <AnimatePresence>
+            {toasts.map((toast) => {
+              // Color styles and icons based on type
+              let bgColor = 'bg-zinc-900/95 dark:bg-zinc-950/98 text-white border-zinc-805';
+              let icon = <Info className="w-3.5 h-3.5 text-emerald-400" />;
+              
+              if (toast.type === 'success') {
+                bgColor = 'bg-emerald-900/95 dark:bg-emerald-950/98 text-white border-emerald-800';
+                icon = <CheckCircle className="w-3.5 h-3.5 text-emerald-300" />;
+              } else if (toast.type === 'alert') {
+                bgColor = 'bg-rose-900/95 dark:bg-rose-950/98 text-white border-rose-800';
+                icon = <AlertTriangle className="w-3.5 h-3.5 text-rose-300 animate-pulse" />;
+              } else if (toast.type === 'message') {
+                bgColor = 'bg-blue-900/95 dark:bg-blue-950/98 text-white border-blue-800';
+                icon = <MessageSquare className="w-3.5 h-3.5 text-blue-300" />;
+              }
+
+              return (
+                <motion.div
+                  key={toast.id}
+                  initial={{ opacity: 0, y: -20, scale: 0.95 }}
+                  animate={{ opacity: 1, y: 0, scale: 1 }}
+                  exit={{ opacity: 0, y: -10, scale: 0.95 }}
+                  transition={{ type: 'spring', stiffness: 350, damping: 25 }}
+                  className={`pointer-events-auto w-full p-2.5 rounded-2xl border flex items-start gap-2 shadow-lg backdrop-blur-md ${bgColor}`}
+                >
+                  <div className="shrink-0 mt-0.5">
+                    {icon}
+                  </div>
+                  <div className="flex-1 text-left min-w-0">
+                    <h4 className="text-[9.5px] font-black uppercase tracking-wider leading-none">
+                      {toast.title}
+                    </h4>
+                    <p className="text-[9px] font-semibold text-zinc-100 mt-1 leading-tight">
+                      {toast.body}
+                    </p>
+                  </div>
+                  <button 
+                    onClick={() => setToasts(prev => prev.filter(t => t.id !== toast.id))}
+                    className="p-1 rounded-lg hover:bg-white/10 text-white/50 hover:text-white transition cursor-pointer self-center"
+                  >
+                    <X className="w-3 h-3" />
+                  </button>
+                </motion.div>
+              );
+            })}
+          </AnimatePresence>
+        </div>
+
         {/* Top Camera Notch/Dynamic Island bar */}
         <div 
           onClick={() => {
