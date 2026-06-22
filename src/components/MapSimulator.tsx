@@ -1,7 +1,7 @@
 import React, { useEffect, useRef, useState, useMemo } from 'react';
 import { TripProgress, RideRequest, DriverStats } from '../types';
 import L from 'leaflet';
-import { MapPin, Navigation, Zap, Compass, Target, ShieldCheck, CheckCircle2, User, Sliders, Radio, Globe, ArrowRight, Play, Volume2, VolumeX, Battery, BatteryCharging, RefreshCw, ArrowUp, CornerUpLeft, CornerUpRight, Award, BarChart2, Plane, ChevronRight, ChevronDown, Clock, Plus, Search, Sparkles, Check, Mail, X, Flame, Info } from 'lucide-react';
+import { MapPin, Navigation, Zap, Compass, Target, ShieldCheck, CheckCircle2, User, Sliders, Radio, Globe, ArrowRight, Play, Volume2, VolumeX, Battery, BatteryCharging, RefreshCw, ArrowUp, CornerUpLeft, CornerUpRight, Award, BarChart2, Plane, ChevronRight, ChevronDown, Clock, Plus, Minus, Search, Sparkles, Check, Mail, X, Flame, Info } from 'lucide-react';
 import { SwipeButton } from './SwipeButton';
 
 interface MapSimulatorProps {
@@ -1435,6 +1435,38 @@ export const MapSimulator: React.FC<MapSimulatorProps> = ({
             <Target className="w-4.5 h-4.5 text-[#13AA52]" />
           </button>
         )}
+
+        {/* Custom Zoom In Button */}
+        <button
+          onClick={() => {
+            mapRef.current?.zoomIn();
+            if (window.dispatchEvent) window.dispatchEvent(new CustomEvent('play-sound', { detail: 'tap' }));
+          }}
+          className={`w-9 h-9 rounded-full flex items-center justify-center shadow-md border transition duration-150 active:scale-95 cursor-pointer self-end ${
+            darkMode 
+              ? 'bg-zinc-900/98 border-zinc-800 hover:bg-zinc-800 text-zinc-150' 
+              : 'bg-white/98 border-gray-150 hover:bg-gray-50 text-gray-700'
+          }`}
+          title="Zoom In"
+        >
+          <Plus className="w-4.5 h-4.5" />
+        </button>
+
+        {/* Custom Zoom Out Button */}
+        <button
+          onClick={() => {
+            mapRef.current?.zoomOut();
+            if (window.dispatchEvent) window.dispatchEvent(new CustomEvent('play-sound', { detail: 'tap' }));
+          }}
+          className={`w-9 h-9 rounded-full flex items-center justify-center shadow-md border transition duration-150 active:scale-95 cursor-pointer self-end ${
+            darkMode 
+              ? 'bg-zinc-900/98 border-zinc-800 hover:bg-zinc-800 text-zinc-150' 
+              : 'bg-white/98 border-gray-150 hover:bg-gray-50 text-gray-700'
+          }`}
+          title="Zoom Out"
+        >
+          <Minus className="w-4.5 h-4.5" />
+        </button>
       </div>
 
       {/* RENDER THE SCREEN-CLONED PREMIUM BOLT HEAT MAP DETAILS PANEL */}

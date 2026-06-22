@@ -11,7 +11,7 @@ import {
   Navigation, Star, Zap, Clock, Landmark, Sparkles, Compass, MessageSquare, 
   AlertTriangle, CheckCircle, Smartphone, Wifi, Battery, Menu, Bell, 
   ChevronRight, ChevronLeft, Info, Car, HelpCircle, Settings, LogOut, Check, ArrowRight, X, Phone, User, Calendar, Coffee,
-  Globe, Lock, ShieldAlert, Video, WifiOff, Sun, Moon, Sliders, Mail
+  Globe, Lock, ShieldAlert, Video, WifiOff, Sun, Moon, Sliders, Mail, Award, Target, TrendingUp
 } from 'lucide-react';
 
 // Live Firebase client and authentications
@@ -607,6 +607,76 @@ export default function App() {
   const [workingDays, setWorkingDays] = useState<boolean[]>([true, true, true, true, true, true, true]);
   const [autoOnlineStartup, setAutoOnlineStartup] = useState<boolean>(false);
 
+  // Dynamic Driver Level & Points State
+  const [driverPoints, setDriverPoints] = useState<number>(() => {
+    const saved = localStorage.getItem('swift_driver_points');
+    return saved ? parseInt(saved, 10) : 135; // Default points (Silver/Bronze bound)
+  });
+
+  // Daily Earnings Target Goal State
+  const [dailyEarningsGoal, setDailyEarningsGoal] = useState<number>(() => {
+    const saved = localStorage.getItem('swift_daily_earnings_goal');
+    return saved ? parseInt(saved, 10) : 100; // Default £100 goal
+  });
+
+  // Goal Achievement Notification state
+  const [goalAchievedNotified, setGoalAchievedNotified] = useState<boolean>(() => {
+    return localStorage.getItem('swift_goal_notified') === 'true';
+  });
+
+  // Scheduled Bookings Calendar State
+  const [scheduledBookings, setScheduledBookings] = useState<{ id: string; passengerName: string; timeString: string; route: string; fare: number; claimed: boolean; category: string }[]>(() => {
+    const saved = localStorage.getItem('swift_scheduled_bookings');
+    if (saved) return JSON.parse(saved);
+    return [
+      { id: 'sb-1', passengerName: 'Alexander Bell', timeString: '14:30', route: 'Mayfair ➔ Heathrow T2', fare: 48.00, claimed: false, category: 'Swift Airport Line' },
+      { id: 'sb-2', passengerName: 'Flora McDonald', timeString: '16:00', route: 'Soho ➔ Chelsea Pavilions', fare: 18.50, claimed: true, category: 'Swift Comfort Tier' },
+      { id: 'sb-3', passengerName: 'Sir Arthur Conan Doyle', timeString: '18:45', route: 'Baker Street ➔ Kings Cross Station', fare: 12.20, claimed: false, category: 'Swift Basic Ride' }
+    ];
+  });
+
+  // Dynamically computed driver level metrics
+  const driverLevel = useMemo(() => {
+    if (driverPoints < 150) {
+      return { 
+        name: 'Bronze' as const, 
+        color: 'text-amber-700 dark:text-amber-500 bg-amber-500/10 border-amber-500/20 dark:border-amber-550/30', 
+        nextGoal: 150, 
+        medal: '🥉', 
+        label: 'Bronze Partner', 
+        note: 'Complete rides to advance to Silver and unleash loyalty boosts.' 
+      };
+    }
+    if (driverPoints < 400) {
+      return { 
+        name: 'Silver' as const, 
+        color: 'text-zinc-650 dark:text-zinc-400 bg-zinc-500/10 border-zinc-500/20 dark:border-zinc-800', 
+        nextGoal: 400, 
+        medal: '🥈', 
+        label: 'Silver Premium', 
+        note: 'Earn +250 points to grab Gold Executive rewards and prioritised orders.' 
+      };
+    }
+    if (driverPoints < 800) {
+      return { 
+        name: 'Gold' as const, 
+        color: 'text-amber-600 dark:text-[#E6B014] bg-amber-500/10 border-amber-500/20 dark:border-amber-600/30', 
+        nextGoal: 800, 
+        medal: '🏆', 
+        label: 'Gold Executive', 
+        note: 'High-tier orders active. Reach 800 points to become a Platinum Legend!' 
+      };
+    }
+    return { 
+      name: 'Platinum' as const, 
+      color: 'text-cyan-600 dark:text-cyan-400 bg-cyan-500/10 border-cyan-500/20 dark:border-cyan-500/30', 
+      nextGoal: 9999, 
+      medal: '💎', 
+      label: 'Platinum VIP Legend', 
+      note: 'Ultimate matching privileges active. Highest-paying priority dispatches!' 
+    };
+  }, [driverPoints]);
+
   // Dynamic system notifications state
   const [notifications, setNotifications] = useState<{id: string, title: string, desc: string, time: string, read: boolean}[]>([
     {id: '1', title: 'London Soho Food Surge active', desc: 'Simulated food orders have 1.4x surge active due to heavy rain in Soho Central.', time: 'Just now', read: false},
@@ -778,6 +848,36 @@ export default function App() {
     // Render the in-app UI Toast as a visual fallback in the driver's interface
     addToast(title, body, type);
   }, [notificationsEnabled, playSoundEffect, addToast]);
+
+  // Persist driver points, dynamic target details and scheduled reservations
+  useEffect(() => {
+    localStorage.setItem('swift_driver_points', driverPoints.toString());
+  }, [driverPoints]);
+
+  useEffect(() => {
+    localStorage.setItem('swift_daily_earnings_goal', dailyEarningsGoal.toString());
+  }, [dailyEarningsGoal]);
+
+  useEffect(() => {
+    localStorage.setItem('swift_scheduled_bookings', JSON.stringify(scheduledBookings));
+  }, [scheduledBookings]);
+
+  // Handle auto-checking of performance targets
+  useEffect(() => {
+    if (stats.todayEarnings >= dailyEarningsGoal && !goalAchievedNotified) {
+      setGoalAchievedNotified(true);
+      localStorage.setItem('swift_goal_notified', 'true');
+      sendRealNotification(
+        "🎯 Daily earnings target reached!",
+        `Amazing work, CEO! You reached today's goal of £${dailyEarningsGoal}. Today's total: £${stats.todayEarnings.toFixed(2)}. Reward bonus of +50 Driver Points awarded!`,
+        'success'
+      );
+      setDriverPoints(p => p + 50);
+    } else if (stats.todayEarnings < dailyEarningsGoal && goalAchievedNotified) {
+      setGoalAchievedNotified(false);
+      localStorage.setItem('swift_goal_notified', 'false');
+    }
+  }, [stats.todayEarnings, dailyEarningsGoal, goalAchievedNotified, sendRealNotification]);
 
   const sendNotification = sendRealNotification;
 
@@ -1810,7 +1910,8 @@ export default function App() {
       const job = p.find(j => j.id === jobId);
       if (!job) return p;
 
-      // Update statistics
+      // Update statistics and award driver points
+      const earnedPoints = 15;
       setStats((s) => ({
         ...s,
         completedTripsCount: s.completedTripsCount + 1,
@@ -1818,6 +1919,7 @@ export default function App() {
         weeklyEarnings: s.weeklyEarnings + job.fare,
         balance: s.balance + job.fare,
       }));
+      setDriverPoints(pts => pts + earnedPoints);
 
       const completedRun = {
         id: job.id,
@@ -1836,7 +1938,7 @@ export default function App() {
       setCompletedTrips((prev: any) => [...prev, completedRun]);
       setJustCompletedTrip(completedRun);
       setShowCelebration(true);
-      appendLog(`🏆 Order successfully delivered. £${job.fare.toFixed(2)} added to your Swift balance!`, 'success');
+      appendLog(`🏆 Order successfully delivered. £${job.fare.toFixed(2)} added to your Swift balance! (+${earnedPoints} Driver Points ⭐)`, 'success');
 
       return p.filter(j => j.id !== jobId);
     });
@@ -1897,6 +1999,10 @@ export default function App() {
       setShowCelebration(true);
       playSoundEffect('complete');
 
+      const isComfort = currentRide.category && currentRide.category.toLowerCase().includes('comfort');
+      const isAirport = currentRide.pickupAddress.toLowerCase().includes('terminal') || currentRide.dropoffAddress.toLowerCase().includes('airport') || currentRide.dropoffAddress.toLowerCase().includes('heathrow');
+      const earnedPoints = currentRide.surgeMultiplier > 1.5 ? 35 : (isComfort || isAirport ? 25 : 20);
+
       setStats((s) => ({
         ...s,
         todayEarnings: s.todayEarnings + totalSum,
@@ -1905,8 +2011,9 @@ export default function App() {
         completedTripsCount: s.completedTripsCount + 1,
         hoursOnline: +(s.hoursOnline + 0.4).toFixed(2),
       }));
+      setDriverPoints(pts => pts + earnedPoints);
 
-      appendLog(`💰 FARE COMPLETED! Earned £${baseFee.toFixed(2)} + £${tipAmount.toFixed(2)} Tip from ${currentRide.passengerName}!`, 'earnings');
+      appendLog(`💰 FARE COMPLETED! Earned £${baseFee.toFixed(2)} + £${tipAmount.toFixed(2)} Tip from ${currentRide.passengerName}! (+${earnedPoints} Driver Points ⭐)`, 'earnings');
 
       setTripProgress({
         stage: 'idle',
@@ -2451,26 +2558,36 @@ export default function App() {
                           boltCategories={boltCategories}
                           setActiveTab={setActiveTab}
                           selectedPeak={selectedPeak}
+                          onSetMode={setMode}
+                          onSetCurrentCity={setCurrentCity}
+                          onSetMenuSubScreen={setMenuSubScreen}
                         />
                       );
                     })()}
 
                     {/* Floating stats header inside Home map when online and searching */}
                     {isOnline && tripProgress.stage === 'idle' && activeEatsJobs.length === 0 && (
-                      <div className={`absolute top-3 left-3 right-3 backdrop-blur-md border rounded-xl p-2.5 flex items-center justify-between shadow-md z-15 animate-in fade-in duration-300 ${darkMode ? 'bg-zinc-900/95 border-zinc-800 text-zinc-100' : 'bg-white/95 border-gray-100 text-gray-950'}`}>
+                      <div className={`absolute top-3 left-3 right-3 backdrop-blur-md border rounded-xl p-2 flex items-center justify-between shadow-md z-15 animate-in fade-in duration-300 ${darkMode ? 'bg-zinc-900/95 border-zinc-800 text-zinc-100' : 'bg-white/95 border-gray-100 text-gray-950'}`}>
                         <div className={`text-center flex-1 border-r ${darkMode ? 'border-zinc-800' : 'border-gray-100'}`}>
-                          <span className="text-[7.5px] text-gray-400 uppercase font-bold block leading-none">Accept Rate</span>
-                          <span className={`text-[11px] font-bold font-mono tracking-tight ${darkMode ? 'text-zinc-100' : 'text-gray-900'}`}>{stats.acceptanceRate}%</span>
+                          <span className="text-[7px] text-gray-400 dark:text-zinc-450 uppercase font-bold block leading-none">Accept Rate</span>
+                          <span className={`text-[10px] font-bold font-mono tracking-tight ${darkMode ? 'text-zinc-100' : 'text-gray-900'}`}>{stats.acceptanceRate}%</span>
                         </div>
                         <div className={`text-center flex-1 border-r ${darkMode ? 'border-zinc-800' : 'border-gray-100'}`}>
-                          <span className="text-[7.5px] text-gray-400 uppercase font-bold block leading-none">Rating Stars</span>
-                          <span className="text-[11px] font-bold font-mono text-amber-500 flex items-center justify-center gap-0.5 leading-none">
-                            {stats.rating.toFixed(1)} <Star className="w-2.5 h-2.5 text-amber-500 fill-amber-500" />
+                          <span className="text-[7px] text-gray-400 dark:text-zinc-450 uppercase font-bold block leading-none">Rating Stars</span>
+                          <span className="text-[10px] font-bold font-mono text-amber-500 flex items-center justify-center gap-0.5 leading-none">
+                            {stats.rating.toFixed(1)} <Star className="w-2 h-2 text-amber-500 fill-amber-500 animate-pulse" />
                           </span>
                         </div>
+                        <div className={`text-center flex-1 border-r ${darkMode ? 'border-zinc-800' : 'border-gray-100'}`}>
+                          <span className="text-[7px] text-gray-400 dark:text-zinc-450 uppercase font-bold block leading-none">Today's Total</span>
+                          <span className="text-[10px] font-bold font-mono text-[#13AA52] block leading-none">£{stats.todayEarnings.toFixed(2)}</span>
+                          <span className="text-[6.5px] text-gray-400/80 font-bold block mt-0.5 font-sans leading-none">Goal £{dailyEarningsGoal}</span>
+                        </div>
                         <div className="text-center flex-1">
-                          <span className="text-[7.5px] text-gray-400 uppercase font-bold block leading-none">Salary Today</span>
-                          <span className="text-[11px] font-extrabold font-mono text-[#13AA52]">£{stats.todayEarnings.toFixed(2)}</span>
+                          <span className="text-[7px] text-gray-400 dark:text-zinc-450 uppercase font-bold block leading-none">Badge Level</span>
+                          <span className="text-[10px] font-extrabold font-sans text-emerald-600 dark:text-emerald-400 flex items-center justify-center gap-0.5 leading-none mt-0.5">
+                            {driverLevel.medal} {driverLevel.name}
+                          </span>
                         </div>
                       </div>
                     )}
@@ -3314,7 +3431,109 @@ export default function App() {
                         </div>
 
                         {/* Scrollable area wrapper */}
-                        <div className="flex-1 overflow-y-auto flex flex-col gap-2.5 pt-2 text-[11px] text-gray-600">
+                        <div className="flex-1 overflow-y-auto flex flex-col gap-2.5 pt-2 text-[11px] text-gray-650 dark:text-zinc-300">
+                          
+                          {/* Dynamic Earnings Target Goal Tracker Card */}
+                          <div className="bg-gradient-to-br from-emerald-50 to-teal-50 border border-emerald-100/50 rounded-2xl p-3.5 mb-1 flex flex-col gap-3 shadow-xs select-none">
+                            <div className="flex items-center justify-between">
+                              <div className="flex items-center gap-1.5">
+                                <Target className="w-4 h-4 text-emerald-600 animate-pulse" />
+                                <span className="text-[10.5px] font-black text-emerald-800 uppercase tracking-wide">Daily Target Tracker</span>
+                              </div>
+                              {/* Target value selector pills */}
+                              <div className="flex items-center gap-1">
+                                {([50, 100, 200] as const).map(g => (
+                                  <button
+                                    key={g}
+                                    onClick={() => {
+                                      playSoundEffect('tap');
+                                      setDailyEarningsGoal(g);
+                                    }}
+                                    className={`px-2 py-0.5 rounded text-[9px] font-extrabold font-mono transition-colors ${
+                                      dailyEarningsGoal === g
+                                        ? 'bg-emerald-600 text-white'
+                                        : 'bg-emerald-100/40 text-emerald-700 hover:bg-emerald-100/80 border border-emerald-200/30'
+                                    }`}
+                                  >
+                                    £{g}
+                                  </button>
+                                ))}
+                              </div>
+                            </div>
+
+                            {/* Horizontal progress visualization */}
+                            {(() => {
+                              const pct = Math.min(100, Math.round((stats.todayEarnings / dailyEarningsGoal) * 100));
+                              const remaining = Math.max(0, dailyEarningsGoal - stats.todayEarnings);
+                              const isAchieved = stats.todayEarnings >= dailyEarningsGoal;
+                              return (
+                                <div className="flex flex-col gap-1.5">
+                                  <div className="flex items-center justify-between text-[11px]">
+                                    <span className="font-extrabold text-emerald-950 font-sans">
+                                      Today's earnings: <span className="font-mono text-emerald-800 font-black">£{stats.todayEarnings.toFixed(2)}</span>
+                                    </span>
+                                    <span className="font-black font-mono text-emerald-700">
+                                      {pct}%
+                                    </span>
+                                  </div>
+
+                                  <div className="w-full h-2 rounded-full bg-emerald-200/30 overflow-hidden relative border border-emerald-200/25">
+                                    <div 
+                                      className="h-full bg-gradient-to-r from-emerald-400 to-teal-500 rounded-full transition-all duration-500"
+                                      style={{ width: `${pct}%` }}
+                                    />
+                                  </div>
+
+                                  <div className="flex items-center justify-between text-[9px] font-bold text-teal-850 mt-0.5">
+                                    <span>{isAchieved ? "🎉 Bonus points goal achieved!" : `£${remaining.toFixed(2)} needed for +50 pts bonus`}</span>
+                                    <span className="flex items-center gap-1 text-emerald-700">
+                                      Milestone Tracker <Award className="w-2.5 h-2.5 text-emerald-600" />
+                                    </span>
+                                  </div>
+                                </div>
+                              );
+                            })()}
+                          </div>
+
+                          {/* Driver Progression Level Status Widget */}
+                          <div className={`border rounded-2xl p-3.5 mb-1 flex flex-col gap-3 shadow-xs select-none ${driverLevel.color}`}>
+                            <div className="flex items-center justify-between">
+                              <div className="flex items-center gap-1.5">
+                                <span className="text-[14px]">{driverLevel.medal}</span>
+                                <span className="text-[10.5px] font-black uppercase tracking-wide text-slate-800 dark:text-zinc-100">Driver Level Progression</span>
+                              </div>
+                              <span className="text-[9px] font-black uppercase text-slate-500/80">Active Level</span>
+                            </div>
+
+                            <div className="flex items-center justify-between gap-2">
+                              <div className="flex-1">
+                                <h3 className="text-[13px] font-black text-slate-900 dark:text-white flex items-center gap-1.5 leading-tight">
+                                  {driverLevel.label}
+                                  <span className="text-[11px] font-mono text-slate-500 dark:text-zinc-400 font-bold">({driverPoints} pts)</span>
+                                </h3>
+                                <p className="text-[9px] text-slate-500 dark:text-zinc-400 mt-1 font-medium leading-normal">
+                                  {driverLevel.note}
+                                </p>
+                              </div>
+                            </div>
+
+                            {/* Progress meter to next rank tier */}
+                            {driverLevel.name !== 'Platinum' && (
+                              <div className="flex flex-col gap-1 mt-1">
+                                <div className="flex justify-between items-center text-[9px] font-bold text-slate-650 dark:text-zinc-400">
+                                  <span>Silver: 200 pts • Gold: 500 pts</span>
+                                  <span className="font-mono">Next milestone: {driverLevel.nextGoal} pts</span>
+                                </div>
+                                <div className="w-full h-1.5 rounded-full bg-slate-200/50 dark:bg-zinc-800 overflow-hidden relative">
+                                  <div 
+                                    className="h-full bg-current rounded-full transition-all duration-500 opacity-80"
+                                    style={{ width: `${Math.min(100, (driverPoints / driverLevel.nextGoal) * 100)}%` }}
+                                  />
+                                </div>
+                              </div>
+                            )}
+                          </div>
+
                           <div className="bg-gray-50 border border-gray-100 rounded-xl p-3 flex flex-col gap-2.5">
                             <div className="flex items-center justify-between">
                               <span>Base fare collected</span>
