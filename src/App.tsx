@@ -629,6 +629,7 @@ export default function App() {
   const [isSideMenuOpen, setIsSideMenuOpen] = useState<boolean>(false);
   const [tripTypeFilter, setTripTypeFilter] = useState<'all' | 'high_yield'>('all');
   const [selectedInvoiceTrip, setSelectedInvoiceTrip] = useState<CompletedTrip | null>(null);
+  const [selectedPrebooking, setSelectedPrebooking] = useState<any | null>(null);
   const [tripSearchText, setTripSearchText] = useState<string>('');
   const [hapticEnabled, setHapticEnabled] = useState<boolean>(() => {
     try {
@@ -2652,7 +2653,19 @@ export default function App() {
                         {/* List/dispatch bookings */}
                         <div className="space-y-1 max-h-[145px] overflow-y-auto pr-0.5 scrollbar-thin">
                           {scheduledBookings.map((b) => (
-                            <div key={b.id} className={`p-2 rounded border text-[8.5px] font-medium flex items-center justify-between gap-1.5 ${darkMode ? 'bg-zinc-900/30 border-zinc-850' : 'bg-gray-50/50 border-gray-150'}`}>
+                            <div 
+                              key={b.id} 
+                              onClick={() => {
+                                playSoundEffect('tap');
+                                setSelectedPrebooking(b);
+                              }}
+                              className={`p-2 rounded border text-[8.5px] font-medium flex items-center justify-between gap-1.5 cursor-pointer transition-all hover:scale-[1.01] active:scale-99 ${
+                                darkMode 
+                                  ? 'bg-zinc-900/30 border-zinc-850 hover:bg-zinc-850' 
+                                  : 'bg-gray-50/50 border-gray-150 hover:bg-gray-100/70'
+                              }`}
+                              title="Tap to view reservation details & pricing"
+                            >
                               <div className="flex-1 min-w-0">
                                 <div className="flex items-center gap-1 justify-between">
                                   <span className="font-extrabold truncate">{b.passengerName}</span>
@@ -2662,7 +2675,8 @@ export default function App() {
                                 <p className="text-[8px] font-bold text-emerald-500 mt-0.5">£{b.fare.toFixed(2)}</p>
                               </div>
                               <button
-                                onClick={() => {
+                                onClick={(e) => {
+                                  e.stopPropagation();
                                   // Trigger immediate dispatch
                                   handleSpawnPrebookedRide(b);
                                   
@@ -2804,6 +2818,167 @@ export default function App() {
                       Device GPS IP: 147.28.32.128 • Port 3000 Ingress
                     </div>
                   </motion.div>
+                )}
+              </AnimatePresence>
+
+              {/* Selected Pre-booking Details Sheet Overlay */}
+              <AnimatePresence>
+                {selectedPrebooking && (
+                  <div className="absolute inset-0 bg-black/60 backdrop-blur-[2px] z-[90] flex flex-col justify-end text-left select-none">
+                    <motion.div
+                      initial={{ y: '100%' }}
+                      animate={{ y: 0 }}
+                      exit={{ y: '100%' }}
+                      transition={{ type: 'spring', damping: 25, stiffness: 220 }}
+                      className={`rounded-t-2xl p-4 flex flex-col gap-3.5 shadow-2xl max-h-[85%] overflow-y-auto border-t ${
+                        darkMode ? 'bg-zinc-950 border-zinc-850 text-zinc-100' : 'bg-white border-gray-150 text-gray-900'
+                      }`}
+                    >
+                      {/* Header */}
+                      <div className="flex justify-between items-center pb-2.5 border-b border-gray-100 dark:border-zinc-900 text-left">
+                        <div className="flex items-center gap-1.5">
+                          <Calendar className="w-4 h-4 text-emerald-500" />
+                          <div>
+                            <h4 className="text-xs font-black text-gray-900 dark:text-zinc-100 uppercase tracking-tight">Reservation Detail</h4>
+                            <span className="text-[7.5px] font-mono font-bold text-gray-400 dark:text-zinc-500">BOOKING ID: #{selectedPrebooking.id.toUpperCase()}</span>
+                          </div>
+                        </div>
+                        <button
+                          onClick={() => { playSoundEffect('tap'); setSelectedPrebooking(null); }}
+                          className={`p-1.5 rounded-lg transition text-[9px] font-black font-sans px-3 ${
+                            darkMode ? 'bg-zinc-900 hover:bg-zinc-800 text-zinc-300' : 'bg-gray-100 hover:bg-gray-150 text-gray-700'
+                          }`}
+                        >
+                          Close
+                        </button>
+                      </div>
+
+                      {/* Client profile info */}
+                      <div className={`p-3 rounded-xl border flex items-center gap-3 ${
+                        darkMode ? 'bg-zinc-900/40 border-zinc-850' : 'bg-gray-50/50 border-gray-150'
+                      }`}>
+                        <div className="w-10 h-10 rounded-full bg-gradient-to-tr from-[#13AA52] to-emerald-400 flex items-center justify-center text-white font-extrabold text-sm shadow-md">
+                          {selectedPrebooking.passengerName ? selectedPrebooking.passengerName.charAt(0) : 'P'}
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-1.5">
+                            <h5 className="font-sans font-black text-[12px] truncate leading-tight">{selectedPrebooking.passengerName}</h5>
+                            <span className="text-[6.5px] px-1 bg-[#13AA52]/10 text-[#13AA52] rounded-full font-bold uppercase tracking-wider">VIP</span>
+                          </div>
+                          <div className="flex items-center gap-1 mt-1">
+                            <span className="text-[8px] font-bold text-zinc-400">Class:</span>
+                            <span className="text-[8px] font-extrabold text-[#007AFF] bg-blue-500/10 px-1 rounded">
+                              {selectedPrebooking.category || (mode === 'taxi' ? 'Swift Premium' : 'Swift Fast Delivery')}
+                            </span>
+                            <span className="text-[7.5px] font-sans text-amber-500 font-bold bg-amber-500/10 px-1 rounded flex items-center gap-0.5">
+                              ★ 4.95
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Route address summary */}
+                      <div className={`space-y-2 text-left p-3 rounded-xl border ${
+                        darkMode ? 'bg-zinc-900/15 border-zinc-850' : 'bg-gray-50/40 border-gray-150'
+                      }`}>
+                        <span className="text-[7.5px] uppercase tracking-wider text-zinc-400 font-extrabold block">Planned Route & Coordinates</span>
+                        
+                        <div className="space-y-2">
+                          <div className="flex gap-2 items-start">
+                            <div className="w-2 h-2 rounded-full bg-emerald-500 mt-1" />
+                            <div>
+                              <span className="text-zinc-600 dark:text-zinc-400 text-[7px] uppercase font-bold tracking-wide">Pickup Point</span>
+                              <p className="font-bold text-[10px] leading-tight mt-0.5">
+                                {(selectedPrebooking.route || '').split(' ➔ ')[0] || 'London Central'}
+                              </p>
+                            </div>
+                          </div>
+                          
+                          <div className="w-0.5 h-3.5 border-l border-dashed border-gray-300 dark:border-zinc-800 ml-1" />
+                          
+                          <div className="flex gap-2 items-start">
+                            <div className="w-2 h-2 rounded-full bg-[#007AFF] mt-1" />
+                            <div>
+                              <span className="text-zinc-600 dark:text-zinc-400 text-[7px] uppercase font-bold tracking-wide">Dropoff Destination</span>
+                              <p className="font-bold text-[10px] leading-tight mt-0.5">
+                                {(selectedPrebooking.route || '').split(' ➔ ')[1] || 'West London'}
+                              </p>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Scheduling Window */}
+                      <div className={`p-2.5 rounded-xl border flex items-center justify-between gap-2.5 ${
+                        darkMode ? 'bg-zinc-900/15 border-zinc-850' : 'bg-gray-50/20 border-gray-150'
+                      }`}>
+                        <div className="flex items-center gap-1.5">
+                          <Clock className="w-3.5 h-3.5 text-amber-500" />
+                          <div>
+                            <span className="text-[7.5px] text-zinc-400 font-bold block uppercase leading-none">Schedule Window</span>
+                            <span className="text-[9.5px] font-extrabold block mt-0.5">Pickup Window: {selectedPrebooking.timeString}</span>
+                          </div>
+                        </div>
+                        <span className="text-[8px] font-mono text-emerald-500 font-bold bg-emerald-500/10 px-1.5 py-0.5 rounded">Guaranteed booking</span>
+                      </div>
+
+                      {/* Financial Detail Breakdown */}
+                      <div className={`border rounded-xl p-3 space-y-2 text-left ${
+                        darkMode ? 'bg-zinc-900/10 border-zinc-850' : 'bg-white border-gray-150'
+                      }`}>
+                        <span className="text-[7.5px] uppercase tracking-wider text-zinc-400 font-extrabold block">Financial Division</span>
+                        
+                        <div className="flex justify-between items-center text-[9px]">
+                          <span className="text-zinc-400 dark:text-zinc-500 font-medium">Standard Class Fare</span>
+                          <span className="font-mono font-bold">£{selectedPrebooking.fare.toFixed(2)}</span>
+                        </div>
+                        
+                        <div className="flex justify-between items-center text-[9px]">
+                          <span className="text-zinc-400 dark:text-zinc-500 font-medium">Surge Multiplication</span>
+                          <span className="font-mono font-black text-amber-500">
+                            {surgeLevel === 'high' ? 'x2.2 High' : surgeLevel === 'medium' ? 'x1.4 Medium' : 'x1.0 standard'}
+                          </span>
+                        </div>
+
+                        <div className="flex justify-between items-center text-[9px]">
+                          <span className="text-zinc-400 dark:text-zinc-500 font-medium">Est. Voluntary Tips</span>
+                          <span className="font-mono font-bold text-emerald-500">~£4.50</span>
+                        </div>
+
+                        <div className="border-t border-dashed border-gray-150 dark:border-zinc-850 pt-2 flex justify-between font-black text-gray-900 dark:text-zinc-100 text-[11px]">
+                          <span>Projected Net Payout</span>
+                          <span className="font-mono text-[#13AA52] text-[12px]">
+                            £{((selectedPrebooking.fare * (surgeLevel === 'high' ? 2.2 : surgeLevel === 'medium' ? 1.4 : 1.0)) + 4.5).toFixed(2)}
+                          </span>
+                        </div>
+                      </div>
+
+                      {/* Quick Action Button Box */}
+                      <div className="pt-1 select-none">
+                        <button
+                          onClick={() => {
+                            if (selectedPrebooking.claimed) return;
+                            playSoundEffect('tap');
+                            handleSpawnPrebookedRide(selectedPrebooking);
+                            
+                            // Mark claimed
+                            setScheduledBookings(prev => prev.map(item => item.id === selectedPrebooking.id ? { ...item, claimed: true } : item));
+                            setSelectedPrebooking(null);
+                            setIsSideMenuOpen(false);
+                          }}
+                          disabled={selectedPrebooking.claimed}
+                          className={`w-full py-2.5 rounded-xl font-sans font-black text-[11px] uppercase tracking-wide transition-all duration-200 active:scale-98 cursor-pointer flex items-center justify-center gap-1.5 shadow-md ${
+                            selectedPrebooking.claimed
+                              ? 'bg-zinc-100 dark:bg-zinc-900 text-zinc-400 dark:text-zinc-700 cursor-not-allowed shadow-none'
+                              : 'bg-gradient-to-r from-emerald-600 to-teal-500 hover:from-emerald-700 hover:to-teal-600 text-white hover:shadow-emerald-500/10'
+                          }`}
+                        >
+                          <Car className="w-3.5 h-3.5" />
+                          {selectedPrebooking.claimed ? 'Reservation Already Dispatched' : 'Dispatch Reservation Now 🚕'}
+                        </button>
+                      </div>
+                    </motion.div>
+                  </div>
                 )}
               </AnimatePresence>
 
