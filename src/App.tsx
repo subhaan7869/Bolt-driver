@@ -723,9 +723,9 @@ export default function App() {
     const saved = localStorage.getItem('swift_scheduled_bookings');
     if (saved) return JSON.parse(saved);
     return [
-      { id: 'sb-1', passengerName: 'Alexander Bell', timeString: '14:30', route: 'Mayfair ➔ Heathrow T2', fare: 48.00, claimed: false, category: 'Swift Airport Line' },
-      { id: 'sb-2', passengerName: 'Flora McDonald', timeString: '16:00', route: 'Soho ➔ Chelsea Pavilions', fare: 18.50, claimed: true, category: 'Swift Comfort Tier' },
-      { id: 'sb-3', passengerName: 'Sir Arthur Conan Doyle', timeString: '18:45', route: 'Baker Street ➔ Kings Cross Station', fare: 12.20, claimed: false, category: 'Swift Basic Ride' }
+      { id: 'sb-1', passengerName: 'Alexander Bell', timeString: 'In 8m', route: 'Mayfair ➔ Heathrow T2', fare: 48.00, claimed: false, category: 'Swift Airport Line' },
+      { id: 'sb-2', passengerName: 'Flora McDonald', timeString: 'In 15m', route: 'Soho ➔ Chelsea Pavilions', fare: 18.50, claimed: true, category: 'Swift Comfort Tier' },
+      { id: 'sb-3', passengerName: 'Sir Arthur Conan Doyle', timeString: 'In 24m', route: 'Baker Street ➔ Kings Cross Station', fare: 12.20, claimed: false, category: 'Swift Basic Ride' }
     ];
   });
 
@@ -981,6 +981,113 @@ export default function App() {
   useEffect(() => {
     localStorage.setItem('swift_scheduled_bookings', JSON.stringify(scheduledBookings));
   }, [scheduledBookings]);
+
+  // Pre-bookings dynamic scheduler effect - runs every 60 seconds
+  useEffect(() => {
+    const updatePrebookings = () => {
+      setScheduledBookings(prev => {
+        // Step 1: Update timeStrings for all existing unclaimed bookings
+        let updated = prev.map(b => {
+          if (b.claimed) return b; // Don't change claimed ones
+
+          // If the time is "In 30s", keep it or change to "Due Now"
+          if (b.timeString === 'In 30s') {
+            return { ...b, timeString: 'Due Now' };
+          }
+          if (b.timeString === 'Due Now') {
+            return b;
+          }
+
+          // If it is in minutes, like "In Xm" or "In X min" or "In X mins" or "In 15m"
+          const matchMins = b.timeString.match(/In\s+(\d+)\s*(m|min|mins)/i);
+          if (matchMins) {
+            const mins = parseInt(matchMins[1], 10);
+            if (mins <= 1) {
+              return { ...b, timeString: 'In 30s' };
+            } else {
+              return { ...b, timeString: `In ${mins - 1}m` };
+            }
+          }
+
+          // If it's a static time, we don't strictly parse but we can leave it
+          return b;
+        });
+
+        // Step 2: Randomly remove an unclaimed booking (driver claimed or passenger cancelled)
+        const unclaimed = updated.filter(b => !b.claimed);
+        const claimedOnes = updated.filter(b => b.claimed);
+        
+        let finalUnclaimed = [...unclaimed];
+
+        if (finalUnclaimed.length > 2 && Math.random() < 0.3) {
+          // Remove a random unclaimed booking
+          const removeIdx = Math.floor(Math.random() * finalUnclaimed.length);
+          const removed = finalUnclaimed[removeIdx];
+          finalUnclaimed.splice(removeIdx, 1);
+          appendLog(`📅 Pre-booking cancelled or claimed by another driver: "${removed.passengerName}" (${removed.route})`, 'info');
+        }
+
+        // Step 3: Randomly add a new pre-booking if there is space or automatically if count < 2
+        const MOCK_PREBOOK_PASSENGERS = [
+          'Emma Watson', 'Benedict Cumberbatch', 'Adele Adkins', 'Tom Hiddleston', 'Dua Lipa', 'Lewis Hamilton', 
+          'J.K. Rowling', 'David Beckham', 'Idris Elba', 'Keira Knightley', 'Jude Law', 'Christian Bale',
+          'Helen Mirren', 'Daniel Radcliffe', 'Emily Blunt', 'Gary Oldman', 'Olivia Colman', 'Hugh Grant',
+          'Rosamund Pike', 'Dev Patel', 'Gemma Chan', 'James Corden'
+        ];
+
+        const MOCK_PREBOOK_ROUTES = [
+          { route: 'Covent Garden ➔ London Bridge', baseFare: 16.50 },
+          { route: 'Paddington Station ➔ Soho House', baseFare: 12.00 },
+          { route: 'Mayfair ➔ Harrods Knightsbridge', baseFare: 14.50 },
+          { route: 'Shoreditch High St ➔ Canary Wharf', baseFare: 19.80 },
+          { route: 'Camden Town ➔ Wembley Stadium', baseFare: 28.00 },
+          { route: 'Notting Hill ➔ Royal Albert Hall', baseFare: 11.20 },
+          { route: 'Westminster ➔ Greenwich Observatory', baseFare: 24.50 },
+          { route: 'Brixton Academy ➔ Waterloo Station', baseFare: 13.40 },
+          { route: 'Heathrow Airport T5 ➔ The Ritz Hotel', baseFare: 55.00 },
+          { route: 'Gatwick Airport ➔ Chelsea FC Stadium', baseFare: 62.00 },
+          { route: 'St Pancras Intl ➔ Piccadilly Circus', baseFare: 9.80 },
+          { route: 'The Shard ➔ Kensington Palace', baseFare: 22.00 }
+        ];
+
+        const MOCK_PREBOOK_CATEGORIES = [
+          'Swift Basic Ride', 'Swift Comfort Tier', 'Swift Premium', 'Swift Airport Line', 'Swift Executive'
+        ];
+
+        if (finalUnclaimed.length < 2 || (finalUnclaimed.length < 5 && Math.random() < 0.4)) {
+          // Generate a brand new pre-booking
+          const passenger = MOCK_PREBOOK_PASSENGERS[Math.floor(Math.random() * MOCK_PREBOOK_PASSENGERS.length)];
+          const routeObj = MOCK_PREBOOK_ROUTES[Math.floor(Math.random() * MOCK_PREBOOK_ROUTES.length)];
+          const category = MOCK_PREBOOK_CATEGORIES[Math.floor(Math.random() * MOCK_PREBOOK_CATEGORIES.length)];
+          const baseFare = routeObj.baseFare;
+          // random fare fluctuation between -10% and +15%
+          const fare = +( (baseFare * (0.9 + Math.random() * 0.25)).toFixed(2) );
+          const minutesInFuture = Math.floor(Math.random() * 20) + 3; // 3 to 22 minutes in future
+          const timeString = `In ${minutesInFuture}m`;
+          
+          const newBooking = {
+            id: `sb-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,
+            passengerName: passenger,
+            timeString,
+            route: routeObj.route,
+            fare,
+            claimed: false,
+            category
+          };
+
+          finalUnclaimed.unshift(newBooking);
+          appendLog(`📅 New pre-booking posted: "${passenger}" • ${routeObj.route} • £${fare.toFixed(2)} (${timeString})`, 'success');
+        }
+
+        // Return combined list, keeping maximum 10 historical/claimed bookings to avoid clutter
+        return [...finalUnclaimed, ...claimedOnes].slice(0, 10);
+      });
+    };
+
+    // Run interval every 60 seconds (1 minute)
+    const prebookingInterval = setInterval(updatePrebookings, 60000);
+    return () => clearInterval(prebookingInterval);
+  }, [appendLog]);
 
   useEffect(() => {
     localStorage.setItem('swift_haptic_enabled', hapticEnabled ? 'true' : 'false');
