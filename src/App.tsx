@@ -11,7 +11,7 @@ import {
   Navigation, Star, Zap, Clock, Landmark, Sparkles, Compass, MessageSquare, 
   AlertTriangle, CheckCircle, Smartphone, Wifi, Battery, Menu, Bell, 
   ChevronRight, ChevronLeft, Info, Car, HelpCircle, Settings, LogOut, Check, ArrowRight, X, Phone, User, Calendar, Coffee,
-  Globe, Lock, ShieldAlert, Video, WifiOff, Sun, Moon, Sliders, Mail, Award, Target, TrendingUp
+  Globe, Lock, ShieldAlert, Video, WifiOff, Sun, Moon, Sliders, Mail, Award, Target, TrendingUp, Search
 } from 'lucide-react';
 
 // Live Firebase client and authentications
@@ -528,9 +528,90 @@ export default function App() {
     }
   }, [mode]);
 
-  // Completed trips tracking
-  const [taxiTrips, setTaxiTrips] = useState<CompletedTrip[]>([]);
-  const [foodTrips, setFoodTrips] = useState<CompletedTrip[]>([]);
+  // Completed trips tracking (Persisted in LocalStorage, seeds default list if empty)
+  const [taxiTrips, setTaxiTrips] = useState<CompletedTrip[]>(() => {
+    try {
+      const saved = localStorage.getItem('swift_taxi_completed_trips');
+      if (saved) return JSON.parse(saved);
+    } catch (_) {}
+    return [
+      {
+        id: 'mock-t-1',
+        passengerName: 'Jasper Montgomery',
+        pickupAddress: 'Mayfair District Lounge',
+        dropoffAddress: 'Chelsea Pavilions Gate',
+        fare: 16.50,
+        tip: 4.50,
+        timestamp: 'Today, 10:24 AM',
+        ratingValue: 5,
+        surgeMultiplier: 1.4
+      },
+      {
+        id: 'mock-t-2',
+        passengerName: 'Alistair Sterling',
+        pickupAddress: 'London City Airport Terminal 1',
+        dropoffAddress: 'Westminster Green',
+        fare: 34.00,
+        tip: 5.00,
+        timestamp: 'Yesterday, 05:45 PM',
+        ratingValue: 5,
+        surgeMultiplier: 1.0
+      },
+      {
+        id: 'mock-t-3',
+        passengerName: 'Penelope Thorne',
+        pickupAddress: 'Regent\'s Park North Coach',
+        dropoffAddress: 'Buckingham Palace East Gateway',
+        fare: 18.20,
+        tip: 3.00,
+        timestamp: 'Yesterday, 08:15 PM',
+        ratingValue: 5,
+        surgeMultiplier: 1.8
+      }
+    ];
+  });
+
+  const [foodTrips, setFoodTrips] = useState<CompletedTrip[]>(() => {
+    try {
+      const saved = localStorage.getItem('swift_food_completed_trips');
+      if (saved) return JSON.parse(saved);
+    } catch (_) {}
+    return [
+      {
+        id: 'mock-f-1',
+        passengerName: 'Fiona Gallagher',
+        pickupAddress: 'Gourmet Burger Kitchen',
+        dropoffAddress: 'Flat 4B, Bloomsbury Square',
+        fare: 8.50,
+        tip: 2.00,
+        timestamp: 'Today, 11:32 AM',
+        ratingValue: 5,
+        surgeMultiplier: 1.2
+      },
+      {
+        id: 'mock-f-2',
+        passengerName: 'Nigel Rutherford',
+        pickupAddress: 'Dishoom Indian Cuisine',
+        dropoffAddress: 'Soho Creative Studio Floor 3',
+        fare: 11.20,
+        tip: 3.50,
+        timestamp: 'Yesterday, 01:10 PM',
+        ratingValue: 5,
+        surgeMultiplier: 1.5
+      },
+      {
+        id: 'mock-f-3',
+        passengerName: 'Imogen Sinclair',
+        pickupAddress: 'Pizza Express Covent Garden',
+        dropoffAddress: 'King\'s College Dorm Room 51A',
+        fare: 7.20,
+        tip: 1.50,
+        timestamp: 'Yesterday, 07:40 PM',
+        ratingValue: 5,
+        surgeMultiplier: 1.0
+      }
+    ];
+  });
 
   const completedTrips = useMemo(() => {
     return mode === 'taxi' ? taxiTrips : foodTrips;
@@ -545,6 +626,18 @@ export default function App() {
   };
 
   const [isOnline, setIsOnline] = useState<boolean>(false);
+  const [isSideMenuOpen, setIsSideMenuOpen] = useState<boolean>(false);
+  const [tripTypeFilter, setTripTypeFilter] = useState<'all' | 'high_yield'>('all');
+  const [selectedInvoiceTrip, setSelectedInvoiceTrip] = useState<CompletedTrip | null>(null);
+  const [tripSearchText, setTripSearchText] = useState<string>('');
+  const [hapticEnabled, setHapticEnabled] = useState<boolean>(() => {
+    try {
+      return localStorage.getItem('swift_haptic_enabled') !== 'false';
+    } catch (_) {
+      return true;
+    }
+  });
+  const [triggerHapticPulse, setTriggerHapticPulse] = useState<boolean>(false);
   const [isMinimized, setIsMinimized] = useState<boolean>(false);
   const [isOnBreak, setIsOnBreak] = useState<boolean>(false);
   const [surgeLevel, setSurgeLevel] = useState<'low' | 'medium' | 'high'>('high');
@@ -725,14 +818,40 @@ export default function App() {
     ]);
   }, []);
 
+  // Trigger virtual/real haptic feedback
+  const triggerHaptic = useCallback((vibeType: 'light' | 'medium' | 'heavy' = 'light') => {
+    if (!hapticEnabled) return;
+    
+    // 1. Dynamic Web vibration channel
+    try {
+      if (typeof navigator !== 'undefined' && navigator.vibrate) {
+        if (vibeType === 'light') navigator.vibrate(45);
+        else if (vibeType === 'medium') navigator.vibrate(85);
+        else if (vibeType === 'heavy') navigator.vibrate(160);
+      }
+    } catch (_) {}
+
+    // 2. CSS-based visual screen shake haptic simulator pulse induction
+    setTriggerHapticPulse(true);
+    setTimeout(() => {
+      setTriggerHapticPulse(false);
+    }, 150);
+  }, [hapticEnabled]);
+
   // Sound proxy helpers
   const playSoundEffect = useCallback((effect: 'tap' | 'complete' | 'warn' | 'offer') => {
+    // Dispatch automated haptic patterns coincident with audio outputs
+    if (effect === 'tap') triggerHaptic('light');
+    else if (effect === 'complete') triggerHaptic('heavy');
+    else if (effect === 'warn') triggerHaptic('heavy');
+    else if (effect === 'offer') triggerHaptic('medium');
+
     if (!soundEnabled) return;
     if (effect === 'tap') playTapSound();
     else if (effect === 'complete') playCompleteRideSound();
     else if (effect === 'warn') playWarningSound();
     else if (effect === 'offer') playIncomingRideSound();
-  }, [soundEnabled]);
+  }, [soundEnabled, triggerHaptic]);
 
   // Listen to custom map simulation activity log alerts and tap gestures
   useEffect(() => {
@@ -861,6 +980,18 @@ export default function App() {
   useEffect(() => {
     localStorage.setItem('swift_scheduled_bookings', JSON.stringify(scheduledBookings));
   }, [scheduledBookings]);
+
+  useEffect(() => {
+    localStorage.setItem('swift_haptic_enabled', hapticEnabled ? 'true' : 'false');
+  }, [hapticEnabled]);
+
+  useEffect(() => {
+    localStorage.setItem('swift_taxi_completed_trips', JSON.stringify(taxiTrips));
+  }, [taxiTrips]);
+
+  useEffect(() => {
+    localStorage.setItem('swift_food_completed_trips', JSON.stringify(foodTrips));
+  }, [foodTrips]);
 
   // Handle auto-checking of performance targets
   useEffect(() => {
@@ -1521,6 +1652,76 @@ export default function App() {
       `Match: ${finalRide.passengerName} (★${finalRide.passengerRating}) • Distance: ${finalRide.distance}km • Est Fare: £${(finalRide.fare * multiplier).toFixed(2)}`
     );
   }, [isOnline, isOnBreak, tripProgress.stage, surgeLevel, mode, appendLog, soundEnabled, playSoundEffect, currentCity]);
+
+  // Trigger a pre-booked ride from scheduled reservations drawer
+  const handleSpawnPrebookedRide = useCallback((booking: any) => {
+    if (!isOnline) {
+      playSoundEffect('warn');
+      appendLog('Position warning: Change status to • Online to receive pre-booked orders.', 'warn');
+      sendRealNotification("📅 Dispatch Failed", "Turn on Online status to active scheduled trips.");
+      return;
+    }
+    if (isOnBreak) {
+      playSoundEffect('warn');
+      appendLog('Position warning: Cannot activate scheduled pre-bookings during a coffee break.', 'warn');
+      return;
+    }
+    if (tripProgress.stage !== 'idle') {
+      playSoundEffect('warn');
+      appendLog('Dispatch collision: Finish your ongoing ride before accepting schedules.', 'warn');
+      return;
+    }
+
+    const routeStr = booking.route || 'London Central ➔ West London';
+    const splitRoute = routeStr.split(' ➔ ');
+    const pickupAddress = splitRoute[0] || 'London Central';
+    const dropoffAddress = splitRoute[1] || 'West London';
+
+    const pickupCoordinate = {
+      x: 80 + Math.floor(Math.random() * 220),
+      y: 140 + Math.floor(Math.random() * 320),
+    };
+    const dropoffCoordinate = {
+      x: 80 + Math.floor(Math.random() * 220),
+      y: 140 + Math.floor(Math.random() * 320),
+    };
+
+    const multiplier = surgeLevel === 'high' ? 2.2 : surgeLevel === 'medium' ? 1.4 : 1.0;
+    const finalFare = booking.fare;
+    
+    const prebookedRide: RideRequest = {
+      id: `prebooked-${Date.now()}`,
+      passengerName: booking.passengerName,
+      passengerRating: 4.95,
+      pickupAddress,
+      dropoffAddress,
+      fare: finalFare,
+      distance: 5.4,
+      surgeMultiplier: multiplier,
+      pickupCoordinate,
+      dropoffCoordinate,
+      tipAmount: +(3.00 + Math.random() * 5.00).toFixed(2),
+      estimatedMinutes: 10,
+      category: booking.category || 'Swift Premier',
+    };
+
+    setTripProgress({
+      stage: 'offering',
+      currentRide: prebookedRide,
+      offerTimeRemaining: 18, 
+      totalOfferTime: 18,
+      navigationProgress: 0,
+      etaMinutes: 2,
+    });
+    setChatMessages([]);
+    playSoundEffect('offer');
+    appendLog(`📅 Scheduled Booking Dispatched: "${prebookedRide.passengerName}" is waiting! Est payout is £${(prebookedRide.fare * multiplier).toFixed(2)}`, 'success');
+    
+    sendRealNotification(
+      "📅 Scheduled Ride Dispatch!",
+      `Reserved Fare from ${prebookedRide.passengerName} is ready starting now! Payout: £${(prebookedRide.fare * multiplier).toFixed(2)}`
+    );
+  }, [isOnline, isOnBreak, tripProgress.stage, surgeLevel, playSoundEffect, appendLog, sendRealNotification]);
 
   // Click on Surge Hotspot in map
   const handleSpawnRideFromZone = (multiplier: number, areaName: string, coords: { x: number; y: number }) => {
@@ -2297,8 +2498,315 @@ export default function App() {
         </div>
 
         {/* INTERNAL PHONE SCREEN PORTAL */}
-        <div className={`flex-1 flex flex-col overflow-hidden relative select-none transition-colors duration-200 ${darkMode ? 'bg-zinc-950 text-zinc-100' : 'bg-white text-gray-900'}`}>
+        <div className={`flex-1 flex flex-col overflow-hidden relative select-none transition-colors duration-200 ${darkMode ? 'bg-zinc-950 text-zinc-100' : 'bg-white text-gray-900'} ${triggerHapticPulse ? 'swift-haptic-active' : ''}`}>
               
+              <style>{`
+                @keyframes swift-haptic-shake {
+                  0% { transform: translate(0px, 0px) scale(1); }
+                  20% { transform: translate(-2px, 1.5px) scale(0.995); }
+                  40% { transform: translate(1.5px, -1px) scale(1.002); }
+                  60% { transform: translate(-1.5px, 2px) scale(0.998); }
+                  80% { transform: translate(2px, -1px) scale(1.001); }
+                  100% { transform: translate(0px, 0px) scale(1); }
+                }
+                .swift-haptic-active {
+                  animation: swift-haptic-shake 0.12s ease-in-out;
+                }
+              `}</style>
+
+              {/* Left Slide-out Side Menu Drawer Overlay */}
+              <AnimatePresence>
+                {isSideMenuOpen && (
+                  <motion.div
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    exit={{ opacity: 0 }}
+                    onClick={() => { playSoundEffect('tap'); setIsSideMenuOpen(false); }}
+                    className="absolute inset-0 bg-black/55 backdrop-blur-[1px] z-[80] cursor-pointer"
+                  />
+                )}
+              </AnimatePresence>
+
+              {/* Left Sliding Drawer Panel content */}
+              <AnimatePresence>
+                {isSideMenuOpen && (
+                  <motion.div
+                    initial={{ x: '-100%' }}
+                    animate={{ x: 0 }}
+                    exit={{ x: '-100%' }}
+                    transition={{ type: 'spring', damping: 25, stiffness: 220 }}
+                    className={`absolute inset-y-0 left-0 w-[275px] max-w-[85%] ${darkMode ? 'bg-zinc-950 border-r border-zinc-850 text-zinc-100' : 'bg-white border-r border-gray-150 text-gray-950'} z-[85] flex flex-col shadow-2xl overflow-hidden`}
+                  >
+                    {/* Header */}
+                    <div className={`p-3.5 border-b ${darkMode ? 'border-zinc-900 bg-zinc-900/30' : 'border-gray-100 bg-gray-50/50'} flex items-center justify-between`}>
+                      <div className="flex items-center gap-1.5 text-left">
+                        <div className="w-5.5 h-5.5 rounded bg-[#13AA52] flex items-center justify-center text-white font-black text-[10px]">S</div>
+                        <div>
+                          <h3 className="font-sans font-black text-[11px] tracking-tight leading-none text-[#13AA52]">Swift Operations</h3>
+                          <span className="text-[7px] text-zinc-400 font-bold uppercase tracking-wider font-mono">Driver Suite v2.4</span>
+                        </div>
+                      </div>
+                      <button
+                        onClick={() => { playSoundEffect('tap'); setIsSideMenuOpen(false); }}
+                        className={`p-1 rounded-lg transition ${darkMode ? 'hover:bg-zinc-850 text-zinc-400' : 'hover:bg-gray-100 text-gray-500'}`}
+                      >
+                        <X className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
+
+                    {/* Scrollable drawer body */}
+                    <div className="flex-1 overflow-y-auto p-3.5 space-y-3.5 scrollbar-thin text-left">
+                      
+                      {/* Driver profile summary */}
+                      <div className={`p-2.5 rounded-lg border flex items-center gap-2.5 ${darkMode ? 'bg-zinc-900/40 border-zinc-850' : 'bg-gray-105 border-gray-150'}`}>
+                        <div className="relative">
+                          <div className="w-8 h-8 rounded-full bg-gradient-to-tr from-emerald-500 to-teal-400 flex items-center justify-center text-white font-black text-xs">
+                            C
+                          </div>
+                          <div className="absolute -bottom-0.5 -right-0.5 bg-green-500 w-2 h-2 rounded-full border border-white dark:border-zinc-950 animate-pulse" />
+                        </div>
+                        <div className="flex-1 min-w-0 text-left">
+                          <h4 className="text-[10px] font-black tracking-tight leading-tight truncate">Marcus Sterling</h4>
+                          <span className="text-[8px] font-bold text-zinc-400 flex items-center gap-1 mt-0.5">
+                            <span>{driverLevel.medal} {driverLevel.name}</span>
+                            <span className="text-[7.5px] px-1 bg-amber-500/10 text-amber-500 rounded font-mono font-bold">{driverPoints} pts</span>
+                          </span>
+                        </div>
+                      </div>
+
+                      {/* Scheduled reservations (Pre-bookings Manager) */}
+                      <div className="space-y-1.5">
+                        <div className="flex items-center justify-between">
+                          <span className="text-[8.5px] font-bold uppercase tracking-wider text-zinc-400 font-sans">📅 Pre-booking Manager</span>
+                          <span className="text-[7.5px] bg-emerald-500/10 text-emerald-500 px-1.5 py-0.5 rounded-full font-bold">{scheduledBookings.filter(b => !b.claimed).length} Unclaimed</span>
+                        </div>
+
+                        {/* Create dynamic prebookings */}
+                        <div className={`p-3 rounded-lg border ${darkMode ? 'bg-zinc-900/15 border-zinc-850' : 'bg-zinc-50/15 border-gray-150'} space-y-2`}>
+                          <span className="text-[9px] font-black block leading-none">Schedule Upcoming Booking</span>
+                          
+                          <div className="grid grid-cols-2 gap-1.5">
+                            <div>
+                              <label className="text-[7.5px] text-zinc-400 font-bold uppercase block mb-0.5">Passenger</label>
+                              <input
+                                id="drawer-prebook-passenger"
+                                type="text"
+                                defaultValue="Charles Dickens"
+                                className={`w-full text-[9px] font-semibold px-2 py-1 rounded border outline-none ${darkMode ? 'bg-zinc-900 border-zinc-800 text-white' : 'bg-white border-gray-200 text-gray-900'}`}
+                              />
+                            </div>
+                            <div>
+                              <label className="text-[7.5px] text-zinc-400 font-bold uppercase block mb-0.5">Fare (£)</label>
+                              <input
+                                id="drawer-prebook-fare"
+                                type="number"
+                                defaultValue="22.50"
+                                className={`w-full text-[9px] font-semibold px-2 py-1 rounded border outline-none ${darkMode ? 'bg-zinc-900 border-zinc-800 text-white' : 'bg-white border-gray-200 text-gray-900'}`}
+                              />
+                            </div>
+                          </div>
+
+                          <div>
+                            <label className="text-[7.5px] text-zinc-400 font-bold uppercase block mb-0.5">Route (Pickup ➔ Dropoff)</label>
+                            <input
+                              id="drawer-prebook-route"
+                              type="text"
+                              defaultValue="Covent Garden ➔ London Bridge"
+                              className={`w-full text-[9px] font-semibold px-2 py-1 rounded border outline-none ${darkMode ? 'bg-zinc-900 border-zinc-800 text-white' : 'bg-white border-gray-200 text-gray-900'}`}
+                            />
+                          </div>
+
+                          <button
+                            onClick={() => {
+                              const passInput = document.getElementById('drawer-prebook-passenger') as HTMLInputElement;
+                              const fareInput = document.getElementById('drawer-prebook-fare') as HTMLInputElement;
+                              const routeInput = document.getElementById('drawer-prebook-route') as HTMLInputElement;
+
+                              const pass = passInput?.value || 'Charles Dickens';
+                              const fare = +(parseFloat(fareInput?.value || '22.50').toFixed(2));
+                              const route = routeInput?.value || 'Covent Garden ➔ London Bridge';
+                              
+                              playSoundEffect('tap');
+
+                              const newBooking = {
+                                id: `sb-${Date.now()}`,
+                                passengerName: pass,
+                                timeString: 'In 30s',
+                                route,
+                                fare,
+                                claimed: false,
+                                category: mode === 'taxi' ? 'Swift Premium' : 'Swift Fast Delivery'
+                              };
+
+                              setScheduledBookings(prev => [newBooking, ...prev]);
+                              appendLog(`📅 New pre-booking scheduled: "${pass}" (${route}) for £${fare.toFixed(2)}`, 'success');
+                              addToast("📅 Pre-booking Setup Success", `Passenger: ${pass} • £${fare.toFixed(2)}`, 'success');
+                            }}
+                            className="w-full bg-[#13AA52] hover:bg-[#108F45] text-white py-1 rounded-md text-[8.5px] font-black transition-all active:scale-97 flex items-center justify-center gap-1 cursor-pointer"
+                          >
+                            <Calendar className="w-3 h-3" />
+                            Create upcoming reservation
+                          </button>
+                        </div>
+
+                        {/* List/dispatch bookings */}
+                        <div className="space-y-1 max-h-[145px] overflow-y-auto pr-0.5 scrollbar-thin">
+                          {scheduledBookings.map((b) => (
+                            <div key={b.id} className={`p-2 rounded border text-[8.5px] font-medium flex items-center justify-between gap-1.5 ${darkMode ? 'bg-zinc-900/30 border-zinc-850' : 'bg-gray-50/50 border-gray-150'}`}>
+                              <div className="flex-1 min-w-0">
+                                <div className="flex items-center gap-1 justify-between">
+                                  <span className="font-extrabold truncate">{b.passengerName}</span>
+                                  <span className="text-[7px] font-mono text-amber-500 font-bold bg-amber-500/10 px-1 rounded">{b.timeString}</span>
+                                </div>
+                                <p className="text-zinc-400 truncate text-[7.5px] mt-0.5">{b.route}</p>
+                                <p className="text-[8px] font-bold text-emerald-500 mt-0.5">£{b.fare.toFixed(2)}</p>
+                              </div>
+                              <button
+                                onClick={() => {
+                                  // Trigger immediate dispatch
+                                  handleSpawnPrebookedRide(b);
+                                  
+                                  // Mark claimed and Close menu
+                                  setScheduledBookings(prev => prev.map(item => item.id === b.id ? { ...item, claimed: true } : item));
+                                  setIsSideMenuOpen(false);
+                                }}
+                                disabled={b.claimed}
+                                className={`px-1.5 py-0.5 rounded text-[7.5px] font-black cursor-pointer shrink-0 transition-all ${
+                                  b.claimed 
+                                    ? 'bg-zinc-100 dark:bg-zinc-900 text-zinc-400 dark:text-zinc-700 cursor-not-allowed' 
+                                    : 'bg-[#007AFF] text-white hover:bg-blue-600 active:scale-95'
+                                }`}
+                              >
+                                {b.claimed ? 'Claimed ✔' : 'Dispatch 🚕'}
+                              </button>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+
+                      {/* App settings / configuration */}
+                      <div className="space-y-1.5 text-left animate-fade-in">
+                        <span className="text-[8.5px] font-bold uppercase tracking-wider text-zinc-400 font-sans">⚡ App Configuration</span>
+                        
+                        <div className={`p-2.5 rounded-lg border ${darkMode ? 'bg-zinc-900/15 border-zinc-850' : 'bg-zinc-50/15 border-gray-150'} space-y-2`}>
+                          
+                          {/* Haptic trigger settings switch */}
+                          <div className="flex items-center justify-between">
+                            <div>
+                              <span className="text-[9px] font-bold block leading-none">Haptic Vibration</span>
+                              <span className="text-[7px] text-zinc-400 block mt-0.5">Adaptive screen kickback</span>
+                            </div>
+                            <button
+                              onClick={() => {
+                                const next = !hapticEnabled;
+                                setHapticEnabled(next);
+                                if (next) {
+                                  try {
+                                    if (navigator.vibrate) navigator.vibrate(35);
+                                  } catch (_) {}
+                                }
+                              }}
+                              className={`w-6 h-3.5 rounded-full p-0.5 transition-colors cursor-pointer shrink-0 ${hapticEnabled ? 'bg-[#13AA52]' : 'bg-zinc-350 dark:bg-zinc-750'}`}
+                            >
+                              <div className={`w-2.5 h-2.5 rounded-full bg-white transition-transform ${hapticEnabled ? 'translate-x-2.5' : 'translate-x-0'}`} />
+                            </button>
+                          </div>
+
+                          {/* Haptic pulse tester */}
+                          <div className="flex items-center gap-1 pt-1.5 border-t border-dashed border-zinc-800">
+                            <button
+                              onClick={() => {
+                                triggerHaptic('light');
+                                appendLog('⚡ Haptic test channel: Light pulse executed.', 'info');
+                              }}
+                              className={`flex-1 py-1 rounded text-[7.5px] font-bold transition-all text-center ${darkMode ? 'bg-zinc-900 hover:bg-zinc-800 text-zinc-200 border border-zinc-800' : 'bg-gray-100 hover:bg-gray-200 text-gray-700 border border-gray-200'}`}
+                            >
+                              Light 📳
+                            </button>
+                            <button
+                              onClick={() => {
+                                triggerHaptic('medium');
+                                appendLog('⚡ Haptic test channel: Medium rumble executed.', 'success');
+                              }}
+                              className={`flex-1 py-1 rounded text-[7.5px] font-bold transition-all text-center ${darkMode ? 'bg-zinc-900 hover:bg-zinc-800 text-zinc-200 border border-zinc-800' : 'bg-gray-100 hover:bg-gray-200 text-gray-700 border border-gray-200'}`}
+                            >
+                              Medium 🔥
+                            </button>
+                            <button
+                              onClick={() => {
+                                triggerHaptic('heavy');
+                                appendLog('⚡ Haptic test channel: Heavy kick shockwave executed.', 'warn');
+                              }}
+                              className={`flex-1 py-1 rounded text-[7.5px] font-bold transition-all text-center ${darkMode ? 'bg-zinc-900 hover:bg-zinc-800 text-zinc-200 border border-zinc-800' : 'bg-gray-100 hover:bg-gray-200 text-gray-700 border border-gray-200'}`}
+                            >
+                              Heavy 💥
+                            </button>
+                          </div>
+
+                          {/* Sound feedback switch */}
+                          <div className="flex items-center justify-between pt-1.5 border-t border-dashed border-zinc-805">
+                            <div>
+                              <span className="text-[9px] font-bold block leading-none font-sans">Audio Synth Alerts</span>
+                              <span className="text-[7px] text-zinc-400 block mt-0.5">Play trip alert tones</span>
+                            </div>
+                            <button
+                              onClick={() => {
+                                playSoundEffect('tap');
+                                setSoundEnabled(!soundEnabled);
+                              }}
+                              className={`w-6 h-3.5 rounded-full p-0.5 transition-colors cursor-pointer shrink-0 ${soundEnabled ? 'bg-[#13AA52]' : 'bg-zinc-350 dark:bg-zinc-750'}`}
+                            >
+                              <div className={`w-2.5 h-2.5 rounded-full bg-white transition-transform ${soundEnabled ? 'translate-x-2.5' : 'translate-x-0'}`} />
+                            </button>
+                          </div>
+
+                          {/* Notifications feedback switch */}
+                          <div className="flex items-center justify-between pt-1.5 border-t border-dashed border-zinc-850">
+                            <div>
+                              <span className="text-[9px] font-bold block leading-none font-sans">Browser Push Alerts</span>
+                              <span className="text-[7px] text-zinc-400 block mt-0.5">Desktop notification delivery</span>
+                            </div>
+                            <button
+                              onClick={() => {
+                                playSoundEffect('tap');
+                                setNotificationsEnabled(!notificationsEnabled);
+                              }}
+                              className={`w-6 h-3.5 rounded-full p-0.5 transition-colors cursor-pointer shrink-0 ${notificationsEnabled ? 'bg-[#13AA52]' : 'bg-zinc-350 dark:bg-zinc-750'}`}
+                            >
+                              <div className={`w-2.5 h-2.5 rounded-full bg-white transition-transform ${notificationsEnabled ? 'translate-x-2.5' : 'translate-x-0'}`} />
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Interactive system links */}
+                      <div className="pt-1">
+                        <button
+                          onClick={() => {
+                            playSoundEffect('tap');
+                            setActiveTab('earnings');
+                            setIsSideMenuOpen(false);
+                          }}
+                          className="w-full bg-gradient-to-r from-emerald-600 to-teal-500 hover:from-emerald-700 hover:to-teal-600 text-white rounded-lg p-2.5 text-left shadow relative overflow-hidden transition-all duration-200 hover:shadow-emerald-500/10 transform hover:-translate-y-0.5 flex items-center justify-between group"
+                        >
+                          <div className="relative z-10 text-left">
+                            <span className="text-[7px] font-extrabold uppercase bg-white/20 px-1 hover:bg-white/30 rounded leading-none block w-max tracking-wider">Earnings Hub</span>
+                            <h5 className="font-extrabold text-[10px] mt-1">Today's Pool: £{stats.todayEarnings.toFixed(2)}</h5>
+                            <p className="text-[7px] text-white/80 mt-0.5 leading-tight">View completed receipts & invoice templates.</p>
+                          </div>
+                          <ChevronRight className="w-3.5 h-3.5 text-white shrink-0 group-hover:translate-x-1 transition-transform" />
+                        </button>
+                      </div>
+                    </div>
+
+                    {/* Footer operations */}
+                    <div className={`p-2 border-t ${darkMode ? 'border-zinc-900 bg-zinc-950 text-zinc-650' : 'border-gray-150 bg-gray-50 text-gray-400'} text-center text-[7.5px] font-mono`}>
+                      Device GPS IP: 147.28.32.128 • Port 3000 Ingress
+                    </div>
+                  </motion.div>
+                )}
+              </AnimatePresence>
+
               {/* Optional iOS Home Screen Overlay when minimized */}
               {isMinimized && (
                 <div 
@@ -2470,7 +2978,7 @@ export default function App() {
                   <nav className={`h-11 flex items-center justify-between shrink-0 select-none z-10 shadow-sm border-b transition-colors duration-200 px-3 ${darkMode ? 'bg-zinc-900 border-zinc-800 text-zinc-100' : 'bg-white border-gray-100 text-gray-900'}`}>
                     <div className="flex items-center gap-1.5">
                       <button
-                        onClick={() => { playSoundEffect('tap'); setActiveTab('profile'); }}
+                        onClick={() => { playSoundEffect('tap'); setIsSideMenuOpen(true); }}
                         className={`w-7 h-7 rounded-lg flex items-center justify-center transition ${darkMode ? 'bg-zinc-800 text-zinc-200 hover:bg-zinc-700' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'}`}
                       >
                         <Menu className="w-3.5 h-3.5" />
@@ -3550,28 +4058,209 @@ export default function App() {
                           </div>
 
                           {/* Historical Completed list logs */}
-                          <div>
-                            <span className="text-[9px] text-gray-400 font-bold uppercase tracking-wider block mb-2 px-1">Session transactions</span>
-                            {completedTrips.length === 0 ? (
-                              <div className="bg-gray-100/50 border border-dashed border-gray-200 p-4 rounded-xl text-center text-xs text-gray-400">
-                                Complete some simulation trips on map to populate financial transaction ledgers.
+                          <div className="space-y-2.5">
+                            <div className="flex items-center justify-between px-1">
+                              <span className="text-[9.5px] text-gray-400 font-bold uppercase tracking-wider block">Completed Trip Receipts ({mode})</span>
+                              <span className="text-[8px] text-gray-400 font-bold">{completedTrips.length} entries</span>
+                            </div>
+
+                            {/* Search bar and Filter row */}
+                            <div className="flex flex-col gap-1.5 shrink-0 px-1">
+                              {/* Search Input */}
+                              <div className="relative">
+                                <Search className="absolute left-2.5 top-2 w-3 h-3 text-gray-400 z-10" />
+                                <input
+                                  type="text"
+                                  placeholder="Search passenger or route..."
+                                  value={tripSearchText}
+                                  onChange={(e) => setTripSearchText(e.target.value)}
+                                  className="w-full text-[10px] font-semibold pl-8 pr-2 py-1 rounded-md border border-gray-200 outline-none bg-gray-50 focus:bg-white focus:border-gray-300 transition-all text-gray-800"
+                                />
+                                {tripSearchText && (
+                                  <button
+                                    onClick={() => setTripSearchText('')}
+                                    className="absolute right-2 top-1.5 text-gray-400 hover:text-gray-650 font-black text-xs"
+                                  >
+                                    ×
+                                  </button>
+                                )}
                               </div>
-                            ) : (
-                              <div className="flex flex-col gap-1.5 select-text">
-                                {completedTrips.map(t => (
-                                  <div key={t.id} className="bg-white border border-gray-100 p-2.5 rounded-xl flex items-center justify-between">
-                                    <div className="min-w-0 flex-1">
-                                      <span className="font-bold text-gray-900 text-[11.5px] block truncate">{t.passengerName}</span>
-                                      <span className="text-[8.5px] text-gray-400 block font-mono mt-0.5">{t.timestamp}</span>
-                                    </div>
-                                    <span className="font-mono font-black text-[#13AA52] text-xs">
-                                      +£{((t.fare * t.surgeMultiplier) + t.tip).toFixed(2)}
-                                    </span>
+
+                              {/* Filter Pills */}
+                              <div className="flex items-center gap-1.5 text-[8px]">
+                                <button
+                                  onClick={() => { playSoundEffect('tap'); setTripTypeFilter('all'); }}
+                                  className={`px-2 py-0.5 rounded font-bold transition-all ${
+                                    tripTypeFilter === 'all'
+                                      ? 'bg-gray-800 text-white'
+                                      : 'bg-gray-100 text-gray-600 hover:bg-gray-150'
+                                  }`}
+                                >
+                                  All Rides
+                                </button>
+                                <button
+                                  onClick={() => { playSoundEffect('tap'); setTripTypeFilter('high_yield'); }}
+                                  className={`px-2 py-0.5 rounded font-bold transition-all flex items-center gap-0.5 ${
+                                    tripTypeFilter === 'high_yield'
+                                      ? 'bg-amber-600 text-white'
+                                      : 'bg-amber-100/60 text-amber-800 hover:bg-amber-100/90'
+                                  }`}
+                                >
+                                  High Surge 🔥
+                                </button>
+                              </div>
+                            </div>
+
+                            {(() => {
+                              // Perform logical match and filter passes
+                              let items = [...completedTrips];
+                              
+                              if (tripSearchText.trim()) {
+                                const q = tripSearchText.toLowerCase();
+                                items = items.filter(item => 
+                                  item.passengerName.toLowerCase().includes(q) ||
+                                  item.pickupAddress.toLowerCase().includes(q) ||
+                                  item.dropoffAddress.toLowerCase().includes(q)
+                                );
+                              }
+
+                              if (tripTypeFilter === 'high_yield') {
+                                items = items.filter(item => item.surgeMultiplier > 1.0);
+                              }
+
+                              if (items.length === 0) {
+                                return (
+                                  <div className="bg-gray-50 border border-dashed border-gray-150 p-4 rounded-xl text-center text-[10px] text-gray-400">
+                                    No completed trips match these criteria. Complete rides or adjust parameters.
                                   </div>
-                                ))}
-                              </div>
-                            )}
+                                );
+                              }
+
+                              return (
+                                <div className="flex flex-col gap-1.5 max-h-[190px] overflow-y-auto pr-0.5 scrollbar-thin">
+                                  {items.map(t => {
+                                    const totalPaid = (t.fare * t.surgeMultiplier) + t.tip;
+                                    return (
+                                      <div 
+                                        key={t.id} 
+                                        className="bg-white border border-gray-100 hover:bg-gray-50/50 p-2 rounded flex items-center justify-between cursor-pointer transition active:scale-99 select-none text-left"
+                                        title="Click to inspect invoice statement"
+                                        onClick={() => {
+                                          playSoundEffect('tap');
+                                          setSelectedInvoiceTrip(t);
+                                        }}
+                                      >
+                                        <div className="min-w-0 flex-1">
+                                          <div className="flex items-center gap-1.5">
+                                            <span className="font-extrabold text-gray-900 text-[10.5px] truncate">{t.passengerName}</span>
+                                            {t.surgeMultiplier > 1.0 && (
+                                              <span className="text-[7px] font-bold bg-amber-500/10 text-amber-600 px-1 rounded font-mono leading-none">
+                                                x{t.surgeMultiplier.toFixed(1)} Surge
+                                              </span>
+                                            )}
+                                          </div>
+                                          <p className="text-[7.5px] text-gray-400 truncate mt-0.5">{t.pickupAddress} ➔ {t.dropoffAddress}</p>
+                                          <span className="text-[7px] text-gray-450 block font-mono mt-0.5">{t.timestamp}</span>
+                                        </div>
+                                        <div className="text-right ml-2 shrink-0">
+                                          <span className="font-mono font-black text-[#13AA52] text-[10.5px] block text-right">
+                                            +£{totalPaid.toFixed(2)}
+                                          </span>
+                                          <span className="text-[6.5px] text-gray-400 font-bold uppercase tracking-wider block mt-0.5">Invoice Detail</span>
+                                        </div>
+                                      </div>
+                                    );
+                                  })}
+                                </div>
+                              );
+                            })()}
                           </div>
+
+                          {/* INVOICE / STATEMENT MODAL SHEET OVERLAY */}
+                          {selectedInvoiceTrip && (
+                            <div className="absolute inset-x-0 bottom-0 top-0 bg-black/55 z-[95] flex flex-col justify-end text-left select-none">
+                              {/* Slide-up modal card */}
+                              <div className="bg-white rounded-t-2xl p-4 flex flex-col gap-3 shadow-2xl max-h-[85%] overflow-y-auto animate-slide-up select-none border-t border-gray-100 text-left">
+                                <div className="flex justify-between items-center pb-2 border-b border-gray-100 text-left">
+                                  <div>
+                                    <h4 className="text-xs font-black text-gray-900 uppercase">Trip Statement</h4>
+                                    <span className="text-[7.5px] font-mono font-bold text-gray-400">INVOICE NO: #{selectedInvoiceTrip.id.toUpperCase()}</span>
+                                  </div>
+                                  <button
+                                    onClick={() => { playSoundEffect('tap'); setSelectedInvoiceTrip(null); }}
+                                    className="p-1 rounded bg-gray-100 hover:bg-gray-150 text-gray-600 font-black text-[9px] transition px-2.5"
+                                  >
+                                    Dismiss
+                                  </button>
+                                </div>
+
+                                <div className="text-[9.5px] space-y-2.5 text-left">
+                                  {/* Trip details heading */}
+                                  <div className="grid grid-cols-2 gap-2 text-left bg-gray-55 p-2 rounded border border-gray-150">
+                                    <div>
+                                      <span className="text-gray-400 block text-[7.5px] uppercase tracking-wider font-bold">Partner Driver</span>
+                                      <span className="font-bold text-gray-800">Marcus Sterling</span>
+                                    </div>
+                                    <div>
+                                      <span className="text-gray-400 block text-[7.5px] uppercase tracking-wider font-bold">Date & Time</span>
+                                      <span className="font-bold text-gray-800">{selectedInvoiceTrip.timestamp}</span>
+                                    </div>
+                                  </div>
+
+                                  {/* Route address summary */}
+                                  <div className="space-y-1.5 text-left bg-gray-50/50 p-2 rounded border border-gray-100">
+                                    <div className="flex gap-1.5 items-start">
+                                      <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 mt-1" />
+                                      <div>
+                                        <span className="text-gray-400 text-[7px] uppercase font-bold tracking-wide">Pickup Point</span>
+                                        <p className="font-semibold text-gray-905 leading-tight">{selectedInvoiceTrip.pickupAddress}</p>
+                                      </div>
+                                    </div>
+                                    <div className="w-0.5 h-2 border-l border-dashed border-gray-300 ml-0.75" />
+                                    <div className="flex gap-1.5 items-start">
+                                      <div className="w-1.5 h-1.5 rounded-full bg-[#007AFF] mt-1" />
+                                      <div>
+                                        <span className="text-gray-400 text-[7px] uppercase font-bold tracking-wide">Dropoff Destination</span>
+                                        <p className="font-semibold text-gray-905 leading-tight">{selectedInvoiceTrip.dropoffAddress}</p>
+                                      </div>
+                                    </div>
+                                  </div>
+
+                                  {/* Fare Splits Calculation */}
+                                  <div className="border border-gray-100 rounded p-2.5 space-y-2 text-left">
+                                    <span className="text-[8px] uppercase tracking-wider text-gray-400 font-extrabold block">Financial Division</span>
+                                    
+                                    <div className="flex justify-between">
+                                      <span className="text-gray-500 font-medium">Base Payout</span>
+                                      <span className="font-mono font-semibold text-gray-805">£{selectedInvoiceTrip.fare.toFixed(2)}</span>
+                                    </div>
+                                    
+                                    <div className="flex justify-between">
+                                      <span className="text-gray-500 font-medium">Surge Bonus</span>
+                                      <span className="font-mono font-semibold text-amber-600">x{selectedInvoiceTrip.surgeMultiplier.toFixed(1)}</span>
+                                    </div>
+
+                                    <div className="flex justify-between">
+                                      <span className="text-gray-500 font-medium">Voluntary Tips</span>
+                                      <span className="font-mono font-semibold text-emerald-600">+£{selectedInvoiceTrip.tip.toFixed(2)}</span>
+                                    </div>
+
+                                    <div className="border-t border-dashed border-gray-150 pt-1.5 flex justify-between font-black text-gray-900 text-[10px]">
+                                      <span>Authorized Net Payment</span>
+                                      <span className="font-mono text-[#13AA52]">
+                                        £{((selectedInvoiceTrip.fare * selectedInvoiceTrip.surgeMultiplier) + selectedInvoiceTrip.tip).toFixed(2)}
+                                      </span>
+                                    </div>
+                                  </div>
+
+                                  {/* Standard security note */}
+                                  <div className="text-[7.5px] text-gray-450 font-bold border-l-2 border-emerald-500 pl-2 text-left leading-normal">
+                                    Completed via Swift Cashier Engine. Settled directly into John Daniel's registered Barclays settlement routing.
+                                  </div>
+                                </div>
+                              </div>
+                            </div>
+                          )}
                         </div>
                       </>
                     );
