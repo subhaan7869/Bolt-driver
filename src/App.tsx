@@ -12,7 +12,7 @@ import {
   Navigation, Star, Zap, Clock, Landmark, Sparkles, Compass, MessageSquare, 
   AlertTriangle, CheckCircle, Smartphone, Wifi, Battery, Menu, Bell, 
   ChevronRight, ChevronLeft, Info, Car, HelpCircle, Settings, LogOut, Check, ArrowRight, X, Phone, User, Calendar, Coffee,
-  Globe, Lock, ShieldAlert, Video, WifiOff, Sun, Moon, Sliders, Mail, Award, Target, TrendingUp, Search
+  Globe, Lock, ShieldAlert, Video, WifiOff, Sun, Moon, Sliders, Mail, Award, Target, TrendingUp, Search, Map
 } from 'lucide-react';
 
 // Live Firebase client and authentications
