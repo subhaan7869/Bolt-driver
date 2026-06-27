@@ -4,6 +4,7 @@ import {
   DriverStats, RideRequest, TripProgress, SimulatorLog, CompletedTrip, ActiveChat, TripStage 
 } from './types';
 import { MapSimulator } from './components/MapSimulator';
+import { CommandCentre } from './components/CommandCentre';
 import { 
   playTapSound, playCompleteRideSound, playWarningSound, playIncomingRideSound 
 } from './utils/SoundGenerator';
@@ -340,6 +341,7 @@ export default function App() {
   });
 
   const [activeTab, setActiveTab] = useState<'home' | 'earnings' | 'wallet' | 'profile'>('home');
+  const [homeView, setHomeView] = useState<'map' | 'command'>('command');
 
   // Firebase Auth states
   const [user, setUser] = useState<FirebaseUser | null>(null);
@@ -3299,7 +3301,65 @@ export default function App() {
                     </div>
                   </nav>
 
-                  {/* HIGH COMPLIANCE / OFFLINE STATUS RIBBONS */}
+                  {/* TACTICAL SWITCHER BAR */}
+                  <div className={`h-10 border-b flex items-center justify-center gap-1 shrink-0 px-3 select-none ${darkMode ? 'bg-zinc-900/60 border-zinc-800' : 'bg-gray-50 border-gray-150'}`}>
+                    <button
+                      onClick={() => { playSoundEffect('tap'); setHomeView('command'); }}
+                      className={`flex-1 max-w-[180px] h-7 rounded-lg text-[9.5px] font-black uppercase tracking-wider flex items-center justify-center gap-1.5 transition ${
+                        homeView === 'command'
+                          ? 'bg-[#13AA52] text-white shadow-xs'
+                          : darkMode ? 'text-zinc-400 hover:bg-zinc-800 hover:text-zinc-200' : 'text-gray-550 hover:bg-gray-100 hover:text-gray-800'
+                      }`}
+                    >
+                      <Sliders className="w-3.5 h-3.5" />
+                      Command Centre
+                    </button>
+                    <button
+                      onClick={() => { playSoundEffect('tap'); setHomeView('map'); }}
+                      className={`flex-1 max-w-[180px] h-7 rounded-lg text-[9.5px] font-black uppercase tracking-wider flex items-center justify-center gap-1.5 transition ${
+                        homeView === 'map'
+                          ? 'bg-[#13AA52] text-white shadow-xs'
+                          : darkMode ? 'text-zinc-400 hover:bg-zinc-800 hover:text-zinc-200' : 'text-gray-550 hover:bg-gray-100 hover:text-gray-800'
+                      }`}
+                    >
+                      <Map className="w-3.5 h-3.5" />
+                      Live Map Simulator
+                    </button>
+                  </div>
+
+                  {homeView === 'command' ? (
+                    <CommandCentre
+                      isOnline={isOnline}
+                      setIsOnline={handleSetOnline}
+                      mode={mode}
+                      setMode={setMode}
+                      stats={stats}
+                      setStats={setStats}
+                      driverPoints={driverPoints}
+                      setDriverPoints={setDriverPoints}
+                      dailyEarningsGoal={dailyEarningsGoal}
+                      setDailyEarningsGoal={setDailyEarningsGoal}
+                      scheduledBookings={scheduledBookings}
+                      setScheduledBookings={setScheduledBookings}
+                      selectedPrebooking={selectedPrebooking}
+                      setSelectedPrebooking={setSelectedPrebooking}
+                      isOnBreak={isOnBreak}
+                      setIsOnBreak={setIsOnBreak}
+                      darkMode={darkMode}
+                      playSoundEffect={playSoundEffect}
+                      appendLog={appendLog}
+                      currentCity={currentCity}
+                      setCurrentCity={setCurrentCity}
+                      surgeLevel={surgeLevel}
+                      setSurgeLevel={setSurgeLevel}
+                      selectedPeak={selectedPeak}
+                      setSelectedPeak={setSelectedPeak}
+                      batteryLevel={batteryLevel}
+                      setBatteryLevel={setBatteryLevel}
+                    />
+                  ) : (
+                    <>
+                      {/* HIGH COMPLIANCE / OFFLINE STATUS RIBBONS */}
                   {!isInternetConnected && (
                     <div className="bg-orange-500 text-white text-[8.5px] font-black uppercase tracking-wider py-1 px-3 text-center flex items-center justify-center gap-1.5 z-10 animate-in slide-in-from-top duration-200">
                       <WifiOff className="w-3 h-3 text-white" />
@@ -4123,6 +4183,8 @@ export default function App() {
                     </div>
                   )}
 
+                    </>
+                  )}
                 </div>
               )}
 
