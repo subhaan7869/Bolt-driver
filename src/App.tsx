@@ -633,6 +633,13 @@ export default function App() {
   const [selectedInvoiceTrip, setSelectedInvoiceTrip] = useState<CompletedTrip | null>(null);
   const [selectedPrebooking, setSelectedPrebooking] = useState<any | null>(null);
   const [tripSearchText, setTripSearchText] = useState<string>('');
+  const [isBooting, setIsBooting] = useState<boolean>(true);
+  const [bootProgress, setBootProgress] = useState<number>(0);
+  const [bootStage, setBootStage] = useState<string>('Initializing SWIFT Pilot OS...');
+  const [bootLogs, setBootLogs] = useState<string[]>([
+    '⚙️ SWIFT Pilot Co-Pilot Terminal v4.28.1 booting...',
+    '⚙️ System environment: Secure Sandboxed Dev Node',
+  ]);
   const [hapticEnabled, setHapticEnabled] = useState<boolean>(() => {
     try {
       return localStorage.getItem('swift_haptic_enabled') !== 'false';
@@ -1008,6 +1015,76 @@ export default function App() {
       Notification.requestPermission();
     }
   }, []);
+
+  // Dynamic bootup simulation sequence
+  useEffect(() => {
+    if (!isBooting) return;
+
+    let progress = 0;
+    const logsList = [
+      '📡 Connecting securely with London Transport dispatch...',
+      '📡 Syncing GNSS telemetry with 12 orbital satellites...',
+      '📊 Aggregating active passenger traffic in central London...',
+      '🔥 Loading dynamic surge multiplier matrices...',
+      '🔋 Reading vehicle battery and thermal efficiency data...',
+      '🎯 Synchronizing consecutive driver streak trackers...',
+      '🏠 Mapping secure offline Co-Pilot backup routes...',
+      '🚀 All systems nominal! Entering driver match dashboard.'
+    ];
+
+    const interval = setInterval(() => {
+      // Dynamic acceleration of progress
+      const increment = Math.floor(Math.random() * 8) + 4;
+      progress = Math.min(100, progress + increment);
+      setBootProgress(progress);
+
+      // Sound play on significant step increments
+      try {
+        if (progress % 15 < 5) {
+          playSoundEffect('tap');
+        }
+      } catch (_) {}
+
+      // Update stage name based on percentage
+      if (progress < 20) {
+        setBootStage('Initializing SWIFT Pilot OS...');
+      } else if (progress < 40) {
+        setBootStage('Syncing GNSS Telemetry...');
+      } else if (progress < 60) {
+        setBootStage('Aggregating Passenger Grid...');
+      } else if (progress < 80) {
+        setBootStage('Loading Surge Matrices...');
+      } else if (progress < 95) {
+        setBootStage('Securing Offline Caches...');
+      } else {
+        setBootStage('Boot Complete. Safe Travels!');
+      }
+
+      // Add log entries based on progress
+      const logIdx = Math.floor((progress / 100) * logsList.length);
+      setBootLogs((prev) => {
+        const nextLogs = [...prev];
+        const line = logsList[Math.min(logIdx, logsList.length - 1)];
+        if (!nextLogs.includes(line)) {
+          nextLogs.push(line);
+        }
+        return nextLogs;
+      });
+
+      if (progress >= 100) {
+        clearInterval(interval);
+        setTimeout(() => {
+          try {
+            playSoundEffect('complete');
+          } catch (_) {}
+          setIsBooting(false);
+          appendLog("🚀 SWIFT Co-Pilot System bootup complete. Dispatch matchmaking online.", "success");
+        }, 700);
+      }
+    }, 150);
+
+    return () => clearInterval(interval);
+  }, [isBooting, playSoundEffect, appendLog]);
 
   // 2. In-App Toasts State and Dispatcher
   const [toasts, setToasts] = useState<{ id: string; title: string; body: string; type?: 'info' | 'success' | 'alert' | 'message' }[]>([]);
@@ -2676,6 +2753,125 @@ export default function App() {
       {/* Smartphone Hardware Frame Body Shell */}
       <div className="w-full h-full md:max-w-[390px] md:h-[844px] md:rounded-[50px] md:shadow-[0_25px_60px_rgba(0,0,0,0.85)] md:border-[11px] md:border-zinc-800 bg-white relative flex flex-col overflow-hidden">
         
+        {/* SWIFT DRIVER BOOTUP SEQUENCE OVERLAY */}
+        <AnimatePresence>
+          {isBooting && (
+            <motion.div
+              initial={{ opacity: 1 }}
+              exit={{ 
+                opacity: 0,
+                scale: 1.05,
+                y: -15,
+                transition: { duration: 0.55, ease: [0.16, 1, 0.3, 1] }
+              }}
+              className="absolute inset-0 z-[110] bg-[#070b13] flex flex-col justify-between overflow-hidden p-6 text-white"
+              style={{
+                backgroundImage: 'radial-gradient(circle at top, rgba(16, 185, 129, 0.12), transparent), radial-gradient(circle at bottom, rgba(5, 150, 105, 0.05), transparent), linear-gradient(180deg, #070b13 0%, #030509 100%)'
+              }}
+            >
+              {/* Particle/Radar Grid Decorative Background */}
+              <div className="absolute inset-0 opacity-[0.03] pointer-events-none" style={{
+                backgroundImage: `radial-gradient(circle, #10b981 1px, transparent 1px)`,
+                backgroundSize: '20px 20px'
+              }} />
+
+              {/* Top bar indicators */}
+              <div className="flex items-center justify-between opacity-40 text-[8px] font-mono select-none tracking-widest mt-1">
+                <span>CO-PILOT OS v4.28</span>
+                <span>STABLE CONNECT</span>
+              </div>
+
+              {/* Core Content: Animated Logo & Ring */}
+              <div className="flex-1 flex flex-col items-center justify-center -mt-8">
+                <div className="relative flex items-center justify-center mb-8">
+                  {/* Spinning vector orbit ring */}
+                  <motion.div
+                    animate={{ rotate: 360 }}
+                    transition={{ repeat: Infinity, duration: 8, ease: "linear" }}
+                    className="absolute w-24 h-24 rounded-full border-2 border-dashed border-[#10b981]/30"
+                  />
+                  {/* Pulsing glow ring */}
+                  <motion.div
+                    animate={{ scale: [0.95, 1.05, 0.95] }}
+                    transition={{ repeat: Infinity, duration: 2, ease: "easeInOut" }}
+                    className="absolute w-20 h-20 rounded-full bg-[#10b981]/10 blur-md"
+                  />
+                  {/* Core glowing emerald emblem */}
+                  <div className="w-16 h-16 rounded-2xl bg-[#10b981] flex items-center justify-center shadow-[0_0_25px_rgba(16,185,129,0.5)] border border-[#34d399]/40 relative z-10">
+                    <Sparkles className="w-8 h-8 text-white" />
+                  </div>
+                </div>
+
+                <motion.h1 
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  className="text-xl font-extrabold tracking-tight text-white flex items-center gap-1"
+                >
+                  SWIFT <span className="text-[#10b981] font-black">CO-PILOT</span>
+                </motion.h1>
+                <span className="text-[8px] font-black uppercase text-zinc-500 tracking-[0.25em] mt-1.5">Driver Command Deck</span>
+
+                {/* Progress bar container */}
+                <div className="w-full max-w-[240px] mt-10">
+                  <div className="flex justify-between items-end text-[10px] mb-1.5 font-mono">
+                    <span className="text-zinc-400 font-bold uppercase tracking-wider">{bootStage}</span>
+                    <span className="text-[#10b981] font-extrabold">{bootProgress}%</span>
+                  </div>
+                  
+                  {/* Outer loading track */}
+                  <div className="w-full h-1.5 bg-zinc-900 border border-zinc-800/80 rounded-full overflow-hidden p-[1px]">
+                    {/* Dynamic filled loading indicator */}
+                    <div 
+                      className="h-full bg-gradient-to-r from-emerald-500 to-teal-400 rounded-full transition-all duration-150 shadow-[0_0_10px_#10b981]"
+                      style={{ width: `${bootProgress}%` }}
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* Dynamic Diagnostics Log Terminal Footer */}
+              <div className="bg-zinc-950/80 border border-zinc-900/50 rounded-2xl p-3.5 flex flex-col gap-1.5 h-[130px] overflow-hidden justify-end font-mono text-[8px] text-zinc-400 select-none">
+                <div className="flex items-center gap-1 border-b border-zinc-900 pb-1.5 mb-1 text-[7.5px] text-zinc-500 font-extrabold uppercase">
+                  <span>Diagnostic Logs Feed</span>
+                  <span className="ml-auto animate-pulse">● RECEIVING</span>
+                </div>
+                <div className="space-y-1 overflow-y-auto max-h-[90px] flex flex-col justify-end">
+                  <AnimatePresence>
+                    {bootLogs.slice(-4).map((log) => (
+                      <motion.div
+                        key={log}
+                        initial={{ opacity: 0, x: -10, y: 5 }}
+                        animate={{ opacity: 1, x: 0, y: 0 }}
+                        transition={{ duration: 0.2 }}
+                        className={`flex items-start gap-1.5 leading-snug ${log === bootLogs[bootLogs.length - 1] ? 'text-[#10b981] font-black' : 'text-zinc-400'}`}
+                      >
+                        <span className="shrink-0 text-zinc-500 font-extrabold">&gt;</span>
+                        <span className="break-words">{log}</span>
+                      </motion.div>
+                    ))}
+                  </AnimatePresence>
+                </div>
+              </div>
+
+              {/* Fast Bypass Control */}
+              <div className="mt-4 flex justify-center">
+                <button
+                  onClick={() => {
+                    try {
+                      playSoundEffect('complete');
+                    } catch (_) {}
+                    setIsBooting(false);
+                    appendLog("⚡ Pilot bypassed bootup initialization. Co-Pilot console fully operational.", "success");
+                  }}
+                  className="text-[8px] font-black tracking-widest text-zinc-500 hover:text-zinc-300 bg-zinc-900/30 hover:bg-zinc-900/60 border border-zinc-900 py-1.5 px-4 rounded-xl transition cursor-pointer uppercase"
+                >
+                  Instant Unlock &gt;&gt;
+                </button>
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+
         {/* IN-APP TOAST PORTAL OVERLAY */}
         <div className="absolute top-10 left-3 right-3 z-100 pointer-events-none flex flex-col gap-2">
           <AnimatePresence>
