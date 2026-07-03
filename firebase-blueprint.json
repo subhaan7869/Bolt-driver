@@ -72,6 +72,18 @@
         "message": { "type": "string" }
       },
       "required": ["id", "timestamp", "type", "message"]
+    },
+    "verification_code": {
+      "title": "Verification Code OTP",
+      "description": "Short-lived verification codes generated for daily secure driver compliance.",
+      "type": "object",
+      "properties": {
+        "email": { "type": "string", "description": "The email address requesting the verification code." },
+        "code": { "type": "string", "description": "The active 6-digit OTP code." },
+        "expiresAt": { "type": "string", "description": "The expiration ISO timestamp." },
+        "verified": { "type": "boolean", "description": "Whether the OTP was successfully validated." }
+      },
+      "required": ["email", "code", "expiresAt", "verified"]
     }
   },
   "firestore": {
@@ -86,6 +98,10 @@
     "drivers/{userId}/logs/{logId}": {
       "schema": "log_event",
       "description": "Simulated dispatcher tracking logs."
+    },
+    "verification_codes/{email}": {
+      "schema": "verification_code",
+      "description": "Short-lived OTP codes to secure driver logins and compliance."
     }
   }
 }

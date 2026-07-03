@@ -63,6 +63,13 @@ service cloud.firestore {
         && data.message is string;
     }
 
+    function isValidVerificationCode(data) {
+      return data.email is string
+        && data.code is string
+        && data.expiresAt is string
+        && data.verified is bool;
+    }
+
     // Drivers root collection rules
     match /drivers/{userId} {
       allow get: if isOwner(userId);
@@ -83,6 +90,12 @@ service cloud.firestore {
         allow create: if isOwner(userId) && isValidLogEvent(incoming());
         allow delete: if isOwner(userId);
       }
+    }
+
+    // Verification codes collection rules
+    match /verification_codes/{email} {
+      allow get, delete: if true;
+      allow create, update: if isValidVerificationCode(incoming());
     }
   }
 }

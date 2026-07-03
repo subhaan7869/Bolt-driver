@@ -369,6 +369,20 @@ export default function App() {
     return localStorage.getItem('swift_insurance_expiry') || '2026-08-24';
   });
 
+  // OTP Compliance variables
+  const [otpEmail, setOtpEmail] = useState<string>('hassennabeel9@gmail.com');
+  const [otpCode, setOtpCode] = useState<string>('');
+  const [otpVerified, setOtpVerified] = useState<boolean>(() => {
+    return localStorage.getItem('swift_otp_verified') === 'true';
+  });
+  const [otpLoading, setOtpLoading] = useState<boolean>(false);
+  const [otpStatusMsg, setOtpStatusMsg] = useState<{ text: string; type: 'success' | 'error' | 'info' | null }>({ text: '', type: null });
+  const [testOtpReceived, setTestOtpReceived] = useState<string | null>(null);
+
+  // Random Face Verify Audit states
+  const [randomAuditActive, setRandomAuditActive] = useState<boolean>(false);
+  const [randomAuditTimer, setRandomAuditTimer] = useState<number>(60);
+
   // Real Internet online/offline indicator vs Simulation offline-toggle
   const [offlineSimulation, setOfflineSimulation] = useState<boolean>(() => {
     return localStorage.getItem('swift_offline_simulation') === 'true';
@@ -389,6 +403,82 @@ export default function App() {
     return localStorage.getItem('swift_current_city') || 'London';
   });
   const [geoTrackingState, setGeoTrackingState] = useState<'idle' | 'tracking' | 'denied'>('idle');
+
+  const handleRequestOtp = async () => {
+    if (!otpEmail || !otpEmail.includes('@') || otpLoading) return;
+    playSoundEffect('tap');
+    setOtpLoading(true);
+    setOtpStatusMsg({ text: 'Dispatching daily pass code via server...', type: 'info' });
+    setTestOtpReceived(null);
+
+    try {
+      const res = await fetch('/api/request-otp', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: otpEmail })
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        throw new Error(data.error || 'Server request failed');
+      }
+
+      setOtpStatusMsg({ text: data.message, type: 'success' });
+      if (data.otp) {
+        setTestOtpReceived(data.otp);
+      }
+      appendLog(`🔒 Daily security pass code requested for ${otpEmail}.`, 'info');
+      playSoundEffect('complete');
+    } catch (err: any) {
+      console.error(err);
+      setOtpStatusMsg({ text: err.message, type: 'error' });
+      playSoundEffect('warn');
+    } finally {
+      setOtpLoading(false);
+    }
+  };
+
+  const handleVerifyOtp = async () => {
+    if (!otpCode || otpLoading) return;
+    playSoundEffect('tap');
+    setOtpLoading(true);
+    setOtpStatusMsg({ text: 'Validating security code with server...', type: 'info' });
+
+    try {
+      const res = await fetch('/api/verify-otp', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: otpEmail, code: otpCode })
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        throw new Error(data.error || 'Invalid security code');
+      }
+
+      setOtpVerified(true);
+      localStorage.setItem('swift_otp_verified', 'true');
+      setOtpStatusMsg({ text: data.message, type: 'success' });
+      appendLog(`✓ Daily security pass verified successfully for ${otpEmail}.`, 'success');
+      playSoundEffect('complete');
+
+      // Update in Firestore profile too if user is authenticated
+      if (user) {
+        try {
+          await updateDoc(doc(db, 'drivers', user.uid), {
+            otpVerified: true,
+            updatedAt: new Date().toISOString()
+          });
+        } catch (e) {
+          console.error('Error updating profile with otpVerified:', e);
+        }
+      }
+    } catch (err: any) {
+      console.error(err);
+      setOtpStatusMsg({ text: err.message, type: 'error' });
+      playSoundEffect('warn');
+    } finally {
+      setOtpLoading(false);
+    }
+  };
 
   useEffect(() => {
     localStorage.setItem('swift_current_city', currentCity);
@@ -1634,6 +1724,13 @@ export default function App() {
             if (data.insuranceExpiry) setInsuranceExpiry(data.insuranceExpiry);
             if (data.faceVerified !== undefined) setFaceVerified(data.faceVerified);
             if (data.faceSelfieSnapshot) setFaceSelfieUrl(data.faceSelfieSnapshot);
+            if (data.otpVerified !== undefined) {
+              setOtpVerified(data.otpVerified);
+              localStorage.setItem('swift_otp_verified', String(data.otpVerified));
+            }
+            if (firebaseUser.email) {
+              setOtpEmail(firebaseUser.email);
+            }
             appendLog('💾 Profile settings synchronized perfectly from Firestore.', 'success');
           } else {
             const freshProfile = {
@@ -1645,8 +1742,12 @@ export default function App() {
               insuranceExpiry: '2026-08-24',
               faceVerified: true,
               faceSelfieSnapshot: '',
+              otpVerified: false,
               updatedAt: new Date().toISOString()
             };
+            if (firebaseUser.email) {
+              setOtpEmail(firebaseUser.email);
+            }
             await setDoc(ref, freshProfile);
             appendLog('📌 Created new verified profile in Cloud Firestore.', 'success');
           }
@@ -1743,10 +1844,70 @@ export default function App() {
   }, [mode, eatsBootupProgress, playSoundEffect, appendLog]);
 
 
+  // Daily random biometric face verification compliance check
+  useEffect(() => {
+    if (!isOnline) {
+      setRandomAuditActive(false);
+      return;
+    }
+
+    // Trigger a random security compliance audit at random intervals between 45 seconds and 3 minutes
+    const getRandomInterval = () => Math.floor(Math.random() * (120000 - 45000) + 45000);
+
+    let auditTimeout: NodeJS.Timeout;
+
+    const triggerAudit = () => {
+      // Trigger only if idle and no other modal is currently active
+      if (tripProgress.stage === 'idle' && !showFaceScanner && !randomAuditActive) {
+        setRandomAuditActive(true);
+        setRandomAuditTimer(60); // 60s to scan face selfie
+        playSoundEffect('warn');
+        appendLog("⚠️ SECURITY AUDIT REQUIRED: Please verify your biometric signature within 60s.", "warn");
+      }
+      auditTimeout = setTimeout(triggerAudit, getRandomInterval());
+    };
+
+    auditTimeout = setTimeout(triggerAudit, getRandomInterval());
+
+    return () => {
+      clearTimeout(auditTimeout);
+    };
+  }, [isOnline, tripProgress.stage, showFaceScanner, randomAuditActive, playSoundEffect, appendLog]);
+
+  // Handle countdown for active random biometric safety audit
+  useEffect(() => {
+    if (!randomAuditActive) return;
+
+    const interval = setInterval(() => {
+      setRandomAuditTimer((prev) => {
+        if (prev <= 1) {
+          clearInterval(interval);
+          setRandomAuditActive(false);
+          setIsOnline(false); // Suspend operator connection!
+          setFaceVerified(false); // require re-verification
+          appendLog("🚨 CRITICAL COMPLIANCE FAILURE: Random security audit timed out. Connection suspended.", "error");
+          playSoundEffect('warn');
+          alert("🚨 Swift Safety Dispatch: You failed to complete the random face verification audit within 60 seconds. Your connection has been suspended and set OFFLINE for safety.");
+          return 0;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+
+    return () => clearInterval(interval);
+  }, [randomAuditActive, appendLog, playSoundEffect, setIsOnline]);
+
+
   // Switch Online/Offline availability
   const handleSetOnline = (online: boolean) => {
     playSoundEffect('tap');
     if (online) {
+      if (!otpVerified) {
+        playSoundEffect('warn');
+        alert("🔒 Swift Security Compliance: Security Daily OTP Pass Code verification is required before you can toggle ONLINE.\n\nPlease complete daily email verification in your Profile tab first.");
+        setActiveTab('profile');
+        return;
+      }
       if (!faceVerified) {
         playSoundEffect('warn');
         alert("🔒 Swift Security Compliance: Biometric Face Verification selfie check is required before you can toggle ONLINE.\n\nLoading biometric camera viewport...");
@@ -2915,6 +3076,65 @@ export default function App() {
                   className="text-[8px] font-black tracking-widest text-zinc-500 hover:text-zinc-300 bg-zinc-900/30 hover:bg-zinc-900/60 border border-zinc-900 py-1.5 px-4 rounded-xl transition cursor-pointer uppercase"
                 >
                   Instant Unlock &gt;&gt;
+                </button>
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+
+        {/* RANDOM COMPLIANCE AUDIT OVERLAY */}
+        <AnimatePresence>
+          {randomAuditActive && (
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.95 }}
+              className="absolute inset-0 z-[100] bg-black/90 flex flex-col justify-between p-6 text-white text-center"
+            >
+              <div className="flex flex-col items-center mt-8">
+                <div className="w-16 h-16 rounded-full bg-red-500/10 border border-red-500 flex items-center justify-center mb-4 animate-pulse">
+                  <Video className="w-8 h-8 text-red-500" />
+                </div>
+                <h2 className="text-lg font-black uppercase tracking-wide text-red-500">
+                  Mandatory Security Audit
+                </h2>
+                <div className="text-[10px] font-mono text-zinc-400 mt-1 uppercase tracking-widest">
+                  Random daily compliance verification
+                </div>
+              </div>
+
+              <div className="flex flex-col items-center justify-center my-4 bg-zinc-900 border border-zinc-800 rounded-2xl p-6">
+                <div className="text-[10px] text-zinc-450 uppercase font-black tracking-wider mb-2">
+                  Time Remaining to Comply
+                </div>
+                <div className="text-4xl font-mono font-extrabold text-red-500">
+                  {randomAuditTimer}s
+                </div>
+                <p className="text-[10px] text-zinc-400 mt-3 leading-relaxed">
+                  Compliance standards require all active Swift dispatch operators to verify their identity within 60 seconds of a random audit request. Failure to scan will result in immediate suspension and account lockout.
+                </p>
+              </div>
+
+              <div className="flex flex-col gap-2 mb-8">
+                <button
+                  onClick={() => {
+                    playSoundEffect('tap');
+                    setShowFaceScanner(true);
+                  }}
+                  className="w-full py-3 bg-red-600 hover:bg-red-500 text-white font-black text-xs uppercase tracking-wider rounded-xl shadow-lg shadow-red-600/20 active:scale-98 transition cursor-pointer"
+                >
+                  Scan Biometric Selfie Now
+                </button>
+                <button
+                  onClick={() => {
+                    playSoundEffect('tap');
+                    setRandomAuditActive(false);
+                    setIsOnline(false);
+                    appendLog("⚠️ Operator manually canceled safety audit and went offline.", "warn");
+                  }}
+                  className="w-full py-2 bg-transparent hover:bg-white/5 text-zinc-400 font-bold text-[10px] uppercase tracking-wider rounded-xl transition cursor-pointer"
+                >
+                  Go Offline (Skip & Decline)
                 </button>
               </div>
             </motion.div>
@@ -5479,6 +5699,92 @@ export default function App() {
                             </button>
                           </div>
 
+                          {/* Daily Identity OTP Verification card */}
+                          <div className={`p-3 rounded-2xl border text-left flex flex-col gap-1.5 ${darkMode ? 'bg-zinc-900 border-zinc-800 text-zinc-100' : 'bg-gray-50 border-gray-150 text-gray-850'}`}>
+                            <div className="flex items-center justify-between">
+                              <div className="flex items-center gap-1.5 font-black uppercase text-[8.5px] font-mono tracking-wider text-purple-500">
+                                <Mail className="w-3.5 h-3.5 text-purple-500" />
+                                <span>Daily Email Identity Pass</span>
+                              </div>
+                              <span className={`text-[7.5px] font-extrabold font-mono px-1.5 py-0.2 rounded-full ${otpVerified ? 'bg-emerald-100 text-emerald-700' : 'bg-purple-100 text-purple-705 animate-pulse'}`}>
+                                {otpVerified ? 'PASS ACTIVE ✓' : 'UNVERIFIED'}
+                              </span>
+                            </div>
+                            <p className="text-[9.2px] text-gray-400 leading-tight">
+                              Submit email identity verification daily to receive your secure 6-digit session key.
+                            </p>
+
+                            <div className="flex flex-col gap-1.5 mt-1 font-mono text-[8.5px]">
+                              <div>
+                                <span className="text-zinc-400 block text-[6.5px] uppercase font-bold">Driver Registry Email</span>
+                                <div className="flex gap-1.5 mt-0.5 font-sans">
+                                  <input 
+                                    type="email" 
+                                    value={otpEmail} 
+                                    onChange={(e) => setOtpEmail(e.target.value)}
+                                    placeholder="Enter registered email"
+                                    className="bg-white border text-zinc-805 rounded px-2 py-1 w-full text-[8.5px] font-extrabold" 
+                                  />
+                                  <button
+                                    onClick={handleRequestOtp}
+                                    disabled={otpLoading || !otpEmail.includes('@')}
+                                    className="px-2.5 bg-purple-600 text-white font-black text-[8px] uppercase tracking-wider rounded-lg hover:bg-purple-700 disabled:opacity-40 transition-colors cursor-pointer shrink-0"
+                                  >
+                                    Send
+                                  </button>
+                                </div>
+                              </div>
+
+                              {/* Simulator SMTP Bypass Option */}
+                              {testOtpReceived && (
+                                <div className="bg-amber-500/10 border border-amber-500/20 text-amber-600 p-1.5 rounded-lg text-[8px] leading-tight flex flex-col gap-0.5 font-sans">
+                                  <span className="font-extrabold uppercase">Simulator SMTP Bypass:</span>
+                                  <span>OTP Code: <strong className="font-black underline tracking-wide text-amber-700 font-mono">{testOtpReceived}</strong></span>
+                                </div>
+                              )}
+
+                              <div>
+                                <span className="text-zinc-400 block text-[6.5px] uppercase font-bold">6-Digit Verification Code</span>
+                                <div className="flex gap-1.5 mt-0.5">
+                                  <input 
+                                    type="text" 
+                                    maxLength={6}
+                                    placeholder="------"
+                                    value={otpCode} 
+                                    onChange={(e) => setOtpCode(e.target.value)}
+                                    className="bg-white border text-zinc-805 rounded px-2 py-1 w-full text-center tracking-widest text-[9.5px] font-mono font-black" 
+                                  />
+                                  <button
+                                    onClick={handleVerifyOtp}
+                                    disabled={otpLoading || otpCode.length < 4}
+                                    className="px-2.5 bg-[#13AA52] text-white font-black text-[8px] uppercase tracking-wider rounded-lg hover:bg-[#119949] disabled:opacity-40 transition-colors cursor-pointer shrink-0 font-sans"
+                                  >
+                                    Verify
+                                  </button>
+                                </div>
+                              </div>
+                            </div>
+
+                            {otpStatusMsg.text && (
+                              <div className={`text-[8.5px] leading-tight rounded-lg p-1.5 font-bold font-sans ${
+                                otpStatusMsg.type === 'success' ? 'bg-emerald-500/10 text-emerald-600' :
+                                otpStatusMsg.type === 'error' ? 'bg-rose-500/10 text-rose-600' :
+                                'bg-zinc-100 text-zinc-600'
+                              }`}>
+                                {otpStatusMsg.text}
+                              </div>
+                            )}
+
+                            {otpVerified && (
+                              <button
+                                onClick={() => { playSoundEffect('tap'); setOtpVerified(false); localStorage.setItem('swift_otp_verified', 'false'); }}
+                                className="w-full mt-1 py-1 bg-zinc-200 dark:bg-zinc-800 text-zinc-500 hover:bg-zinc-250 text-[8px] font-black uppercase tracking-wider text-center rounded font-sans"
+                              >
+                                Clear daily session token
+                              </button>
+                            )}
+                          </div>
+
                           {/* Insurance policy cover */}
                           <div className={`p-3 rounded-2xl border text-left flex flex-col gap-1.5 ${darkMode ? 'bg-zinc-900 border-zinc-800 text-zinc-100' : 'bg-gray-50 border-gray-150'}`}>
                             <div className="flex items-center justify-between">
@@ -6037,6 +6343,29 @@ export default function App() {
                         </div>
                       </div>
 
+                      {/* Biometric random trigger simulation */}
+                      <div className="border border-red-500/30 bg-red-500/5 p-3 rounded-2xl flex flex-col gap-2">
+                        <div className="flex justify-between items-center">
+                          <span className="text-[9.5px] font-black text-red-600 dark:text-red-400 uppercase tracking-wide">🚨 Compliance Sim</span>
+                          <span className="text-[7.5px] font-bold text-zinc-450 uppercase">Daily Face Verify</span>
+                        </div>
+                        <p className="text-[8px] text-zinc-500 leading-tight">
+                          Trigger a random driver biometric verification audit instantly to test daily compliance timeout penalty enforcement.
+                        </p>
+                        <button
+                          disabled={!isOnline}
+                          onClick={() => {
+                            playSoundEffect('warn');
+                            setRandomAuditActive(true);
+                            setRandomAuditTimer(60);
+                            appendLog("⚠️ MANUAL SIMULATED COMPLIANCE AUDIT TRIGGERED: Complete verification within 60s.", "warn");
+                          }}
+                          className="w-full py-1.5 text-center bg-red-500 text-white disabled:bg-zinc-200 dark:disabled:bg-zinc-800 disabled:text-zinc-450 text-[8.5px] font-black uppercase tracking-wider rounded-xl active:scale-98 transition cursor-pointer"
+                        >
+                          {!isOnline ? 'Go Online to Test Audit' : 'Trigger Random Biometric Audit Now'}
+                        </button>
+                      </div>
+
                       {/* Display telemetry logs */}
                       <div>
                         <span className="text-[9px] text-zinc-400 font-bold block mb-1">LIVE DISPATCH TELEMETRY REGISTRY</span>
@@ -6542,6 +6871,7 @@ export default function App() {
             onSuccess={(selfie) => {
               setFaceSelfieUrl(selfie);
               setFaceVerified(true);
+              setRandomAuditActive(false); // Clear the daily safety audit checklist!
               appendLog("✓ Biometric identity verification successful. Security pass verified.", "success");
             }}
             playSoundEffect={playSoundEffect}

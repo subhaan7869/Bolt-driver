@@ -5,10 +5,17 @@ import { GoogleGenAI } from '@google/genai';
 import dotenv from 'dotenv';
 import firebaseAdmin from 'firebase-admin';
 import fs from 'fs';
+import nodemailer from 'nodemailer';
+import { initializeApp as initClientApp } from 'firebase/app';
+import { getFirestore as getClientFirestore, doc as clientDoc, setDoc as clientSetDoc, getDoc as clientGetDoc, deleteDoc as clientDeleteDoc } from 'firebase/firestore';
 
 const admin = firebaseAdmin as any;
 
 dotenv.config();
+
+const inMemoryOtps = new Map<string, { email: string; code: string; expiresAt: string; verified: boolean }>();
+
+let serverFirestore: any = null;
 
 // Initialize Firebase Admin SDK safely
 if (!admin.apps.length) {
@@ -37,6 +44,157 @@ if (!admin.apps.length) {
     }
   } catch (error) {
     console.error('Failed to initialize Firebase Admin SDK:', error);
+  }
+}
+
+// Try Admin Firestore first if initialized
+if (admin.apps.length > 0) {
+  try {
+    serverFirestore = admin.firestore();
+    console.log('Server initialized with Firebase Admin Firestore');
+  } catch (err) {
+    console.error('Failed to get Admin Firestore:', err);
+  }
+}
+
+// Fallback to standard client SDK on backend if admin Firestore is not available
+if (!serverFirestore) {
+  try {
+    const configPath = path.join(process.cwd(), 'firebase-applet-config.json');
+    if (fs.existsSync(configPath)) {
+      const config = JSON.parse(fs.readFileSync(configPath, 'utf8'));
+      const clientApp = initClientApp(config);
+      serverFirestore = getClientFirestore(clientApp, config.firestoreDatabaseId);
+      console.log('Server initialized with standard Client-side Firestore SDK fallback');
+    }
+  } catch (err) {
+    console.error('Failed to initialize fallback Client-side Firestore SDK on backend:', err);
+  }
+}
+
+async function saveVerificationCode(email: string, code: string, expiresAt: string) {
+  const payload = {
+    email,
+    code,
+    expiresAt,
+    verified: false
+  };
+
+  if (serverFirestore) {
+    try {
+      if (typeof serverFirestore.collection === 'function') {
+        // Admin SDK
+        await serverFirestore.collection('verification_codes').doc(email).set(payload);
+      } else {
+        // Client SDK
+        await clientSetDoc(clientDoc(serverFirestore, 'verification_codes', email), payload);
+      }
+      console.log(`Saved OTP ${code} to Firestore for ${email}`);
+    } catch (e) {
+      console.error('Failed to write to Firestore verification_codes, falling back to in-memory:', e);
+      inMemoryOtps.set(email, payload);
+    }
+  } else {
+    // In-memory backup
+    inMemoryOtps.set(email, payload);
+    console.log('Saved OTP to in-memory backup:', payload);
+  }
+}
+
+async function getVerificationCode(email: string) {
+  if (serverFirestore) {
+    try {
+      if (typeof serverFirestore.collection === 'function') {
+        // Admin SDK
+        const snap = await serverFirestore.collection('verification_codes').doc(email).get();
+        return snap.exists ? snap.data() : null;
+      } else {
+        // Client SDK
+        const snap = await clientGetDoc(clientDoc(serverFirestore, 'verification_codes', email));
+        return snap.exists() ? snap.data() : null;
+      }
+    } catch (e) {
+      console.error('Failed to read from Firestore verification_codes, falling back to in-memory:', e);
+      return inMemoryOtps.get(email) || null;
+    }
+  } else {
+    // In-memory backup
+    return inMemoryOtps.get(email) || null;
+  }
+}
+
+async function removeVerificationCode(email: string) {
+  if (serverFirestore) {
+    try {
+      if (typeof serverFirestore.collection === 'function') {
+        // Admin SDK
+        await serverFirestore.collection('verification_codes').doc(email).delete();
+      } else {
+        // Client SDK
+        await clientDeleteDoc(clientDoc(serverFirestore, 'verification_codes', email));
+      }
+    } catch (e) {
+      console.error('Failed to delete from Firestore verification_codes:', e);
+      inMemoryOtps.delete(email);
+    }
+  } else {
+    // In-memory backup
+    inMemoryOtps.delete(email);
+  }
+}
+
+async function sendVerificationEmail(email: string, otp: string) {
+  // Try to read SMTP credentials from process.env
+  const smtpHost = process.env.SMTP_HOST || 'smtp.gmail.com';
+  const smtpPort = parseInt(process.env.SMTP_PORT || '587');
+  const smtpUser = process.env.SMTP_USER || process.env.GMAIL_USER;
+  const smtpPass = process.env.SMTP_PASS || process.env.GMAIL_PASS;
+
+  if (smtpUser && smtpPass) {
+    try {
+      const transporter = nodemailer.createTransport({
+        host: smtpHost,
+        port: smtpPort,
+        secure: smtpPort === 465,
+        auth: {
+          user: smtpUser,
+          pass: smtpPass,
+        },
+      });
+
+      const mailOptions = {
+        from: `"Swift Operator Security" <${smtpUser}>`,
+        to: email,
+        subject: `🔒 Swift Driver Security Pass OTP: ${otp}`,
+        html: `
+          <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; max-width: 500px; margin: 0 auto; padding: 24px; border: 1px solid #e5e7eb; border-radius: 12px; background-color: #ffffff;">
+            <div style="text-align: center; margin-bottom: 24px;">
+              <span style="font-size: 24px; font-weight: 800; color: #13AA52; letter-spacing: -0.5px;">SWIFT</span>
+            </div>
+            <h2 style="font-size: 18px; font-weight: 700; color: #111827; margin-bottom: 8px;">Verify Daily Driver Pass</h2>
+            <p style="font-size: 14px; color: #4b5563; line-height: 1.5; margin-bottom: 20px;">
+              Standard security compliance requires active Swift operators to verify their email identity and complete biometric scans daily.
+            </p>
+            <div style="background-color: #f3f4f6; border-radius: 12px; padding: 16px; text-align: center; margin-bottom: 20px;">
+              <span style="font-size: 32px; font-weight: 800; letter-spacing: 6px; color: #111827; font-family: monospace;">${otp}</span>
+            </div>
+            <p style="font-size: 11px; color: #9ca3af; text-align: center; margin-top: 24px;">
+              This security code was requested for <strong>${email}</strong>. It will expire in 5 minutes. If you did not make this request, please contact support.
+            </p>
+          </div>
+        `,
+      };
+
+      await transporter.sendMail(mailOptions);
+      console.log(`Real verification email successfully sent to ${email}`);
+      return { success: true, realSent: true };
+    } catch (err) {
+      console.error('SMTP / Gmail transport send failed:', err);
+      return { success: true, realSent: false };
+    }
+  } else {
+    console.warn('SMTP / Gmail credentials not configured. Falling back to log-delivery.');
+    return { success: true, realSent: false };
   }
 }
 
@@ -136,6 +294,82 @@ async function startServer() {
         text: "🚨 (Connection Timeout fallback) Hey driver, Swift dispatch servers are busy right now. Make sure to drive safely and check your current heat coordinates on the surge map overlay!",
         sender: 'support',
         timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+      });
+    }
+  });
+
+  // API Route - Request OTP Verification Code
+  app.post('/api/request-otp', async (req, res) => {
+    const { email } = req.body;
+    if (!email || !email.includes('@')) {
+      return res.status(400).json({ error: 'Please provide a valid email address.' });
+    }
+
+    // Generate 6-digit random code
+    const otp = Math.floor(100000 + Math.random() * 900000).toString();
+    const expiresAt = new Date(Date.now() + 5 * 60 * 1000).toISOString(); // 5 minutes expiration
+
+    try {
+      // Save code to Firestore (or in-memory fallback)
+      await saveVerificationCode(email, otp, expiresAt);
+
+      // Attempt to send email
+      const emailResult = await sendVerificationEmail(email, otp);
+
+      return res.status(200).json({
+        success: true,
+        message: emailResult.realSent 
+          ? `🔒 Security pass code sent successfully to ${email}.` 
+          : `🔒 OTP Generated. Note: SMTP credentials not set, code: ${otp} (displayed for simulator testing).`,
+        otp: emailResult.realSent ? undefined : otp, // Expose only for testing when real email is not configured!
+        realSent: emailResult.realSent
+      });
+    } catch (err: any) {
+      console.error('Request OTP failure:', err);
+      return res.status(500).json({
+        error: 'Failed to request security code',
+        details: err.message
+      });
+    }
+  });
+
+  // API Route - Verify OTP Code
+  app.post('/api/verify-otp', async (req, res) => {
+    const { email, code } = req.body;
+    if (!email || !code) {
+      return res.status(400).json({ error: 'Missing email or verification code.' });
+    }
+
+    try {
+      const saved = await getVerificationCode(email);
+      if (!saved) {
+        return res.status(404).json({ error: 'No active security code found for this email. Please request a new one.' });
+      }
+
+      // Check expiry
+      const expiresAt = new Date(saved.expiresAt);
+      if (Date.now() > expiresAt.getTime()) {
+        await removeVerificationCode(email);
+        return res.status(400).json({ error: 'Verification code has expired. Please request a new code.' });
+      }
+
+      // Check code
+      if (saved.code !== code.trim()) {
+        return res.status(400).json({ error: 'Invalid verification code. Please check and try again.' });
+      }
+
+      // Successful verification! Delete code on completion
+      await removeVerificationCode(email);
+
+      return res.status(200).json({
+        success: true,
+        message: '✓ Email identity verified successfully. Security pass granted!'
+      });
+    } catch (err: any) {
+      console.error('Verify OTP failure:', err);
+      return res.status(500).json({
+        error: 'Verification process failed',
+        details: err.message
       });
     }
   });
