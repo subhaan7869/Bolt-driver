@@ -36,6 +36,21 @@ interface CommandCentreProps {
   setSelectedPeak: (p: 'breakfast' | 'lunch' | 'dinner' | 'offpeak') => void;
   batteryLevel: number;
   setBatteryLevel: (b: number) => void;
+  
+  // Custom added driver/map overlay features
+  streakCount: number;
+  headHomeMode: boolean;
+  setHeadHomeMode: (b: boolean) => void;
+  homeAddress: string;
+  setHomeAddress: (s: string) => void;
+  favZones: { id: string; name: string; lat: number; lon: number }[];
+  setFavZones: any;
+  milesDriven: number;
+  setMilesDriven: any;
+  activeDrivingTime: number;
+  setActiveDrivingTime: any;
+  breakTimeRemaining: number;
+  setBreakTimeRemaining: any;
 }
 
 export const CommandCentre: React.FC<CommandCentreProps> = ({
@@ -66,6 +81,19 @@ export const CommandCentre: React.FC<CommandCentreProps> = ({
   setSelectedPeak,
   batteryLevel,
   setBatteryLevel,
+  streakCount,
+  headHomeMode,
+  setHeadHomeMode,
+  homeAddress,
+  setHomeAddress,
+  favZones,
+  setFavZones,
+  milesDriven,
+  setMilesDriven,
+  activeDrivingTime,
+  setActiveDrivingTime,
+  breakTimeRemaining,
+  setBreakTimeRemaining,
 }) => {
   // 1. WEATHER & ENVIRONMENTAL CONTROLS
   const [weather, setWeather] = useState<'sunny' | 'rainy' | 'snowy' | 'stormy'>(() => {
@@ -313,6 +341,42 @@ export const CommandCentre: React.FC<CommandCentreProps> = ({
   return (
     <div className={`flex-1 overflow-y-auto px-4 pb-16 space-y-4 pt-3 ${darkMode ? 'bg-zinc-950 text-zinc-100' : 'bg-gray-50 text-gray-900'}`}>
       
+      {/* ACTIVE REST COFFEE BREAK OVERLAY */}
+      {isOnBreak && (
+        <motion.div 
+          initial={{ opacity: 0, scale: 0.95 }}
+          animate={{ opacity: 1, scale: 1 }}
+          className="bg-amber-500 text-white p-4 rounded-3xl shadow-lg border border-amber-400 select-none flex flex-col md:flex-row items-center justify-between gap-3 text-left"
+        >
+          <div className="flex items-center gap-3">
+            <div className="p-3 bg-white/20 rounded-2xl shrink-0">
+              <Coffee className="w-6 h-6 text-white animate-bounce" />
+            </div>
+            <div>
+              <h4 className="font-sans font-black text-xs uppercase tracking-wider">Active Rest Coffee Break</h4>
+              <p className="text-[10px] text-amber-50/90 font-bold mt-0.5 leading-normal">
+                Match dispatch suspended. Take a breather, hydrate, and prepare for upcoming surge hours.
+              </p>
+            </div>
+          </div>
+          <div className="flex items-center gap-3 shrink-0">
+            <div className="bg-amber-600/60 font-mono font-black text-sm px-3.5 py-1.5 rounded-xl border border-amber-400/30">
+              ⏱️ {Math.floor(breakTimeRemaining / 60)}:{(breakTimeRemaining % 60).toString().padStart(2, '0')}
+            </div>
+            <button 
+              onClick={() => {
+                playSoundEffect('complete');
+                setIsOnBreak(false);
+                appendLog("☕ Coffee Break ended early by pilot. Re-entering dispatch queue.", "success");
+              }}
+              className="bg-white text-amber-650 font-black text-[9px] uppercase tracking-wider px-3 py-2 rounded-xl hover:bg-amber-50 transition active:scale-95 cursor-pointer"
+            >
+              Resume Match Now ⚡
+            </button>
+          </div>
+        </motion.div>
+      )}
+
       {/* 1. PRIMARY COCKPIT HEADER / EV STATUS BAR */}
       <div className={`p-4 rounded-3xl border shadow-sm flex flex-col md:flex-row gap-4 justify-between items-stretch md:items-center ${
         darkMode ? 'bg-zinc-900/90 border-zinc-800' : 'bg-white border-gray-150'
@@ -502,6 +566,96 @@ export const CommandCentre: React.FC<CommandCentreProps> = ({
             </div>
           </div>
 
+          {/* Bento Block 1.5: Smart Driving Modes & Rest Timers */}
+          <div className={`p-4 rounded-3xl border text-left ${
+            darkMode ? 'bg-zinc-900/40 border-zinc-850' : 'bg-white border-gray-150'
+          }`}>
+            <div>
+              <span className="text-[7.5px] uppercase tracking-wider text-zinc-400 font-extrabold block">Pilot Modes</span>
+              <h4 className="text-[12.5px] font-black tracking-tight uppercase flex items-center gap-1 mt-0.5 mb-2 text-[#13AA52]">
+                🚀 Co-Pilot Systems
+              </h4>
+            </div>
+
+            <div className="space-y-3 mt-2">
+              {/* Head Home Mode Toggle */}
+              <div className="bg-gray-100/50 dark:bg-zinc-850/50 p-2.5 rounded-2xl border border-gray-100 dark:border-zinc-800">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-1.5">
+                    <span className="text-[14px]">🏠</span>
+                    <div>
+                      <span className="text-[10px] font-black uppercase text-gray-800 dark:text-zinc-200">Head Home Mode</span>
+                      <p className="text-[8px] text-zinc-400 font-bold leading-none mt-0.5">Filter for trips heading home</p>
+                    </div>
+                  </div>
+                  <label className="relative inline-flex items-center cursor-pointer select-none">
+                    <input 
+                      type="checkbox" 
+                      checked={headHomeMode} 
+                      onChange={(e) => {
+                        playSoundEffect('tap');
+                        setHeadHomeMode(e.target.checked);
+                        appendLog(e.target.checked 
+                          ? `🏠 One-tap Head Home Mode enabled. Standard dispatch filter set to home address: ${homeAddress}.` 
+                          : "🏠 Head Home Mode deactivated. Resumed normal dispatch area matching.", 
+                          e.target.checked ? 'success' : 'info'
+                        );
+                      }} 
+                      className="sr-only peer" 
+                    />
+                    <div className="w-8 h-4 bg-gray-200 peer-focus:outline-none rounded-full peer dark:bg-zinc-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-3 after:w-3 after:transition-all dark:border-gray-600 peer-checked:bg-[#13AA52]"></div>
+                  </label>
+                </div>
+                
+                {headHomeMode && (
+                  <div className="mt-2 pt-2 border-t border-gray-200/50 dark:border-zinc-800 flex flex-col gap-1.5 animate-in fade-in duration-200">
+                    <span className="text-[7.5px] uppercase tracking-wider text-zinc-400 font-extrabold">Saved Home Address</span>
+                    <input 
+                      type="text" 
+                      value={homeAddress} 
+                      onChange={(e) => setHomeAddress(e.target.value)} 
+                      className="w-full bg-white dark:bg-zinc-900 border border-gray-200 dark:border-zinc-800 rounded-lg px-2 py-1 text-[9.5px] font-bold text-gray-750 dark:text-zinc-350 focus:outline-none focus:border-[#13AA52]"
+                      placeholder="Enter home address"
+                    />
+                  </div>
+                )}
+              </div>
+
+              {/* Quick Rest Break Trigger Button */}
+              <div className="bg-gray-100/50 dark:bg-zinc-850/50 p-2.5 rounded-2xl border border-gray-100 dark:border-zinc-800">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-1.5">
+                    <span className="text-[14px]">☕</span>
+                    <div>
+                      <span className="text-[10px] font-black uppercase text-gray-800 dark:text-zinc-200">Rest break timer</span>
+                      <p className="text-[8px] text-zinc-400 font-bold leading-none mt-0.5">Toggle 5-minute coffee break</p>
+                    </div>
+                  </div>
+                  
+                  <button 
+                    onClick={() => {
+                      playSoundEffect('tap');
+                      if (isOnBreak) {
+                        setIsOnBreak(false);
+                        appendLog("☕ Coffee break ended early.", "info");
+                      } else {
+                        setIsOnBreak(true);
+                        appendLog("☕ Initiated 5-minute rest coffee break. Matchmaking queue suspended.", "warn");
+                      }
+                    }}
+                    className={`text-[8.5px] font-black uppercase px-2.5 py-1 rounded-lg transition-all cursor-pointer ${
+                      isOnBreak 
+                        ? 'bg-amber-500 hover:bg-amber-600 text-white' 
+                        : 'bg-white dark:bg-zinc-900 border border-gray-200 dark:border-zinc-800 text-amber-600 hover:text-amber-500'
+                    }`}
+                  >
+                    {isOnBreak ? 'End Break' : 'Take Break'}
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+
           {/* Bento Block 2: Interactive Incident Reporter */}
           <div className={`p-4 rounded-3xl border text-left ${
             darkMode ? 'bg-zinc-900/40 border-zinc-850' : 'bg-white border-gray-150'
@@ -665,22 +819,46 @@ export const CommandCentre: React.FC<CommandCentreProps> = ({
 
             {/* Tactical Grid / Zones Map */}
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 mt-1">
-              {driverZones.map((zone) => (
-                <div 
-                  key={zone.name} 
-                  className={`p-3 rounded-2xl border text-left flex flex-col justify-between bg-gradient-to-br relative overflow-hidden group shadow-xs ${
-                    darkMode ? 'bg-zinc-950/20 border-zinc-850' : 'bg-white border-gray-150'
-                  }`}
-                >
-                  <div>
-                    <div className="flex justify-between items-start gap-1">
-                      <span className="text-[9.5px] font-black text-gray-900 dark:text-zinc-50 truncate leading-tight block">{zone.name}</span>
-                      <span className="text-[7.5px] font-mono font-black text-[#13AA52] bg-emerald-500/10 px-1 rounded-sm">
-                        {zone.multiplier.toFixed(1)}x Surge
-                      </span>
+              {driverZones.map((zone) => {
+                const isFavorited = favZones.some(z => z.name === zone.name);
+                return (
+                  <div 
+                    key={zone.name} 
+                    className={`p-3 rounded-2xl border text-left flex flex-col justify-between bg-gradient-to-br relative overflow-hidden group shadow-xs ${
+                      isFavorited 
+                        ? 'border-amber-300/60 bg-amber-50/15 dark:bg-amber-950/5' 
+                        : darkMode ? 'bg-zinc-950/20 border-zinc-850' : 'bg-white border-gray-150'
+                    }`}
+                  >
+                    <div>
+                      <div className="flex justify-between items-start gap-1">
+                        <div className="flex items-center gap-1.5 truncate">
+                          <button 
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              playSoundEffect('tap');
+                              if (isFavorited) {
+                                setFavZones((p: any) => p.filter((z: any) => z.name !== zone.name));
+                                appendLog(`⭐ Removed ${zone.name} from your Favorite waiting zones.`, 'info');
+                              } else {
+                                const newZone = { id: `fav-${Date.now()}`, name: zone.name, lat: zone.x, lon: zone.y };
+                                setFavZones((p: any) => [...p, newZone]);
+                                appendLog(`⭐ Saved ${zone.name} as a Favorite waiting zone! You will get prioritized dispatch notifications here.`, 'success');
+                              }
+                            }}
+                            className={`shrink-0 transition-all focus:outline-none ${isFavorited ? 'text-amber-500 hover:scale-110' : 'text-zinc-300 dark:text-zinc-700 hover:text-amber-400'}`}
+                            title={isFavorited ? "Remove from favorite waiting zones" : "Save to favorite waiting zones"}
+                          >
+                            <Star className={`w-3.5 h-3.5 ${isFavorited ? 'fill-amber-400 text-amber-500' : ''}`} />
+                          </button>
+                          <span className="text-[9.5px] font-black text-gray-900 dark:text-zinc-50 truncate leading-tight block">{zone.name}</span>
+                        </div>
+                        <span className="text-[7.5px] font-mono font-black text-[#13AA52] bg-emerald-500/10 px-1 rounded-sm">
+                          {zone.multiplier.toFixed(1)}x Surge
+                        </span>
+                      </div>
+                      <span className="text-[7px] text-zinc-400 font-bold uppercase tracking-wider block mt-0.5">{zone.type}</span>
                     </div>
-                    <span className="text-[7px] text-zinc-400 font-bold uppercase tracking-wider block mt-0.5">{zone.type}</span>
-                  </div>
 
                   <div className="flex justify-between items-center mt-3 pt-2.5 border-t border-gray-100 dark:border-zinc-900">
                     <div>
@@ -727,7 +905,7 @@ export const CommandCentre: React.FC<CommandCentreProps> = ({
                     </button>
                   </div>
                 </div>
-              ))}
+              ); })}
             </div>
 
             {/* Smart Demand Forecast message line */}

@@ -13,6 +13,7 @@ export interface RideRequest {
   estimatedMinutes: number;
   foodItem?: string;
   category?: string;
+  qualityScore?: 'Excellent' | 'Good' | 'Fair';
 }
 
 export interface DriverStats {

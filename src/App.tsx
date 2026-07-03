@@ -12,7 +12,7 @@ import {
   Navigation, Star, Zap, Clock, Landmark, Sparkles, Compass, MessageSquare, 
   AlertTriangle, CheckCircle, Smartphone, Wifi, Battery, Menu, Bell, 
   ChevronRight, ChevronLeft, Info, Car, HelpCircle, Settings, LogOut, Check, ArrowRight, X, Phone, User, Calendar, Coffee,
-  Globe, Lock, ShieldAlert, Video, WifiOff, Sun, Moon, Sliders, Mail, Award, Target, TrendingUp, Search, Map
+  Globe, Lock, ShieldAlert, Video, WifiOff, Sun, Moon, Sliders, Mail, Award, Target, TrendingUp, Search, Map, Flame
 } from 'lucide-react';
 
 // Live Firebase client and authentications
@@ -643,6 +643,102 @@ export default function App() {
   const [triggerHapticPulse, setTriggerHapticPulse] = useState<boolean>(false);
   const [isMinimized, setIsMinimized] = useState<boolean>(false);
   const [isOnBreak, setIsOnBreak] = useState<boolean>(false);
+  
+  // Streak Count for completed consecutive trips
+  const [streakCount, setStreakCount] = useState<number>(() => {
+    try {
+      const saved = localStorage.getItem('swift_streak_count');
+      return saved ? parseInt(saved, 10) : 0;
+    } catch (_) {
+      return 0;
+    }
+  });
+
+  useEffect(() => {
+    try {
+      localStorage.setItem('swift_streak_count', streakCount.toString());
+    } catch (_) {}
+  }, [streakCount]);
+
+  // One-tap Head Home Mode
+  const [headHomeMode, setHeadHomeMode] = useState<boolean>(() => {
+    try {
+      return localStorage.getItem('swift_head_home_mode') === 'true';
+    } catch (_) {
+      return false;
+    }
+  });
+
+  useEffect(() => {
+    try {
+      localStorage.setItem('swift_head_home_mode', String(headHomeMode));
+    } catch (_) {}
+  }, [headHomeMode]);
+
+  const [homeAddress, setHomeAddress] = useState<string>(() => {
+    try {
+      return localStorage.getItem('swift_home_address') || 'Hammersmith Broadway, London';
+    } catch (_) {
+      return 'Hammersmith Broadway, London';
+    }
+  });
+
+  useEffect(() => {
+    try {
+      localStorage.setItem('swift_home_address', homeAddress);
+    } catch (_) {}
+  }, [homeAddress]);
+
+  // Favorite waiting zones saved
+  const [favZones, setFavZones] = useState<{ id: string; name: string; lat: number; lon: number }[]>(() => {
+    try {
+      const saved = localStorage.getItem('swift_fav_zones');
+      return saved ? JSON.parse(saved) : [];
+    } catch (_) {
+      return [];
+    }
+  });
+
+  useEffect(() => {
+    try {
+      localStorage.setItem('swift_fav_zones', JSON.stringify(favZones));
+    } catch (_) {}
+  }, [favZones]);
+
+  // Active driving time (actual trip time) & Miles driven today
+  const [activeDrivingTime, setActiveDrivingTime] = useState<number>(() => {
+    try {
+      const saved = localStorage.getItem('swift_active_driving_time');
+      return saved ? parseFloat(saved) : 1.25; // default 1.25h
+    } catch (_) {
+      return 1.25;
+    }
+  });
+
+  useEffect(() => {
+    try {
+      localStorage.setItem('swift_active_driving_time', activeDrivingTime.toString());
+    } catch (_) {}
+  }, [activeDrivingTime]);
+
+  const [milesDriven, setMilesDriven] = useState<number>(() => {
+    try {
+      const saved = localStorage.getItem('swift_miles_driven');
+      return saved ? parseFloat(saved) : 34.8; // default 34.8 miles
+    } catch (_) {
+      return 34.8;
+    }
+  });
+
+  useEffect(() => {
+    try {
+      localStorage.setItem('swift_miles_driven', milesDriven.toString());
+    } catch (_) {}
+  }, [milesDriven]);
+
+  // Break countdown timer in seconds
+  const [breakTimeRemaining, setBreakTimeRemaining] = useState<number>(0);
+
   const [surgeLevel, setSurgeLevel] = useState<'low' | 'medium' | 'high'>('high');
   const [selectedPeak, setSelectedPeak] = useState<'breakfast' | 'lunch' | 'dinner' | 'offpeak'>('dinner');
   const [simSpeed, setSimSpeed] = useState<number>(2);
@@ -877,6 +973,34 @@ export default function App() {
       window.removeEventListener('play-sound', handlePlaySound);
     };
   }, [appendLog, playSoundEffect]);
+
+  // Break countdown timer in seconds
+  useEffect(() => {
+    if (!isOnBreak) {
+      setBreakTimeRemaining(0);
+      return;
+    }
+    
+    if (breakTimeRemaining === 0) {
+      setBreakTimeRemaining(300); // 5 minutes
+    }
+
+    const interval = setInterval(() => {
+      setBreakTimeRemaining((prev) => {
+        if (prev <= 1) {
+          clearInterval(interval);
+          setIsOnBreak(false);
+          playSoundEffect('complete');
+          appendLog("☕ Break finished! Auto-resuming driver dispatch matches.", "success");
+          sendRealNotification("☕ Break Finished", "Auto-resuming your driver dispatch matches now!");
+          return 0;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+
+    return () => clearInterval(interval);
+  }, [isOnBreak, playSoundEffect, appendLog]);
 
   // 1. Initial Permission Setup on App Mount
   useEffect(() => {
@@ -1714,7 +1838,7 @@ export default function App() {
 
     // Apply random pricing and distance variations to avoid repetitive amounts
     const priceVariance = 0.82 + Math.random() * 0.36; // Range: ~82% to ~118%
-    const distVariance = 0.80 + Math.random() * 0.40;  // Range: ~80% to ~120%
+    const distVariance = headHomeMode ? 0.40 + Math.random() * 0.30 : 0.80 + Math.random() * 0.40;  // shorter if heading home
 
     let finalDistance = +(preset.distance * distVariance).toFixed(1);
     if (finalDistance < 0.4) finalDistance = 0.4;
@@ -1728,14 +1852,27 @@ export default function App() {
     let finalMinutes = Math.ceil(finalDistance * (mode === 'food' ? 3.5 : 2.0) + 2 + Math.floor(Math.random() * 3));
 
     const multiplier = surgeLevel === 'high' ? 2.2 : surgeLevel === 'medium' ? 1.4 : 1.0;
+
+    let finalDropoffAddress = dropoffAddress;
+    let finalDropoffCoordinate = dropoffCoordinate;
+    if (headHomeMode) {
+      const shortAddress = homeAddress.split(',')[0];
+      finalDropoffAddress = `${shortAddress} (Head Home Direction 🏠)`;
+      // Home coordinates center
+      finalDropoffCoordinate = { x: 140, y: 320 };
+    }
+
+    const revenuePerKm = (finalFare * multiplier) / finalDistance;
+    const computedQuality: 'Excellent' | 'Good' | 'Fair' = revenuePerKm >= 3.0 ? 'Excellent' : revenuePerKm >= 1.8 ? 'Good' : 'Fair';
+
     const finalRide: RideRequest = {
       ...preset,
       passengerName,
       passengerRating: +(4.6 + Math.random() * 0.4).toFixed(2),
       pickupAddress,
-      dropoffAddress,
+      dropoffAddress: finalDropoffAddress,
       pickupCoordinate,
-      dropoffCoordinate,
+      dropoffCoordinate: finalDropoffCoordinate,
       fare: finalFare,
       distance: finalDistance,
       estimatedMinutes: finalMinutes,
@@ -1743,7 +1880,12 @@ export default function App() {
       surgeMultiplier: multiplier,
       tipAmount: actualType === 'high-tip' ? +(5.00 + Math.random() * 8.00).toFixed(2) : Math.random() > 0.6 ? +(1.50 + Math.random() * 3.50).toFixed(2) : 0,
       category: mode === 'taxi' ? rideCategory : undefined,
+      qualityScore: computedQuality,
     };
+
+    if (headHomeMode) {
+      appendLog(`🏠 [Head Home Mode Active] Filtered and adjusted ride heading toward saved Home: ${homeAddress}`, 'success');
+    }
 
     setTripProgress({
       stage: 'offering',
@@ -1852,7 +1994,7 @@ export default function App() {
 
     // Pricing and distance variation
     const fareMultiplier = 0.85 + Math.random() * 0.35;
-    const distanceMultiplier = 0.80 + Math.random() * 0.40;
+    const distanceMultiplier = headHomeMode ? 0.40 + Math.random() * 0.30 : 0.80 + Math.random() * 0.40;
 
     let finalDistance = +(template.distance * distanceMultiplier * 1.2).toFixed(1);
     if (finalDistance < 0.4) finalDistance = 0.4;
@@ -1864,9 +2006,19 @@ export default function App() {
     }
 
     const localData = getCityAddresses(currentCity);
-    const dropoffAddress = mode === 'taxi' 
+    let dropoffAddress = mode === 'taxi' 
       ? localData.taxi.dropoff[Math.floor(Math.random() * localData.taxi.dropoff.length)]
       : localData.food.residences[Math.floor(Math.random() * localData.food.residences.length)];
+
+    let finalDropoffCo = dropoffCo;
+    if (headHomeMode) {
+      const shortAddress = homeAddress.split(',')[0];
+      dropoffAddress = `${shortAddress} (Head Home Direction 🏠)`;
+      finalDropoffCo = { x: 140, y: 320 };
+    }
+
+    const revenuePerKm = (finalFare * multiplier) / finalDistance;
+    const computedQuality: 'Excellent' | 'Good' | 'Fair' = revenuePerKm >= 3.0 ? 'Excellent' : revenuePerKm >= 1.8 ? 'Good' : 'Fair';
 
     const generated: RideRequest = {
       id: `hot-ride-${Date.now()}`,
@@ -1878,10 +2030,15 @@ export default function App() {
       distance: finalDistance,
       surgeMultiplier: multiplier,
       pickupCoordinate: coords,
-      dropoffCoordinate: dropoffCo,
+      dropoffCoordinate: finalDropoffCo,
       tipAmount: Math.random() > 0.5 ? 2.50 : 0,
       estimatedMinutes: Math.ceil(finalDistance * (mode === 'food' ? 3.5 : 2.0) + 2),
+      qualityScore: computedQuality,
     };
+
+    if (headHomeMode) {
+      appendLog(`🏠 [Head Home Mode Active] Dynamic Surge hotspot ride routed close to saved Home: ${homeAddress}`, 'success');
+    }
 
     setTripProgress({
       stage: 'offering',
@@ -2008,6 +2165,9 @@ export default function App() {
     const { stage, offerTimeRemaining } = tripProgressRef.current;
     
     if (stage === 'offering') {
+      if (offerTimeRemaining <= 1) {
+        setStreakCount(0); // reset streak when offer expires
+      }
       setTripProgress((prev) => {
         if (prev.offerTimeRemaining <= 1) {
           playSoundEffect('warn');
@@ -2183,6 +2343,7 @@ export default function App() {
   const handleDeclineRide = () => {
     playSoundEffect('tap');
     appendLog(`Decline offer: job returned to pools.`, 'warn');
+    setStreakCount(0); // reset streak on decline
     setStats((s) => ({
       ...s,
       acceptanceRate: Math.max(75, s.acceptanceRate - 2),
@@ -2231,6 +2392,43 @@ export default function App() {
         balance: s.balance + job.fare,
       }));
       setDriverPoints(pts => pts + earnedPoints);
+
+      // Increment miles and active driving time
+      const dist = job.distance || 1.8;
+      const mins = job.estimatedMinutes || 6;
+      setMilesDriven(prev => +(prev + dist).toFixed(1));
+      setActiveDrivingTime(prev => +(prev + mins / 60).toFixed(2));
+
+      // Streak tracking & bonuses
+      setStreakCount(prev => {
+        const nextStreak = prev + 1;
+        if (nextStreak === 3) {
+          const bonusAmt = 10.00;
+          setStats((s) => ({
+            ...s,
+            todayEarnings: s.todayEarnings + bonusAmt,
+            weeklyEarnings: s.weeklyEarnings + bonusAmt,
+            balance: s.balance + bonusAmt,
+          }));
+          setDriverPoints(pts => pts + 20);
+          appendLog(`🔥 STREAK BONUS UNLOCKED! Completed 3 consecutive trips and earned an extra £10.00! (+20 Driver Points ⭐)`, 'success');
+          sendRealNotification("🔥 Streak Bonus!", "You completed 3 consecutive trips and earned an extra £10.00!");
+        } else if (nextStreak === 5) {
+          const bonusAmt = 25.00;
+          setStats((s) => ({
+            ...s,
+            todayEarnings: s.todayEarnings + bonusAmt,
+            weeklyEarnings: s.weeklyEarnings + bonusAmt,
+            balance: s.balance + bonusAmt,
+          }));
+          setDriverPoints(pts => pts + 40);
+          appendLog(`🔥 MEGA STREAK BONUS UNLOCKED! Completed 5 consecutive trips and earned an extra £25.00! (+40 Driver Points ⭐)`, 'success');
+          sendRealNotification("🔥 Mega Streak Bonus!", "You completed 5 consecutive trips and earned an extra £25.00!");
+        } else {
+          appendLog(`🔥 Food Delivery Trip streak is now at ${nextStreak} consecutive trips!`, 'success');
+        }
+        return nextStreak;
+      });
 
       const completedRun = {
         id: job.id,
@@ -2314,7 +2512,44 @@ export default function App() {
       const isAirport = currentRide.pickupAddress.toLowerCase().includes('terminal') || currentRide.dropoffAddress.toLowerCase().includes('airport') || currentRide.dropoffAddress.toLowerCase().includes('heathrow');
       const earnedPoints = currentRide.surgeMultiplier > 1.5 ? 35 : (isComfort || isAirport ? 25 : 20);
 
-      setStats((s) => ({
+      // Increment miles and active driving time
+      const dist = currentRide.distance || 4.2;
+      const mins = currentRide.estimatedMinutes || 12;
+      setMilesDriven(prev => +(prev + dist).toFixed(1));
+      setActiveDrivingTime(prev => +(prev + mins / 60).toFixed(2));
+
+      // Streak tracking & bonuses
+      setStreakCount(prev => {
+        const nextStreak = prev + 1;
+        if (nextStreak === 3) {
+          const bonusAmt = 10.00;
+          setStats((s: any) => ({
+            ...s,
+            todayEarnings: s.todayEarnings + bonusAmt,
+            weeklyEarnings: s.weeklyEarnings + bonusAmt,
+            balance: s.balance + bonusAmt,
+          }));
+          setDriverPoints(pts => pts + 20);
+          appendLog(`🔥 STREAK BONUS UNLOCKED! Completed 3 consecutive trips and earned an extra £10.00! (+20 Driver Points ⭐)`, 'success');
+          sendRealNotification("🔥 Streak Bonus!", "You completed 3 consecutive trips and earned an extra £10.00!");
+        } else if (nextStreak === 5) {
+          const bonusAmt = 25.00;
+          setStats((s: any) => ({
+            ...s,
+            todayEarnings: s.todayEarnings + bonusAmt,
+            weeklyEarnings: s.weeklyEarnings + bonusAmt,
+            balance: s.balance + bonusAmt,
+          }));
+          setDriverPoints(pts => pts + 40);
+          appendLog(`🔥 MEGA STREAK BONUS UNLOCKED! Completed 5 consecutive trips and earned an extra £25.00! (+40 Driver Points ⭐)`, 'success');
+          sendRealNotification("🔥 Mega Streak Bonus!", "You completed 5 consecutive trips and earned an extra £25.00!");
+        } else {
+          appendLog(`🔥 Taxi Trip streak is now at ${nextStreak} consecutive trips!`, 'success');
+        }
+        return nextStreak;
+      });
+
+      setStats((s: any) => ({
         ...s,
         todayEarnings: s.todayEarnings + totalSum,
         weeklyEarnings: s.weeklyEarnings + totalSum,
@@ -2341,6 +2576,7 @@ export default function App() {
   const handleCancelTrip = () => {
     playSoundEffect('warn');
     appendLog(`❌ Trip cancelled by driver. Order returned to pool.`, 'warn');
+    setStreakCount(0); // reset streak on cancellation
     setStats((s) => ({
       ...s,
       cancellationRate: s.cancellationRate + 1,
@@ -2359,6 +2595,7 @@ export default function App() {
   const handleCancelFoodTrip = (jobId: string) => {
     playSoundEffect('warn');
     appendLog(`❌ Food order cancelled by driver. Order returned to pool.`, 'warn');
+    setStreakCount(0); // reset streak on cancellation
     setStats((s) => ({
       ...s,
       cancellationRate: s.cancellationRate + 1,
@@ -3356,6 +3593,19 @@ export default function App() {
                       setSelectedPeak={setSelectedPeak}
                       batteryLevel={batteryLevel}
                       setBatteryLevel={setBatteryLevel}
+                      streakCount={streakCount}
+                      headHomeMode={headHomeMode}
+                      setHeadHomeMode={setHeadHomeMode}
+                      homeAddress={homeAddress}
+                      setHomeAddress={setHomeAddress}
+                      favZones={favZones}
+                      setFavZones={setFavZones}
+                      milesDriven={milesDriven}
+                      setMilesDriven={setMilesDriven}
+                      activeDrivingTime={activeDrivingTime}
+                      setActiveDrivingTime={setActiveDrivingTime}
+                      breakTimeRemaining={breakTimeRemaining}
+                      setBreakTimeRemaining={setBreakTimeRemaining}
                     />
                   ) : (
                     <>
@@ -4113,7 +4363,7 @@ export default function App() {
                         </div>
 
                         {/* Ride characteristics (Km / Minutes badge from screenshots) */}
-                        <div className="flex items-center justify-center gap-4 text-[10.5px] text-gray-500 font-bold border-b border-gray-50 pb-2">
+                        <div className="flex items-center justify-center gap-3.5 text-[10px] text-gray-500 font-bold border-b border-gray-50 pb-2 flex-wrap">
                           <span>📐 {tripProgress.currentRide.distance} km</span>
                           <span>•</span>
                           <span>⏱️ {tripProgress.currentRide.estimatedMinutes} mins</span>
@@ -4121,6 +4371,20 @@ export default function App() {
                             <>
                               <span>•</span>
                               <span className="text-[#13AA52] font-black uppercase">🔥 {tripProgress.currentRide.surgeMultiplier}x Surge</span>
+                            </>
+                          )}
+                          {tripProgress.currentRide.qualityScore && (
+                            <>
+                              <span>•</span>
+                              <span className={`px-1.5 py-0.2 rounded font-black uppercase text-[8.5px] ${
+                                tripProgress.currentRide.qualityScore === 'Excellent' 
+                                  ? 'bg-amber-100 text-amber-800 border border-amber-200' 
+                                  : tripProgress.currentRide.qualityScore === 'Good' 
+                                    ? 'bg-blue-100 text-blue-800 border border-blue-200' 
+                                    : 'bg-gray-100 text-gray-850 border border-gray-200'
+                              }`}>
+                                💎 {tripProgress.currentRide.qualityScore} Pay
+                              </span>
                             </>
                           )}
                         </div>
@@ -4345,6 +4609,36 @@ export default function App() {
                                 </div>
                               );
                             })()}
+                          </div>
+
+                          {/* Consecutive Trip Streak Widget */}
+                          <div className="border border-amber-200/50 bg-amber-50/50 dark:bg-amber-950/10 rounded-2xl p-3.5 mb-1 flex flex-col gap-3 shadow-xs select-none">
+                            <div className="flex items-center justify-between">
+                              <div className="flex items-center gap-1.5">
+                                <Flame className="w-4 h-4 text-amber-500 animate-pulse" />
+                                <span className="text-[10.5px] font-black text-amber-850 dark:text-amber-400 uppercase tracking-wide">Consecutive Trip Streak</span>
+                              </div>
+                              <span className="text-[8.5px] font-black bg-amber-500 text-white px-1.5 py-0.2 rounded font-mono">STREAK: {streakCount}</span>
+                            </div>
+                            <p className="text-[9px] text-amber-700 dark:text-amber-350 leading-snug font-medium">
+                              Complete trips consecutively to unlock massive bonuses! Resets if you cancel or let an offer expire.
+                            </p>
+                            <div className="grid grid-cols-2 gap-2 text-center mt-0.5">
+                              <div className="bg-white dark:bg-zinc-900 border border-amber-100 dark:border-amber-950/30 rounded-xl p-2 flex flex-col justify-between">
+                                <span className="text-[10.5px] font-black font-mono text-amber-600">3-Trip Streak</span>
+                                <span className="text-[9px] font-bold text-gray-500 dark:text-zinc-400 mt-0.5">£10.00 Bonus</span>
+                                <div className="w-full bg-gray-100 dark:bg-zinc-800 h-1.5 rounded-full overflow-hidden mt-2">
+                                  <div className="h-full bg-amber-500 rounded-full transition-all duration-300" style={{ width: `${Math.min(100, (streakCount / 3) * 100)}%` }} />
+                                </div>
+                              </div>
+                              <div className="bg-white dark:bg-zinc-900 border border-amber-100 dark:border-amber-950/30 rounded-xl p-2 flex flex-col justify-between">
+                                <span className="text-[10.5px] font-black font-mono text-amber-600">5-Trip Streak</span>
+                                <span className="text-[9px] font-bold text-gray-500 dark:text-zinc-400 mt-0.5">£25.00 Bonus</span>
+                                <div className="w-full bg-gray-100 dark:bg-zinc-800 h-1.5 rounded-full overflow-hidden mt-2">
+                                  <div className="h-full bg-amber-500 rounded-full transition-all duration-300" style={{ width: `${Math.min(100, (streakCount / 5) * 100)}%` }} />
+                                </div>
+                              </div>
+                            </div>
                           </div>
 
                           {/* Driver Progression Level Status Widget */}
