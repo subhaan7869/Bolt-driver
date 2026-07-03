@@ -616,7 +616,7 @@ export const CommandCentre: React.FC<CommandCentreProps> = ({
                   darkMode ? 'bg-zinc-900 border-zinc-800 text-zinc-100' : 'bg-white border-gray-200 text-gray-900'
                 }`}
               >
-                {['London', 'Birmingham', 'Manchester', 'Leeds', 'Bristol', 'Glasgow', 'Edinburgh'].map((city) => (
+                {['London', 'Birmingham', 'Manchester', 'Leeds', 'Bristol', 'Glasgow', 'Edinburgh', 'Accra'].map((city) => (
                   <option key={city} value={city}>{city}</option>
                 ))}
               </select>

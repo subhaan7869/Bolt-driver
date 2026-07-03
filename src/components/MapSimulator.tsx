@@ -46,6 +46,7 @@ const CITY_COORDINATES: Record<string, { lat: number; lon: number }> = {
   'bristol': { lat: 51.4545, lon: -2.5879 },
   'glasgow': { lat: 55.8642, lon: -4.2518 },
   'edinburgh': { lat: 55.9533, lon: -3.1883 },
+  'accra': { lat: 5.545, lon: -0.275 },
 };
 
 export const MapSimulator: React.FC<MapSimulatorProps> = ({
@@ -101,6 +102,8 @@ export const MapSimulator: React.FC<MapSimulatorProps> = ({
   const [isJoinedQueue, setIsJoinedQueue] = useState<boolean>(false);
   const [queueProgress, setQueueProgress] = useState<number>(14);
   const [showCityDropdown, setShowCityDropdown] = useState<boolean>(false);
+  const [isConnecting, setIsConnecting] = useState<boolean>(false);
+  const [showMatchingTrips, setShowMatchingTrips] = useState<boolean>(true);
 
   // Airport Virtual Queue countdown interval helper
   useEffect(() => {
@@ -295,6 +298,7 @@ export const MapSimulator: React.FC<MapSimulatorProps> = ({
   const dropoffPinRef = useRef<L.Marker | null>(null);
   const surgeCirclesRef = useRef<Map<string, { circle: L.Circle; pulse: L.Circle; marker?: L.Marker }>>(new Map());
   const labelMarkersRef = useRef<L.Marker[]>([]);
+  const offlineCircleRef = useRef<L.Circle | null>(null);
 
   // Toggle state for the premium Heat Map Details sidebar/drawer
   const [isHeatMapPanelOpen, setIsHeatMapPanelOpen] = useState(false);
@@ -317,7 +321,9 @@ export const MapSimulator: React.FC<MapSimulatorProps> = ({
       'West End Quarter',
       'North Side Gate'
     ];
-    if (normCity === 'birmingham') {
+    if (normCity === 'accra') {
+      localizedNames = ['Dansoman Keep Fit', 'Banana Inn', 'Glefe Transformer', 'Ebenezer Down', 'Atomic Junction', 'Dansoman Roundabout'];
+    } else if (normCity === 'birmingham') {
       localizedNames = ['Bullring Core', 'Broad Street', 'Mailbox Plaza', 'Digbeth Creative', 'Edgbaston High', 'Aston Quarter'];
     } else if (normCity === 'nottingham') {
       localizedNames = ['Lace Market', 'Hockley Square', 'Old Market Centre', 'Trent Bridge', 'Wollaton Park', 'Beeston Central'];
@@ -500,6 +506,24 @@ export const MapSimulator: React.FC<MapSimulatorProps> = ({
 
     driverMarkerRef.current.setLatLng(latLng);
 
+    // Sync Offline Coverage Circle
+    if (offlineCircleRef.current) {
+      offlineCircleRef.current.remove();
+      offlineCircleRef.current = null;
+    }
+
+    if (!isOnline && mapRef.current) {
+      offlineCircleRef.current = L.circle(latLng, {
+        radius: 420, // matching the gorgeous video coverage scale
+        color: '#13AA52',
+        weight: 1.5,
+        opacity: 0.35,
+        fillColor: '#13AA52',
+        fillOpacity: 0.1,
+        interactive: false
+      }).addTo(mapRef.current);
+    }
+
     const customCarHtml = `
       <div id="leaflet-car-marker" class="relative w-8 h-8 flex items-center justify-center">
         <div class="absolute inset-0 bg-[#13AA52]/45 rounded-full animate-ping opacity-60"></div>
@@ -517,7 +541,7 @@ export const MapSimulator: React.FC<MapSimulatorProps> = ({
       iconSize: [32, 32],
       iconAnchor: [16, 16]
     }));
-  }, [currentPosition, useRealGPS, tripProgress.stage]);
+  }, [currentPosition, useRealGPS, tripProgress.stage, isOnline]);
 
   // Sync Surge Heat Hot Zones & District Labels atop Leaflet Map
   useEffect(() => {
@@ -826,180 +850,236 @@ export const MapSimulator: React.FC<MapSimulatorProps> = ({
   return (
     <div 
       id="map-simulator-container" 
-      className={`relative w-full h-[320px] overflow-hidden select-none border-b transition-colors duration-250 ${
+      className={`relative w-full h-[540px] md:h-[600px] overflow-hidden select-none border-b transition-colors duration-250 flex flex-col ${
         darkMode ? 'bg-zinc-950 border-zinc-900' : 'bg-[#e5eee6] border-gray-100'
       }`}
     >
-      {/* Leaflet DOM Node Element Container */}
+      {/* Map viewport container */}
       <div 
-        ref={mapElementRef} 
-        className="w-full h-full z-0 pointer-events-auto" 
-      />
+        className={`relative w-full transition-all duration-300 shrink-0 ${
+          isOnline ? 'absolute inset-0 h-full z-0' : 'h-[280px] z-0'
+        }`}
+      >
+        {/* Leaflet DOM Node Element Container */}
+        <div 
+          ref={mapElementRef} 
+          className="w-full h-full z-0 pointer-events-auto" 
+        />
 
-      {/* Surge Indicator floating message */}
-      <div className="absolute top-2.5 left-2.5 pointer-events-none z-10 select-none">
+        {/* Floating overlays ONLY when online */}
         {isOnline && (
-          <div className={`backdrop-blur-md rounded-full px-2.5 py-0.5 flex items-center gap-1 shadow-md border ${
-            darkMode ? 'bg-zinc-900/95 border-zinc-800' : 'bg-white/95 border-gray-100'
-          }`}>
-            <Zap className="w-3 h-3 text-[#13AA52] fill-[#13AA52]" />
-            <span className="text-[9px] font-sans font-extrabold text-[#13AA52] uppercase tracking-wider">
-              {surgeLevel === 'high' ? 'High Demand 🔥' : surgeLevel === 'medium' ? 'Surge Active ⚡' : 'Demand Stable'}
-            </span>
+          <>
+            {/* Top Bar overlays */}
+            <div className="absolute top-4 left-4 right-4 z-20 pointer-events-auto flex items-center justify-between">
+              {/* Go Offline orange pill capsule */}
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => {
+                    if (window.dispatchEvent) {
+                      window.dispatchEvent(new CustomEvent('play-sound', { detail: 'complete' }));
+                      window.dispatchEvent(new CustomEvent('add-simulation-log', {
+                        detail: { text: "⚡ Driver disconnected... Status INACTIVE", type: "warning" }
+                      }));
+                    }
+                    onSetOnline?.(false);
+                  }}
+                  className="h-10 px-4 bg-[#FF9A00] hover:bg-[#e68a00] text-white font-extrabold text-[12px] uppercase tracking-wide rounded-full shadow-lg active:scale-95 transition-all flex items-center gap-2 border-0 cursor-pointer"
+                >
+                  <span className="font-mono font-black text-white tracking-tighter">»</span> Go offline
+                </button>
+
+                {/* Safety Shield Icon */}
+                <div className="w-10 h-10 rounded-full bg-white dark:bg-zinc-900 flex items-center justify-center shadow-lg border border-gray-100 dark:border-zinc-800 text-[#13AA52] cursor-pointer hover:bg-gray-55 dark:hover:bg-zinc-850">
+                  <ShieldCheck className="w-5 h-5 text-emerald-600 dark:text-emerald-400 fill-emerald-500/10" />
+                </div>
+              </div>
+
+              {/* Surge Indicator floating message */}
+              <div className={`backdrop-blur-md rounded-full px-3 py-1 flex items-center gap-1.5 shadow-lg border ${
+                darkMode ? 'bg-zinc-900/95 border-zinc-805 text-zinc-50' : 'bg-white/95 border-gray-100'
+              }`}>
+                <Zap className="w-3.5 h-3.5 text-[#13AA52] fill-[#13AA52]" />
+                <span className="text-[10px] font-sans font-extrabold text-[#13AA52] uppercase tracking-wider">
+                  {surgeLevel === 'high' ? 'High Demand 🔥' : surgeLevel === 'medium' ? 'Surge Active ⚡' : 'Demand Stable'}
+                </span>
+              </div>
+            </div>
+
+            {/* Floating Matching Card */}
+            {tripProgress.stage === 'idle' && showMatchingTrips && (
+              <div className="absolute top-16 left-4 right-4 z-25 bg-white dark:bg-zinc-900 border border-gray-100 dark:border-zinc-800 rounded-2xl p-4 shadow-xl flex items-center justify-between text-left pointer-events-auto animate-in slide-in-from-top-2 duration-350">
+                <div className="flex-1 min-w-0 pr-3">
+                  <span className="text-[12px] font-black tracking-tight text-gray-800 dark:text-zinc-200 block">
+                    Matching trips towards...
+                  </span>
+                  <span className="text-[11px] text-[#13AA52] font-black mt-1 block font-sans">
+                    Home: {currentCity.toLowerCase() === 'accra' ? 'Glefe Transformer' : 'Central Plaza'}
+                  </span>
+                </div>
+                <button
+                  onClick={() => setShowMatchingTrips(false)}
+                  className="w-7 h-7 rounded-full bg-gray-100 dark:bg-zinc-800 hover:bg-gray-200 dark:hover:bg-zinc-700 flex items-center justify-center text-gray-500 hover:text-gray-700 dark:text-zinc-400 border-0 cursor-pointer"
+                >
+                  <X className="w-3.5 h-3.5" />
+                </button>
+              </div>
+            )}
+          </>
+        )}
+
+        {/* Go Online overlay bar ONLY when offline */}
+        {!isOnline && (
+          <div className="absolute bottom-0 left-0 right-0 z-20 bg-gradient-to-t from-black/20 to-transparent p-4 flex justify-center pointer-events-auto">
+            <button
+              onClick={() => {
+                if (window.dispatchEvent) {
+                  window.dispatchEvent(new CustomEvent('play-sound', { detail: 'chime' }));
+                }
+                setIsConnecting(true);
+                setTimeout(() => {
+                  setIsConnecting(false);
+                  onSetOnline?.(true);
+                  setShowMatchingTrips(true);
+                  if (window.dispatchEvent) {
+                    window.dispatchEvent(new CustomEvent('add-simulation-log', {
+                      detail: { text: "⚡ Driver connecting... Handshaking dispatch servers. Status ACTIVE", type: "success" }
+                    }));
+                  }
+                }, 1600);
+              }}
+              className="w-full max-w-sm py-3.5 bg-[#13AA52] hover:bg-[#0f8f44] text-white font-extrabold text-[13px] uppercase tracking-wider rounded-full shadow-lg active:scale-98 transition-all flex items-center justify-center gap-2.5 cursor-pointer border-0"
+            >
+              <span className="font-mono font-black text-white tracking-widest animate-pulse">»»</span>
+              Go Online
+            </button>
           </div>
         )}
       </div>
 
+      {/* Connection Loading spinner modal overlay */}
+      {isConnecting && (
+        <div className="absolute inset-0 z-50 flex flex-col items-center justify-center bg-black/45 backdrop-blur-xs pointer-events-auto">
+          <div className="bg-white dark:bg-zinc-900 rounded-2xl p-6 shadow-2xl flex flex-col items-center gap-3 w-40 animate-in zoom-in-95 duration-150 border border-gray-100 dark:border-zinc-805">
+            <div className="w-8 h-8 border-4 border-gray-200 border-t-[#13AA52] rounded-full animate-spin" />
+            <span className="text-[12px] font-black text-gray-800 dark:text-zinc-200 font-sans tracking-wide">Loading...</span>
+          </div>
+        </div>
+      )}
+
+      {/* Scrollable Dashboard area ONLY when offline */}
       {!isOnline && (
-        <>
-          {/* Top Floating Status toggle capsule */}
-          <div className="absolute top-4 left-4 right-4 z-20 mx-auto max-w-sm bg-white dark:bg-zinc-950 px-4 py-3 border border-gray-150 dark:border-zinc-850 rounded-3xl flex items-center justify-between shadow-xl transition-all duration-300 transform animate-in slide-in-from-top-4 duration-300 pointer-events-auto">
-            {/* Pulsing indicator bullet for inactive state */}
-            <div className="flex h-5 w-5 relative items-center justify-center mr-2 shrink-0">
-              <span className="animate-ping absolute inline-flex h-3 w-3 rounded-full bg-rose-400 opacity-75"></span>
-              <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-rose-600"></span>
+        <div className="flex-1 overflow-y-auto bg-[#F4F4F6] dark:bg-[#0C0D12] p-4 space-y-3.5 pb-20 pointer-events-auto">
+          {/* Offers Card */}
+          <div 
+            onClick={() => {
+              if (window.dispatchEvent) window.dispatchEvent(new CustomEvent('play-sound', { detail: 'tap' }));
+              setActiveTab?.('profile');
+              onSetMenuSubScreen?.('quests');
+            }}
+            className="bg-white dark:bg-zinc-900 rounded-2xl p-4 flex items-center justify-between shadow-xs border border-gray-150/50 dark:border-zinc-850 cursor-pointer hover:bg-gray-50/50 transition-colors text-left"
+          >
+            <div className="flex items-center">
+              <div className="w-10 h-10 rounded-full bg-[#13AA52]/10 text-[#13AA52] flex items-center justify-center font-black text-[18px] mr-3 shrink-0">
+                %
+              </div>
+              <div className="text-left">
+                <h4 className="text-[14px] font-black text-gray-900 dark:text-zinc-50 leading-none">Offers</h4>
+                <p className="text-[11px] font-bold text-gray-500 dark:text-zinc-400 mt-1.5 leading-none">Check out our partners</p>
+              </div>
             </div>
-
-            {/* Offline details text */}
-            <div className="flex-1 text-left min-w-0">
-              <span className="text-gray-900 dark:text-zinc-50 text-[13px] font-black block tracking-tight">Offline</span>
-              <span className="text-[10px] text-gray-500 dark:text-zinc-400 block truncate mt-0.5 font-bold font-sans leading-none">
-                Go online to start receiving trips
-              </span>
-            </div>
-
-            {/* Settings Slider Trigger */}
-            <button 
-              onClick={() => {
-                if (window.dispatchEvent) window.dispatchEvent(new CustomEvent('play-sound', { detail: 'tap' }));
-                setActiveTab?.('profile');
-                onSetMenuSubScreen?.('categories');
-              }}
-              className="w-8 h-8 rounded-full flex items-center justify-center hover:bg-gray-100 dark:hover:bg-zinc-900 text-gray-700 dark:text-zinc-350 transition shrink-0 border-0 bg-transparent cursor-pointer"
-              title="Active Booking Tiers"
-            >
-              <Sliders className="w-4 h-4" />
-            </button>
+            <ChevronRight className="w-4 h-4 text-gray-300" />
           </div>
 
-          {/* Draggable/Swipable Bottom Sheet Drawer */}
-          <div className="absolute bottom-0 left-0 right-0 z-20 rounded-t-[28px] border-t bg-white/95 dark:bg-zinc-950/98 dark:border-zinc-850 p-4 pb-6 shadow-[0_-8px_30px_rgba(0,0,0,0.08)] flex flex-col pointer-events-auto w-full max-w-sm mx-auto md:bottom-2 md:rounded-3xl md:border">
-            {/* Pull Bar Indicator */}
-            <div className="w-10 h-1 bg-gray-200 dark:bg-zinc-850 rounded-full mx-auto mb-3" />
-
-            {/* Today's earnings row link */}
+          {/* 2x2 Bento Grid */}
+          <div className="grid grid-cols-2 gap-3">
+            {/* Card 1: Today's earnings */}
             <div 
               onClick={() => {
                 if (window.dispatchEvent) window.dispatchEvent(new CustomEvent('play-sound', { detail: 'tap' }));
                 setActiveTab?.('earnings');
               }}
-              className="flex items-center justify-between cursor-pointer group mb-1"
+              className="bg-white dark:bg-zinc-900 rounded-2xl p-4 shadow-xs border border-gray-150/50 dark:border-zinc-850 text-left flex flex-col justify-between h-[105px] cursor-pointer hover:bg-gray-50/50 transition-colors"
             >
-              <span className="text-[9.5px] font-extrabold uppercase text-gray-400 tracking-wider font-sans group-hover:text-gray-600 dark:group-hover:text-zinc-300 transition-colors">
-                Today's earnings
-              </span>
-              <ChevronRight className="w-3.5 h-3.5 text-gray-300 group-hover:translate-x-0.5 transition duration-150" />
-            </div>
-
-            {/* Main Balance display */}
-            <div className="flex items-baseline mb-3.5 text-left select-text">
-              <span className="text-xl font-bold font-sans text-gray-905 dark:text-zinc-50 mr-0.5">£</span>
-              <span className="text-3.5xl font-black tracking-tight text-gray-905 dark:text-zinc-50 font-mono leading-none">
-                {(stats?.todayEarnings ?? 0).toFixed(2)}
-              </span>
-            </div>
-
-            {/* Grid Matrix microdashboard */}
-            <div className="grid grid-cols-3 gap-1 py-2.5 border-y border-gray-100 dark:border-zinc-900 text-center select-none bg-gray-50/10 dark:bg-transparent mb-3.5">
-              <div className="flex flex-col animate-in fade-in duration-150">
-                <span className="text-gray-905 dark:text-zinc-150 font-black font-mono text-sm leading-none">
-                  {stats?.completedTripsCount ?? 0}
-                </span>
-                <span className="text-gray-400 text-[8px] font-extrabold uppercase mt-1 tracking-wide leading-none font-sans">Trips</span>
+              <div className="flex items-center justify-between">
+                <span className="text-[11px] font-black text-gray-400 dark:text-zinc-500 uppercase tracking-wide">Today's earnings</span>
+                <ChevronRight className="w-3.5 h-3.5 text-gray-300" />
               </div>
-              <div className="flex flex-col border-x border-gray-100 dark:border-zinc-900 animate-in fade-in duration-200">
-                <span className="text-gray-905 dark:text-zinc-150 font-black font-mono text-sm leading-none col-span-1">
-                  {stats ? `${Math.floor(stats.hoursOnline)}h ${Math.round((stats.hoursOnline % 1) * 60)}m` : '0h 0m'}
+              <div className="flex items-baseline mt-2">
+                <span className="text-[12px] font-black mr-0.5 text-gray-400 dark:text-zinc-500">
+                  {currentCity.toLowerCase() === 'accra' ? 'GHC' : '£'}
                 </span>
-                <span className="text-gray-400 text-[8px] font-extrabold uppercase mt-1 tracking-wide leading-none font-sans">Online time</span>
-              </div>
-              <div className="flex flex-col animate-in fade-in duration-250">
-                <span className="text-[#13AA52] font-black font-mono text-sm leading-none font-sans font-extrabold">
-                  {(stats?.completedTripsCount ?? 0) * 15}
-                </span>
-                <span className="text-gray-400 text-[8px] font-extrabold uppercase mt-1 tracking-wide leading-none font-sans">Points</span>
-              </div>
-            </div>
-
-            {/* Opportunities Heading */}
-            <div className="flex items-center justify-between mb-2 select-none">
-              <span className="text-xs font-black tracking-tight text-gray-900 dark:text-zinc-50 font-sans">Opportunities</span>
-              <span 
-                onClick={() => {
-                  if (window.dispatchEvent) window.dispatchEvent(new CustomEvent('play-sound', { detail: 'tap' }));
-                  setActiveTab?.('profile');
-                  onSetMenuSubScreen?.('quests');
-                }}
-                className="text-[9.5px] text-[#13AA52] hover:underline font-extrabold cursor-pointer uppercase tracking-wider font-sans border-0 bg-transparent p-0"
-              >
-                See all
-              </span>
-            </div>
-
-            {/* Horizontally scrolling opportunities carousel */}
-            <div className="flex items-center gap-2 overflow-x-auto pb-3 w-full scrollbar-none flex-nowrap mb-3.5">
-              
-              {/* Card 1: Weekly bonus */}
-              <div 
-                onClick={() => {
-                  if (window.dispatchEvent) {
-                    window.dispatchEvent(new CustomEvent('play-sound', { detail: 'chime' }));
+                <span className="text-2.5xl font-black font-sans text-gray-900 dark:text-zinc-100 leading-none">
+                  {currentCity.toLowerCase() === 'accra' 
+                    ? Math.round((stats?.todayEarnings ?? 124.8) * 5.8).toLocaleString()
+                    : (stats?.todayEarnings ?? 0).toFixed(2)
                   }
-                  setActiveTab?.('profile');
-                  onSetMenuSubScreen?.('quests');
-                }}
-                className="flex-1 min-w-[130px] p-2.5 rounded-2xl border border-emerald-500/10 dark:border-emerald-500/5 bg-emerald-500/5 hover:bg-emerald-500/10 dark:bg-emerald-500/[5%] transition duration-150 cursor-pointer text-left focus:outline-none"
-              >
-                <div className="w-6.5 h-6.5 rounded-lg bg-[#13AA52]/10 flex items-center justify-center text-[#13AA52] mb-2">
-                  <Award className="w-4 h-4 text-emerald-500" />
-                </div>
-                <span className="text-[10px] font-black block text-gray-900 dark:text-zinc-50 leading-none">Weekly bonus</span>
-                <span className="text-[7.5px] text-[#13AA52] font-extrabold mt-1.5 block tracking-wide font-sans">Earn up to £120 ➔</span>
-              </div>
-
-              {/* Card 2: Peak hours graph trigger */}
-              <div 
-                onClick={() => {
-                  if (window.dispatchEvent) window.dispatchEvent(new CustomEvent('play-sound', { detail: 'tap' }));
-                  setShowPeakModal(true);
-                }}
-                className="flex-1 min-w-[130px] p-2.5 rounded-2xl border border-amber-500/10 dark:border-amber-500/5 bg-amber-500/5 hover:bg-amber-500/10 transition duration-150 cursor-pointer text-left focus:outline-none"
-              >
-                <div className="w-6.5 h-6.5 rounded-lg bg-amber-500/10 flex items-center justify-center text-amber-500 mb-2">
-                  <BarChart2 className="w-4 h-4 text-amber-500" />
-                </div>
-                <span className="text-[10px] font-black block text-gray-900 dark:text-zinc-50 leading-none">Peak hours</span>
-                <span className="text-[7.5px] text-amber-600 font-extrabold mt-1.5 block tracking-wide font-sans">See busy times ➔</span>
-              </div>
-
-              {/* Card 3: Airport virtual queue board */}
-              <div 
-                onClick={() => {
-                  if (window.dispatchEvent) window.dispatchEvent(new CustomEvent('play-sound', { detail: 'tap' }));
-                  setShowAirportQueueModal(true);
-                }}
-                className="flex-1 min-w-[130px] p-2.5 rounded-2xl border border-purple-500/10 dark:border-purple-500/5 bg-purple-500/5 hover:bg-purple-500/10 transition duration-150 cursor-pointer text-left focus:outline-none"
-              >
-                <div className="w-6.5 h-6.5 rounded-lg bg-purple-500/10 flex items-center justify-center text-purple-500 mb-2">
-                  <Plane className="w-4 h-4 text-purple-500" />
-                </div>
-                <span className="text-[10px] font-black block text-gray-900 dark:text-zinc-50 leading-none">Airport queues</span>
-                <span className="text-[7.5px] text-purple-600 font-extrabold mt-1.5 block tracking-wide font-sans">Heathrow Terminal ➔</span>
+                </span>
               </div>
             </div>
 
-            {/* Service Filter Toggles: Bolt | Food | Courier */}
-            <div className="bg-gray-100/70 dark:bg-zinc-900/60 p-1 rounded-2xl grid grid-cols-3 gap-1 mb-4 select-none mt-1 border dark:border-zinc-800">
+            {/* Card 2: Bolt Rewards */}
+            <div 
+              onClick={() => {
+                if (window.dispatchEvent) window.dispatchEvent(new CustomEvent('play-sound', { detail: 'chime' }));
+                setActiveTab?.('profile');
+                onSetMenuSubScreen?.('quests');
+              }}
+              className="bg-white dark:bg-zinc-900 rounded-2xl p-4 shadow-xs border border-gray-150/50 dark:border-zinc-850 text-left flex flex-col justify-between h-[105px] cursor-pointer hover:bg-gray-50/50 transition-colors"
+            >
+              <div className="flex items-center justify-between">
+                <span className="text-[11px] font-black text-gray-400 dark:text-zinc-500 uppercase tracking-wide">Bolt Rewards</span>
+                <ChevronRight className="w-3.5 h-3.5 text-gray-300" />
+              </div>
+              <div className="mt-2 flex flex-col">
+                <span className="text-[14px] font-black text-amber-700 dark:text-amber-50 leading-none flex items-center gap-1">
+                  <Sparkles className="w-3.5 h-3.5 text-amber-500 animate-pulse" /> Bronze
+                </span>
+                <span className="text-[10px] text-gray-400 dark:text-zinc-500 mt-1 font-bold font-mono">
+                  {stats?.completedTripsCount ? (stats.completedTripsCount * 15) : 5487} / 20,000 pts
+                </span>
+              </div>
+            </div>
+
+            {/* Card 3: Driver score */}
+            <div 
+              onClick={() => {
+                if (window.dispatchEvent) window.dispatchEvent(new CustomEvent('play-sound', { detail: 'tap' }));
+                setActiveTab?.('profile');
+              }}
+              className="bg-white dark:bg-zinc-900 rounded-2xl p-4 shadow-xs border border-gray-150/50 dark:border-zinc-850 text-left flex flex-col justify-between h-[105px] cursor-pointer hover:bg-gray-50/50 transition-colors"
+            >
+              <div className="flex items-center justify-between">
+                <span className="text-[11px] font-black text-gray-400 dark:text-zinc-500 uppercase tracking-wide">Driver score</span>
+                <ChevronRight className="w-3.5 h-3.5 text-gray-300" />
+              </div>
+              <div className="flex items-baseline mt-2 gap-1.5">
+                <span className="text-2.5xl font-black font-sans text-gray-900 dark:text-zinc-100 leading-none">98%</span>
+                <span className="text-[10px] text-emerald-500 font-extrabold">▲ Excellent</span>
+              </div>
+            </div>
+
+            {/* Card 4: Acceptance rate */}
+            <div 
+              onClick={() => {
+                if (window.dispatchEvent) window.dispatchEvent(new CustomEvent('play-sound', { detail: 'tap' }));
+              }}
+              className="bg-white dark:bg-zinc-900 rounded-2xl p-4 shadow-xs border border-gray-150/50 dark:border-zinc-850 text-left flex flex-col justify-between h-[105px] cursor-pointer hover:bg-gray-50/50 transition-colors"
+            >
+              <div className="flex items-center justify-between">
+                <span className="text-[11px] font-black text-gray-400 dark:text-zinc-500 uppercase tracking-wide">Acceptance rate</span>
+                <ChevronRight className="w-3.5 h-3.5 text-gray-300" />
+              </div>
+              <div className="flex items-baseline mt-2">
+                <span className="text-2.5xl font-black font-sans text-emerald-600 dark:text-emerald-400 leading-none">
+                  {stats?.acceptanceRate ?? 100}%
+                </span>
+              </div>
+            </div>
+          </div>
+
+          {/* Service Filter Toggles: Bolt | Food | Courier */}
+          <div className="bg-white dark:bg-zinc-900 p-1.5 rounded-2xl border border-gray-150/50 dark:border-zinc-850 shadow-xs">
+            <div className="bg-gray-100/50 dark:bg-zinc-950/60 p-1 rounded-xl grid grid-cols-3 gap-1 select-none">
               {(['taxi', 'food', 'courier'] as const).map((profile) => {
                 const isActive = profile === 'courier' ? false : (mode === profile);
                 return (
@@ -1019,9 +1099,9 @@ export const MapSimulator: React.FC<MapSimulatorProps> = ({
                         onSetMode(profile);
                       }
                     }}
-                    className={`py-1.5 text-[9.5px] font-black text-center rounded-xl font-sans transition py-1 border-0 ${
+                    className={`py-2 text-[10px] font-black text-center rounded-lg font-sans transition border-0 ${
                       isActive
-                        ? 'bg-[#13AA52] text-white shadow-md'
+                        ? 'bg-[#13AA52] text-white shadow-sm'
                         : 'text-gray-550 hover:text-gray-800 dark:text-zinc-400 dark:hover:text-zinc-200 bg-transparent font-bold'
                     }`}
                   >
@@ -1030,27 +1110,76 @@ export const MapSimulator: React.FC<MapSimulatorProps> = ({
                 );
               })}
             </div>
+          </div>
 
-            {/* Click to Go Online Button */}
-            <div className="w-full">
-              <button
+          {/* Opportunities Row Section */}
+          <div className="bg-white dark:bg-zinc-900 p-4 rounded-2xl border border-gray-150/50 dark:border-zinc-850 shadow-xs text-left">
+            <div className="flex items-center justify-between mb-3 select-none">
+              <span className="text-[13px] font-black tracking-tight text-gray-905 dark:text-zinc-50 font-sans">Opportunities</span>
+              <span 
+                onClick={() => {
+                  if (window.dispatchEvent) window.dispatchEvent(new CustomEvent('play-sound', { detail: 'tap' }));
+                  setActiveTab?.('profile');
+                  onSetMenuSubScreen?.('quests');
+                }}
+                className="text-[10px] text-[#13AA52] hover:underline font-extrabold cursor-pointer uppercase tracking-wider font-sans"
+              >
+                See all
+              </span>
+            </div>
+
+            {/* Horizontally scrolling opportunities carousel */}
+            <div className="flex items-center gap-3 overflow-x-auto pb-1 w-full scrollbar-none flex-nowrap">
+              {/* Card 1: Weekly bonus */}
+              <div 
                 onClick={() => {
                   if (window.dispatchEvent) {
-                    window.dispatchEvent(new CustomEvent('play-sound', { detail: 'complete' }));
-                    window.dispatchEvent(new CustomEvent('add-simulation-log', {
-                      detail: { text: "⚡ Driver connecting... Handshaking dispatch servers. Status ACTIVE", type: "success" }
-                    }));
+                    window.dispatchEvent(new CustomEvent('play-sound', { detail: 'chime' }));
                   }
-                  onSetOnline?.(true);
+                  setActiveTab?.('profile');
+                  onSetMenuSubScreen?.('quests');
                 }}
-                className="w-full py-3.5 bg-[#13AA52] hover:bg-[#0f8f44] text-white font-extrabold text-xs uppercase tracking-wider rounded-2xl shadow-md active:scale-98 transition-all flex items-center justify-center gap-2 cursor-pointer border-0"
+                className="flex-1 min-w-[130px] p-3 rounded-xl border border-emerald-500/10 dark:border-emerald-500/5 bg-emerald-500/5 hover:bg-emerald-500/10 dark:bg-emerald-500/[5%] transition duration-150 cursor-pointer text-left font-sans"
               >
-                <div className="w-2 h-2 rounded-full bg-white animate-ping" />
-                Go Online
-              </button>
+                <div className="w-7 h-7 rounded-lg bg-[#13AA52]/10 flex items-center justify-center text-[#13AA52] mb-2.5">
+                  <Award className="w-4 h-4 text-emerald-500" />
+                </div>
+                <span className="text-[11px] font-black block text-gray-900 dark:text-zinc-100 leading-none">Weekly bonus</span>
+                <span className="text-[8px] text-[#13AA52] font-black mt-2 block tracking-wide">Earn up to £120 ➔</span>
+              </div>
+
+              {/* Card 2: Peak hours */}
+              <div 
+                onClick={() => {
+                  if (window.dispatchEvent) window.dispatchEvent(new CustomEvent('play-sound', { detail: 'tap' }));
+                  setShowPeakModal(true);
+                }}
+                className="flex-1 min-w-[130px] p-3 rounded-xl border border-amber-500/10 dark:border-amber-500/5 bg-amber-500/5 hover:bg-amber-500/10 transition duration-150 cursor-pointer text-left font-sans"
+              >
+                <div className="w-7 h-7 rounded-lg bg-amber-500/10 flex items-center justify-center text-amber-500 mb-2.5">
+                  <BarChart2 className="w-4 h-4 text-amber-500" />
+                </div>
+                <span className="text-[11px] font-black block text-gray-900 dark:text-zinc-100 leading-none">Peak hours</span>
+                <span className="text-[8px] text-amber-600 dark:text-amber-500 font-black mt-2 block tracking-wide">See busy times ➔</span>
+              </div>
+
+              {/* Card 3: Airport queue */}
+              <div 
+                onClick={() => {
+                  if (window.dispatchEvent) window.dispatchEvent(new CustomEvent('play-sound', { detail: 'tap' }));
+                  setShowAirportQueueModal(true);
+                }}
+                className="flex-1 min-w-[130px] p-3 rounded-xl border border-purple-500/10 dark:border-purple-500/5 bg-purple-500/5 hover:bg-purple-500/10 transition duration-150 cursor-pointer text-left font-sans"
+              >
+                <div className="w-7 h-7 rounded-lg bg-purple-500/10 flex items-center justify-center text-purple-500 mb-2.5">
+                  <Plane className="w-4 h-4 text-purple-500" />
+                </div>
+                <span className="text-[11px] font-black block text-gray-900 dark:text-zinc-100 leading-none">Airport queues</span>
+                <span className="text-[8px] text-purple-600 dark:text-purple-400 font-black mt-2 block tracking-wide font-sans">Virtual Dispatch ➔</span>
+              </div>
             </div>
           </div>
-        </>
+        </div>
       )}
 
       {/* MODAL 1: EXTREME PEAK HOURS VISUAL CHART OVERLAY */}
