@@ -5,6 +5,7 @@ import {
 } from './types';
 import { MapSimulator } from './components/MapSimulator';
 import { CommandCentre } from './components/CommandCentre';
+import { AIPilotCoach } from './components/AIPilotCoach';
 import { 
   playTapSound, playCompleteRideSound, playWarningSound, playIncomingRideSound 
 } from './utils/SoundGenerator';
@@ -649,6 +650,7 @@ export default function App() {
   });
   const [triggerHapticPulse, setTriggerHapticPulse] = useState<boolean>(false);
   const [isMinimized, setIsMinimized] = useState<boolean>(false);
+  const [isCoachOpen, setIsCoachOpen] = useState<boolean>(false);
   const [isOnBreak, setIsOnBreak] = useState<boolean>(false);
   
   // Streak Count for completed consecutive trips
@@ -888,6 +890,53 @@ export default function App() {
     {id: '1', sender: 'system', text: "Hello! Welcome to Swift Driver Help Desk. Select any common system briefing below or ask a question directly:"}
   ]);
   const [supportInputMessage, setSupportInputMessage] = useState<string>('');
+  const [supportLoading, setSupportLoading] = useState<boolean>(false);
+
+  const handleSendSupportMessage = async (textToSend: string) => {
+    if (!textToSend.trim() || supportLoading) return;
+    try {
+      playSoundEffect('tap');
+    } catch (_) {}
+    
+    const userMsgId = String(Date.now());
+    const userMsg = { id: userMsgId, sender: 'driver' as const, text: textToSend };
+    setSupportMessages(prev => [...prev, userMsg]);
+    setSupportInputMessage('');
+    setSupportLoading(true);
+
+    try {
+      const response = await fetch('/api/chat-coach', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          messages: [...supportMessages, userMsg].map((m) => ({ text: m.text, sender: m.sender === 'driver' ? 'driver' : 'support' })),
+          driverStats: stats,
+        }),
+      });
+
+      if (!response.ok) throw new Error('API failed');
+      const data = await response.json();
+      const replyId = String(Date.now() + 1);
+      const botReply = { id: replyId, sender: 'system' as const, text: data.text };
+      setSupportMessages(prev => [...prev, botReply]);
+      try {
+        playSoundEffect('complete');
+      } catch (_) {}
+    } catch (e) {
+      console.error(e);
+      const replyId = String(Date.now() + 1);
+      const botReply = { 
+        id: replyId, 
+        sender: 'system' as const, 
+        text: "🚨 Hey driver, connection to our AI dispatch office is busy. Make sure you have entered your GEMINI_API_KEY in the Secrets panel, or try again shortly."
+      };
+      setSupportMessages(prev => [...prev, botReply]);
+    } finally {
+      setSupportLoading(false);
+    }
+  };
 
   useEffect(() => {
     localStorage.setItem('swift_active_eats_jobs', JSON.stringify(activeEatsJobs));
@@ -3890,40 +3939,54 @@ export default function App() {
 
 
 
-                    {/* Destination Filter Floating Button & Active Badge */}
-                    {isOnline && mode === 'taxi' && tripProgress.stage === 'idle' && (
-                      <>
-                        {destinationActivated && destinationFilter.trim() && (
-                          <div className={`absolute top-18 left-3 z-15 backdrop-blur-md border rounded-lg px-2 py-1 flex items-center gap-1.5 shadow-sm animate-in fade-in slide-in-from-left duration-200 text-[9px] font-black uppercase tracking-wider ${
-                            darkMode ? 'bg-zinc-900/90 border-[#13AA52] text-[#13AA52]' : 'bg-emerald-50/90 border-[#13AA52] text-[#13AA52]'
-                          }`}>
-                            <Compass className="w-3 h-3 text-[#13AA52] animate-spin" style={{ animationDuration: '3500ms' }} />
-                            <span>Filter: {destinationFilter}</span>
-                            <button
-                              onClick={() => { playSoundEffect('tap'); setDestinationActivated(false); }}
-                              className="w-3.5 h-3.5 rounded-full bg-red-500/10 hover:bg-red-500/20 text-red-500 flex items-center justify-center font-mono font-black"
-                            >
-                              ×
-                            </button>
-                          </div>
-                        )}
-                        <div className="absolute right-3.5 bottom-3.5 z-15 flex flex-col gap-2">
-                          <button
-                            onClick={() => { playSoundEffect('tap'); setShowDestinationSettings(true); }}
-                            className={`w-9 h-9 rounded-full shadow-lg border backdrop-blur-md flex items-center justify-center transition active:scale-90 cursor-pointer ${
-                              destinationActivated 
-                                ? 'bg-[#13AA52] border-[#13AA52] text-white' 
-                                : darkMode
-                                  ? 'bg-zinc-900/95 border-zinc-800 text-zinc-200 hover:bg-zinc-800'
-                                  : 'bg-white/95 border-gray-200 text-gray-700 hover:bg-gray-100'
-                            }`}
-                            title="Destination Filter (My Way)"
-                          >
-                            <Compass className={`w-4.5 h-4.5 ${destinationActivated ? 'animate-spin' : ''}`} style={{ animationDuration: '3000ms' }} />
-                          </button>
-                        </div>
-                      </>
+                    {/* Destination Filter Active Badge */}
+                    {isOnline && mode === 'taxi' && tripProgress.stage === 'idle' && destinationActivated && destinationFilter.trim() && (
+                      <div className={`absolute top-18 left-3 z-15 backdrop-blur-md border rounded-lg px-2 py-1 flex items-center gap-1.5 shadow-sm animate-in fade-in slide-in-from-left duration-200 text-[9px] font-black uppercase tracking-wider ${
+                        darkMode ? 'bg-zinc-900/90 border-[#13AA52] text-[#13AA52]' : 'bg-emerald-50/90 border-[#13AA52] text-[#13AA52]'
+                      }`}>
+                        <Compass className="w-3 h-3 text-[#13AA52] animate-spin" style={{ animationDuration: '3500ms' }} />
+                        <span>Filter: {destinationFilter}</span>
+                        <button
+                          onClick={() => { playSoundEffect('tap'); setDestinationActivated(false); }}
+                          className="w-3.5 h-3.5 rounded-full bg-red-500/10 hover:bg-red-500/20 text-red-500 flex items-center justify-center font-mono font-black"
+                        >
+                          ×
+                        </button>
+                      </div>
                     )}
+
+                    {/* Floating Controls Widget Stack */}
+                    <div className="absolute right-3.5 bottom-3.5 z-15 flex flex-col gap-2.5">
+                      {/* AI Support Co-Pilot Button */}
+                      <button
+                        onClick={() => { playSoundEffect('tap'); setIsCoachOpen(true); }}
+                        className="w-10 h-10 rounded-full shadow-lg border backdrop-blur-md flex items-center justify-center transition active:scale-90 cursor-pointer bg-gradient-to-tr from-emerald-500 to-teal-400 border-emerald-400 text-slate-950 hover:brightness-110 relative group"
+                        title="AI Support Chat & Co-Pilot"
+                      >
+                        <Sparkles className="w-5 h-5 text-slate-950 fill-slate-950 animate-pulse" />
+                        <span className="absolute -top-0.5 -right-0.5 flex h-2.5 w-2.5">
+                          <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                          <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-emerald-500 border border-white"></span>
+                        </span>
+                      </button>
+
+                      {/* Destination Filter Button */}
+                      {isOnline && mode === 'taxi' && tripProgress.stage === 'idle' && (
+                        <button
+                          onClick={() => { playSoundEffect('tap'); setShowDestinationSettings(true); }}
+                          className={`w-10 h-10 rounded-full shadow-lg border backdrop-blur-md flex items-center justify-center transition active:scale-90 cursor-pointer ${
+                            destinationActivated 
+                              ? 'bg-[#13AA52] border-[#13AA52] text-white' 
+                              : darkMode
+                                ? 'bg-zinc-900/95 border-zinc-800 text-zinc-200 hover:bg-zinc-800'
+                                : 'bg-white/95 border-gray-200 text-gray-700 hover:bg-gray-100'
+                          }`}
+                          title="Destination Filter (My Way)"
+                        >
+                          <Compass className={`w-5 h-5 ${destinationActivated ? 'animate-spin' : ''}`} style={{ animationDuration: '3000ms' }} />
+                        </button>
+                      )}
+                    </div>
 
                     {/* Destination Filter Slide-Up Panel Modal */}
                     {showDestinationSettings && (
@@ -6271,6 +6334,18 @@ export default function App() {
                             {msg.text}
                           </div>
                         ))}
+                        {supportLoading && (
+                          <div className={`self-start max-w-[82%] p-2.5 rounded-2xl rounded-tl-none text-[10.5px] flex items-center gap-1.5 ${
+                            darkMode ? 'bg-zinc-900 border border-zinc-800 text-zinc-400' : 'bg-gray-100 text-gray-500'
+                          }`}>
+                            <div className="flex gap-1">
+                              <span className="w-1 h-1 rounded-full bg-[#13AA52] animate-bounce" style={{ animationDelay: '0ms' }} />
+                              <span className="w-1 h-1 rounded-full bg-[#13AA52] animate-bounce" style={{ animationDelay: '150ms' }} />
+                              <span className="w-1 h-1 rounded-full bg-[#13AA52] animate-bounce" style={{ animationDelay: '300ms' }} />
+                            </div>
+                            <span className="text-[9px] font-medium font-mono">Sarah is writing...</span>
+                          </div>
+                        )}
                       </div>
 
                       {/* Quick FAQ Interactive Action Chips */}
@@ -6284,31 +6359,11 @@ export default function App() {
                           ].map((faq, index) => (
                             <button
                               key={index}
-                              onClick={() => {
-                                playSoundEffect('tap');
-                                const userMsgId = String(supportMessages.length + 1);
-                                const userMsg = { id: userMsgId, sender: 'driver' as const, text: faq };
-                                
-                                let replyText = "";
-                                if (index === 0) {
-                                  replyText = "Hello! To receive match jobs: Make sure you are ONLINE (press Go Online on home map). Check that simulated GPS is enabled. Confirm that Daily Selfie check and policy registrations are VERIFIED in the main list.";
-                                } else if (index === 1) {
-                                  replyText = "Point Incentives (Quests) are added immediately as multipliers to your earnings. Once completed, checkout your Profile > Campaigns or view your instant balance in the Wallet tab.";
-                                } else {
-                                  replyText = "Heathrow Virtual Queue pen activates near London Heathrow Airport. Tap 'Opportunities' inside your Offline banner, select Airport Virtual Queue, and tap 'Check In' to join the waitlist!";
-                                }
-
-                                const replyId = String(supportMessages.length + 2);
-                                const botReply = { id: replyId, sender: 'system' as const, text: replyText };
-
-                                setSupportMessages(prev => [...prev, userMsg, botReply]);
-                                setTimeout(() => {
-                                  playSoundEffect('complete');
-                                }, 300);
-                              }}
+                              disabled={supportLoading}
+                              onClick={() => handleSendSupportMessage(faq)}
                               className={`border-0 rounded-full px-2.5 py-1 text-[8.5px] font-black uppercase tracking-wider text-left cursor-pointer transition ${
                                 darkMode ? 'bg-zinc-800 hover:bg-zinc-700 text-zinc-300' : 'bg-white hover:bg-gray-100 text-gray-650 border border-gray-200'
-                              }`}
+                              } disabled:opacity-50`}
                             >
                               {faq}
                             </button>
@@ -6320,22 +6375,8 @@ export default function App() {
                       <form 
                         onSubmit={(e) => {
                           e.preventDefault();
-                          if (!supportInputMessage.trim()) return;
-                          playSoundEffect('tap');
-                          
-                          const userMsgId = String(supportMessages.length + 1);
-                          const userMsg = { id: userMsgId, sender: 'driver' as const, text: supportInputMessage };
-                          const textArg = supportInputMessage;
-                          setSupportInputMessage('');
-
-                          let replyText = `Thanks for your inquiry about "${textArg}". Support desk systems have analyzed your telemetry. Make sure Service Mode is taxi/food. Agent Sarah has been dispatched to trace your request successfully!`;
-                          const replyId = String(supportMessages.length + 2);
-                          const botReply = { id: replyId, sender: 'system' as const, text: replyText };
-
-                          setSupportMessages(prev => [...prev, userMsg, botReply]);
-                          setTimeout(() => {
-                            playSoundEffect('complete');
-                          }, 320);
+                          if (!supportInputMessage.trim() || supportLoading) return;
+                          handleSendSupportMessage(supportInputMessage);
                         }}
                         className={`p-2.5 border-t shrink-0 flex gap-2 ${darkMode ? 'bg-zinc-900 border-zinc-850' : 'bg-white border-gray-150'}`}
                       >
@@ -6343,6 +6384,7 @@ export default function App() {
                           type="text"
                           value={supportInputMessage}
                           onChange={(e) => setSupportInputMessage(e.target.value)}
+                          disabled={supportLoading}
                           placeholder="Type simulated inquiry..."
                           className={`flex-1 px-3 py-2 rounded-xl text-xs font-bold ${
                             darkMode ? 'bg-zinc-950 border-zinc-800 text-zinc-200 placeholder-zinc-500' : 'bg-gray-50 border-gray-200 text-gray-800'
@@ -6350,7 +6392,8 @@ export default function App() {
                         />
                         <button
                           type="submit"
-                          className="px-3.5 bg-[#13AA52] hover:bg-[#0f8f44] text-white rounded-xl text-xs font-black uppercase tracking-wide border-0 cursor-pointer flex items-center justify-center font-sans"
+                          disabled={!supportInputMessage.trim() || supportLoading}
+                          className="px-3.5 bg-[#13AA52] hover:bg-[#0f8f44] text-white rounded-xl text-xs font-black uppercase tracking-wide border-0 cursor-pointer flex items-center justify-center font-sans disabled:opacity-50"
                         >
                           Send
                         </button>
@@ -6502,6 +6545,13 @@ export default function App() {
               appendLog("✓ Biometric identity verification successful. Security pass verified.", "success");
             }}
             playSoundEffect={playSoundEffect}
+          />
+
+          {/* AI Support Co-Pilot Chat Overlay */}
+          <AIPilotCoach
+            isOpen={isCoachOpen}
+            onClose={() => setIsCoachOpen(false)}
+            stats={stats}
           />
 
     </div>
