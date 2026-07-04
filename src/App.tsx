@@ -22,6 +22,7 @@ import { doc, getDoc, setDoc, updateDoc, collection, onSnapshot } from 'firebase
 import { auth, db, googleProvider, handleFirestoreError, OperationType } from './firebase';
 import { FaceScannerModal } from './components/FaceScannerModal';
 import { SwipeButton } from './components/SwipeButton';
+import { SignInPage } from './components/SignInPage';
 
 // Preset mock matches matching the London UK screenshots precisely!
 const TAXI_MOCK_RIDES: any[] = [
@@ -724,13 +725,35 @@ export default function App() {
   const [selectedInvoiceTrip, setSelectedInvoiceTrip] = useState<CompletedTrip | null>(null);
   const [selectedPrebooking, setSelectedPrebooking] = useState<any | null>(null);
   const [tripSearchText, setTripSearchText] = useState<string>('');
+  
+  // Auth control
+  const [bypassAuth, setBypassAuth] = useState<boolean>(() => {
+    try {
+      return localStorage.getItem('swift_bypass_auth') === 'true';
+    } catch (_) {
+      return false;
+    }
+  });
+
+  // OTA System Update simulation states
+  const [isUpdating, setIsUpdating] = useState<boolean>(false);
+  const [updateProgress, setUpdateProgress] = useState<number>(0);
+  const [updateStage, setUpdateStage] = useState<string>('');
+  const [updateLogs, setUpdateLogs] = useState<string[]>([]);
+
   const [isBooting, setIsBooting] = useState<boolean>(true);
   const [bootProgress, setBootProgress] = useState<number>(0);
   const [bootStage, setBootStage] = useState<string>('Initializing SWIFT Pilot OS...');
   const [bootLogs, setBootLogs] = useState<string[]>([
-    '⚙️ SWIFT Pilot Co-Pilot Terminal v4.28.1 booting...',
+    '⚙️ SWIFT Pilot Co-Pilot Terminal v4.29.0 booting...',
     '⚙️ System environment: Secure Sandboxed Dev Node',
   ]);
+
+  // Real-time realistic bootup metrics
+  const [bootCpuTemp, setBootCpuTemp] = useState<number>(36.5);
+  const [bootSatellites, setBootSatellites] = useState<number>(0);
+  const [bootRamUsage, setBootRamUsage] = useState<number>(382);
+  const [bootPing, setBootPing] = useState<string>('Searching...');
   const [hapticEnabled, setHapticEnabled] = useState<boolean>(() => {
     try {
       return localStorage.getItem('swift_haptic_enabled') !== 'false';
@@ -1084,18 +1107,24 @@ export default function App() {
   }, [hapticEnabled]);
 
   // Sound proxy helpers
-  const playSoundEffect = useCallback((effect: 'tap' | 'complete' | 'warn' | 'offer') => {
+  const playSoundEffect = useCallback((effect: 'tap' | 'complete' | 'warn' | 'offer' | 'chime') => {
     // Dispatch automated haptic patterns coincident with audio outputs
     if (effect === 'tap') triggerHaptic('light');
     else if (effect === 'complete') triggerHaptic('heavy');
     else if (effect === 'warn') triggerHaptic('heavy');
     else if (effect === 'offer') triggerHaptic('medium');
+    else if (effect === 'chime') triggerHaptic('light');
 
     if (!soundEnabled) return;
     if (effect === 'tap') playTapSound();
     else if (effect === 'complete') playCompleteRideSound();
     else if (effect === 'warn') playWarningSound();
     else if (effect === 'offer') playIncomingRideSound();
+    else if (effect === 'chime') {
+      try {
+        playCompleteRideSound(); // Use complete ride chime as a fallback chime
+      } catch (_) {}
+    }
   }, [soundEnabled, triggerHaptic]);
 
   // Listen to custom map simulation activity log alerts and tap gestures
@@ -1161,45 +1190,93 @@ export default function App() {
 
     let progress = 0;
     const logsList = [
-      '📡 Connecting securely with London Transport dispatch...',
-      '📡 Syncing GNSS telemetry with 12 orbital satellites...',
-      '📊 Aggregating active passenger traffic in central London...',
-      '🔥 Loading dynamic surge multiplier matrices...',
-      '🔋 Reading vehicle battery and thermal efficiency data...',
-      '🎯 Synchronizing consecutive driver streak trackers...',
+      '⚡ SWIFT Pilot UEFI Bootloader v4.29.0 [OK]',
+      '⚙️ Checking secure CPU hardware enclave signatures... OK',
+      '📡 Connecting securely with London Transport central dispatch...',
+      '📡 Syncing GNSS telemetry with orbital satellites...',
+      '💾 Mapping and mounting secure client database indices... OK',
+      '📊 Aggregating live passenger traffic density maps in central London...',
+      '🔥 Loading dynamic surge multiplier demand matrices...',
+      '🔒 Initialising local AES-256 state cache encryption...',
+      '🔋 Reading EV battery state of charge and thermal logs...',
+      '🎯 Synchronising consecutive driver streak & earnings database...',
       '🏠 Mapping secure offline Co-Pilot backup routes...',
       '🚀 All systems nominal! Entering driver match dashboard.'
     ];
 
-    const interval = setInterval(() => {
-      // Dynamic acceleration of progress
-      const increment = Math.floor(Math.random() * 8) + 4;
+    let timer: NodeJS.Timeout;
+
+    const runProgressStep = () => {
+      // Calculate a variable increment
+      let increment = Math.floor(Math.random() * 6) + 3;
+      
+      // Introduce realistic pauses at key milestones!
+      let delay = 140; // Default step delay (faster)
+      
+      if (progress >= 22 && progress <= 28) {
+        // Pause at TLS mapping
+        increment = Math.random() > 0.6 ? 2 : 0;
+        delay = 450;
+      } else if (progress >= 52 && progress <= 58) {
+        // Pause at GNSS sync
+        increment = Math.random() > 0.7 ? 3 : 0;
+        delay = 600;
+      } else if (progress >= 82 && progress <= 88) {
+        // Pause at Drizzle DB schemas mounting
+        increment = Math.random() > 0.6 ? 1 : 0;
+        delay = 500;
+      }
+
       progress = Math.min(100, progress + increment);
       setBootProgress(progress);
 
       // Sound play on significant step increments
       try {
-        if (progress % 15 < 5) {
+        if (progress % 12 === 0 && progress < 100) {
           playSoundEffect('tap');
         }
       } catch (_) {}
 
-      // Update stage name based on percentage
-      if (progress < 20) {
+      // Update stage name and metrics dynamically based on percentage
+      if (progress < 15) {
         setBootStage('Initializing SWIFT Pilot OS...');
-      } else if (progress < 40) {
+        setBootSatellites(0);
+        setBootPing('Searching...');
+        setBootCpuTemp(Number((36.8 + Math.random() * 0.8).toFixed(1)));
+        setBootRamUsage(Math.floor(380 + Math.random() * 10));
+      } else if (progress < 35) {
+        setBootStage('Establishing TLS Handshake...');
+        setBootSatellites(2);
+        setBootPing('184ms');
+        setBootCpuTemp(Number((38.2 + Math.random() * 0.6).toFixed(1)));
+        setBootRamUsage(Math.floor(395 + Math.random() * 15));
+      } else if (progress < 55) {
         setBootStage('Syncing GNSS Telemetry...');
-      } else if (progress < 60) {
-        setBootStage('Aggregating Passenger Grid...');
-      } else if (progress < 80) {
+        setBootSatellites(5);
+        setBootPing('92ms');
+        setBootCpuTemp(Number((39.5 + Math.random() * 1.1).toFixed(1)));
+        setBootRamUsage(Math.floor(412 + Math.random() * 12));
+      } else if (progress < 75) {
         setBootStage('Loading Surge Matrices...');
+        setBootSatellites(9);
+        setBootPing('34ms');
+        setBootCpuTemp(Number((40.6 + Math.random() * 0.5).toFixed(1)));
+        setBootRamUsage(Math.floor(428 + Math.random() * 8));
       } else if (progress < 95) {
         setBootStage('Securing Offline Caches...');
+        setBootSatellites(12);
+        setBootPing('18ms (Secure)');
+        setBootCpuTemp(Number((41.4 + Math.random() * 0.4).toFixed(1)));
+        setBootRamUsage(Math.floor(442 + Math.random() * 5));
       } else {
         setBootStage('Boot Complete. Safe Travels!');
+        setBootSatellites(12);
+        setBootPing('16ms (Stable)');
+        setBootCpuTemp(41.8);
+        setBootRamUsage(445);
       }
 
-      // Add log entries based on progress
+      // Add log entries based on progress index
       const logIdx = Math.floor((progress / 100) * logsList.length);
       setBootLogs((prev) => {
         const nextLogs = [...prev];
@@ -1211,19 +1288,90 @@ export default function App() {
       });
 
       if (progress >= 100) {
-        clearInterval(interval);
         setTimeout(() => {
           try {
             playSoundEffect('complete');
           } catch (_) {}
           setIsBooting(false);
           appendLog("🚀 SWIFT Co-Pilot System bootup complete. Dispatch matchmaking online.", "success");
-        }, 700);
+        }, 800);
+      } else {
+        timer = setTimeout(runProgressStep, delay);
       }
-    }, 150);
+    };
+
+    timer = setTimeout(runProgressStep, 150);
+
+    return () => {
+      clearTimeout(timer);
+    };
+  }, [isBooting, playSoundEffect, appendLog]);
+
+  // Dynamic OTA Software Updates simulation
+  const triggerOtaUpdate = () => {
+    playSoundEffect('warn');
+    setIsUpdating(true);
+    setUpdateProgress(0);
+    setUpdateStage('Locating update packages in region UK-EAST...');
+    setUpdateLogs([
+      '📥 GPRS/LTE OTA Update session established with main server...',
+      '📥 Target Release detected: SWIFT Pilot OS v4.29.0 [STABLE]',
+      '📥 Size: 42.18 MB • Verified hash signature [SHA256]'
+    ]);
+  };
+
+  useEffect(() => {
+    if (!isUpdating) return;
+
+    let progress = 0;
+    const stages = [
+      { max: 25, stage: 'Downloading secure binary patches...', log: '📦 Downloading blocks (10.2 MB/s) [===========>................]' },
+      { max: 50, stage: 'Verifying image checksums...', log: '✓ Checksum matched SHA-256: 8f92a4b8901c0d45f3a09e...' },
+      { max: 70, stage: 'Mounting dynamic read-write sectors...', log: '⚙️ Rewriting /sys/co-pilot/kernel partition...' },
+      { max: 90, stage: 'Compiling real-time telemetry algorithms...', log: '⚙️ Rebuilding matching query indices (Drizzle Database)...' },
+      { max: 100, stage: 'Rebooting system kernel...', log: '🚀 Update applied successfully! Safe restart sequence initiated.' }
+    ];
+
+    const interval = setInterval(() => {
+      progress = Math.min(100, progress + Math.floor(Math.random() * 6) + 3);
+      setUpdateProgress(progress);
+
+      if (progress % 12 === 0) {
+        playSoundEffect('tap');
+      }
+
+      // Update stage & logs based on current progress
+      const matchingStage = stages.find(s => progress <= s.max) || stages[stages.length - 1];
+      setUpdateStage(matchingStage.stage);
+      
+      setUpdateLogs(prev => {
+        if (!prev.includes(matchingStage.log)) {
+          return [...prev, matchingStage.log];
+        }
+        return prev;
+      });
+
+      if (progress >= 100) {
+        clearInterval(interval);
+        setTimeout(() => {
+          playSoundEffect('chime');
+          setIsUpdating(false);
+          // Auto-restart the app: reset bootup state!
+          setIsBooting(true);
+          setBootProgress(0);
+          setBootStage('Initializing SWIFT Pilot OS...');
+          setBootLogs([
+            '⚙️ SWIFT Pilot Co-Pilot Terminal v4.29.0 rebooting...',
+            '⚙️ HOTFIX / OTA Patch successfully loaded & mounted.',
+            '⚙️ System environment: Secure Sandboxed Dev Node'
+          ]);
+          appendLog("🔄 App automatically restarted following OTA security update v4.29.0.", "success");
+        }, 1200);
+      }
+    }, 120);
 
     return () => clearInterval(interval);
-  }, [isBooting, playSoundEffect, appendLog]);
+  }, [isUpdating, playSoundEffect, appendLog]);
 
   // 2. In-App Toasts State and Dispatcher
   const [toasts, setToasts] = useState<{ id: string; title: string; body: string; type?: 'info' | 'success' | 'alert' | 'message' }[]>([]);
@@ -2974,7 +3122,7 @@ export default function App() {
                 y: -15,
                 transition: { duration: 0.55, ease: [0.16, 1, 0.3, 1] }
               }}
-              className="absolute inset-0 z-[110] bg-[#070b13] flex flex-col justify-between overflow-hidden p-6 text-white"
+              className="absolute inset-0 z-[110] bg-[#070b13] flex flex-col justify-between overflow-hidden p-6 text-white font-sans"
               style={{
                 backgroundImage: 'radial-gradient(circle at top, rgba(16, 185, 129, 0.12), transparent), radial-gradient(circle at bottom, rgba(5, 150, 105, 0.05), transparent), linear-gradient(180deg, #070b13 0%, #030509 100%)'
               }}
@@ -2987,7 +3135,7 @@ export default function App() {
 
               {/* Top bar indicators */}
               <div className="flex items-center justify-between opacity-40 text-[8px] font-mono select-none tracking-widest mt-1">
-                <span>CO-PILOT OS v4.28</span>
+                <span>CO-PILOT OS v4.29.0</span>
                 <span>STABLE CONNECT</span>
               </div>
 
@@ -3021,8 +3169,28 @@ export default function App() {
                 </motion.h1>
                 <span className="text-[8px] font-black uppercase text-zinc-500 tracking-[0.25em] mt-1.5">Driver Command Deck</span>
 
+                {/* Live BIOS Telemetry Status indicators */}
+                <div className="grid grid-cols-4 gap-1.5 w-full max-w-[280px] mt-8 p-2.5 bg-zinc-950/70 border border-zinc-900/45 rounded-2xl font-mono text-[7.5px] text-zinc-400">
+                  <div className="flex flex-col items-center border-r border-zinc-900/60 pr-1">
+                    <span className="text-zinc-550 uppercase font-black tracking-wider text-[5.5px]">CPU TEMP</span>
+                    <span className="text-white font-extrabold mt-0.5">{bootCpuTemp}°C</span>
+                  </div>
+                  <div className="flex flex-col items-center border-r border-zinc-900/60 pr-1">
+                    <span className="text-zinc-550 uppercase font-black tracking-wider text-[5.5px]">GNSS LINK</span>
+                    <span className="text-emerald-400 font-extrabold mt-0.5">🛰️ {bootSatellites}/12</span>
+                  </div>
+                  <div className="flex flex-col items-center border-r border-zinc-900/60 pr-1">
+                    <span className="text-zinc-550 uppercase font-black tracking-wider text-[5.5px]">FREE RAM</span>
+                    <span className="text-white font-extrabold mt-0.5">{1024 - bootRamUsage} MB</span>
+                  </div>
+                  <div className="flex flex-col items-center">
+                    <span className="text-zinc-550 uppercase font-black tracking-wider text-[5.5px]">PING RTT</span>
+                    <span className="text-teal-400 font-extrabold mt-0.5 truncate max-w-[55px]">{bootPing}</span>
+                  </div>
+                </div>
+
                 {/* Progress bar container */}
-                <div className="w-full max-w-[240px] mt-10">
+                <div className="w-full max-w-[240px] mt-8">
                   <div className="flex justify-between items-end text-[10px] mb-1.5 font-mono">
                     <span className="text-zinc-400 font-bold uppercase tracking-wider">{bootStage}</span>
                     <span className="text-[#10b981] font-extrabold">{bootProgress}%</span>
@@ -3077,6 +3245,94 @@ export default function App() {
                 >
                   Instant Unlock &gt;&gt;
                 </button>
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+
+        {/* SWIFT OTA UPDATE ANIMATED REBOOT SYSTEM */}
+        <AnimatePresence>
+          {isUpdating && (
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="absolute inset-0 z-[120] bg-black flex flex-col justify-between p-6 text-white font-mono"
+            >
+              <div className="absolute inset-0 opacity-[0.03] pointer-events-none" style={{
+                backgroundImage: `radial-gradient(circle, #f59e0b 1px, transparent 1px)`,
+                backgroundSize: '20px 20px'
+              }} />
+
+              {/* Header */}
+              <div className="flex items-center justify-between border-b border-zinc-900 pb-3">
+                <div className="flex items-center gap-1.5 text-[8px] text-zinc-400 font-extrabold tracking-widest uppercase">
+                  <span className="w-2 h-2 bg-amber-500 rounded-full animate-ping shrink-0" />
+                  <span>OTA System Deployment</span>
+                </div>
+                <span className="text-[7.5px] text-[#10b981] font-black">v4.29.0 ACTIVE</span>
+              </div>
+
+              {/* Center update content */}
+              <div className="flex-1 flex flex-col items-center justify-center -mt-6">
+                <div className="relative mb-6">
+                  {/* Outer spinning ring */}
+                  <motion.div
+                    animate={{ rotate: -360 }}
+                    transition={{ repeat: Infinity, duration: 4, ease: "linear" }}
+                    className="w-20 h-20 rounded-full border border-dashed border-amber-500/40"
+                  />
+                  {/* Pulsing inner glow */}
+                  <motion.div
+                    animate={{ scale: [0.92, 1.08, 0.92] }}
+                    transition={{ repeat: Infinity, duration: 1.5, ease: "easeInOut" }}
+                    className="absolute inset-2 rounded-full bg-amber-500/10 blur-sm flex items-center justify-center"
+                  >
+                    <Sliders className="w-6 h-6 text-amber-400 animate-pulse" />
+                  </motion.div>
+                </div>
+
+                <span className="text-[9px] font-black uppercase tracking-[0.2em] text-amber-400 mb-1">Applying Firmware Upgrade</span>
+                <span className="text-[7px] text-zinc-500 tracking-wider font-extrabold">{updateStage}</span>
+
+                {/* Progress bar */}
+                <div className="w-full max-w-[220px] mt-6">
+                  <div className="flex justify-between items-end text-[9px] mb-1">
+                    <span className="text-zinc-500 font-bold">WRITING MEMORY</span>
+                    <span className="text-amber-400 font-black">{updateProgress}%</span>
+                  </div>
+                  
+                  {/* Progress track */}
+                  <div className="w-full h-1 bg-zinc-900 border border-zinc-800 rounded-full overflow-hidden">
+                    <div 
+                      className="h-full bg-gradient-to-r from-amber-500 to-yellow-400 rounded-full transition-all duration-100 shadow-[0_0_8px_#f59e0b]"
+                      style={{ width: `${updateProgress}%` }}
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* Terminal Logs Footer */}
+              <div className="bg-zinc-950 border border-zinc-900 rounded-2xl p-3 flex flex-col gap-1.5 h-[140px] overflow-hidden justify-end">
+                <div className="flex items-center gap-1 border-b border-zinc-900 pb-1.5 mb-1 text-[7.5px] text-zinc-500 font-extrabold uppercase">
+                  <span>Installation Log Stream</span>
+                  <span className="ml-auto text-amber-500 animate-pulse">● EXECUTING</span>
+                </div>
+                <div className="space-y-1 overflow-y-auto max-h-[100px] flex flex-col justify-end text-[7px] text-zinc-400">
+                  <AnimatePresence>
+                    {updateLogs.slice(-5).map((log, index) => (
+                      <motion.div
+                        key={log + index}
+                        initial={{ opacity: 0, x: -8 }}
+                        animate={{ opacity: 1, x: 0 }}
+                        className={`flex items-start gap-1 ${log.startsWith('✓') ? 'text-[#10b981]' : log.startsWith('🚀') ? 'text-amber-400 font-black' : 'text-zinc-400'}`}
+                      >
+                        <span className="shrink-0 text-zinc-650 font-bold">&gt;&gt;</span>
+                        <span className="break-all">{log}</span>
+                      </motion.div>
+                    ))}
+                  </AnimatePresence>
+                </div>
               </div>
             </motion.div>
           )}
@@ -3326,8 +3582,19 @@ export default function App() {
                 }
               `}</style>
 
-              {/* Left Slide-out Side Menu Drawer Overlay */}
-              <AnimatePresence>
+              {!isBooting && !user && !bypassAuth && !authLoading ? (
+                <SignInPage 
+                  onBypass={() => {
+                    setBypassAuth(true);
+                    localStorage.setItem('swift_bypass_auth', 'true');
+                    appendLog("⚡ Driver entered Swift Registry using standalone bypass memory.", "info");
+                  }}
+                  playSoundEffect={playSoundEffect}
+                />
+              ) : (
+                <>
+                  {/* Left Slide-out Side Menu Drawer Overlay */}
+                  <AnimatePresence>
                 {isSideMenuOpen && (
                   <motion.div
                     initial={{ opacity: 0 }}
@@ -6343,6 +6610,67 @@ export default function App() {
                         </div>
                       </div>
 
+                      {/* System Maintenance & Account */}
+                      <div className={`p-3.5 rounded-2xl border flex flex-col gap-2.5 ${darkMode ? 'bg-zinc-900 border-zinc-805' : 'bg-gray-50 border-gray-150'}`}>
+                        <span className="text-[9.5px] text-[#13AA52] font-black uppercase tracking-wider block">⚙️ System Maintenance & Account</span>
+                        
+                        {/* OTA Update Simulator */}
+                        <div className="flex flex-col gap-1 text-left">
+                          <div className="flex justify-between items-center">
+                            <span className="text-[9.5px] font-bold">Over-The-Air System Update</span>
+                            <button
+                              onClick={() => {
+                                playSoundEffect('tap');
+                                setMenuSubScreen('main'); // Go back to main profile
+                                setActiveTab('home'); // Go to home tab so they see update overlay in full glory
+                                setTimeout(() => {
+                                  triggerOtaUpdate();
+                                }, 300);
+                              }}
+                              className="bg-amber-500 hover:bg-amber-600 text-white font-extrabold text-[8px] px-2 py-1 rounded-lg uppercase transition cursor-pointer"
+                            >
+                              Check Updates
+                            </button>
+                          </div>
+                          <p className="text-[7.5px] text-zinc-450 leading-normal">
+                            Simulate high-fidelity Over-The-Air (OTA) system updates with logs stream, download diagnostics, and automated co-pilot reboot sequence.
+                          </p>
+                        </div>
+
+                        {/* Log Out button */}
+                        <div className="border-t border-zinc-150 dark:border-zinc-800 pt-2 flex justify-between items-center text-left">
+                          <div className="flex flex-col">
+                            <span className="text-[9.5px] font-bold text-red-500">Terminals Sign Out</span>
+                            <span className="text-[7.5px] text-zinc-450 leading-none mt-0.5">Clears account bypass and sessions</span>
+                          </div>
+                          <button
+                            onClick={async () => {
+                              playSoundEffect('tap');
+                              if (window.confirm("Are you sure you want to log out of your session? This will clear local bypass state and require credentials on boot.")) {
+                                try {
+                                  // 1. Sign out of Firebase Auth
+                                  await signOut(auth);
+                                } catch (_) {}
+                                // 2. Clear local credentials / bypass memory
+                                setBypassAuth(false);
+                                localStorage.removeItem('swift_bypass_auth');
+                                localStorage.removeItem('swift_remembered_email'); // Clear remembered email
+                                
+                                // 3. Set offline and reset active statuses
+                                setIsOnline(false);
+                                setMenuSubScreen('main');
+                                setActiveTab('home');
+                                appendLog("👤 Driver logged out completely. Standalone credentials registry reset.", "warn");
+                              }
+                            }}
+                            className="bg-red-500 hover:bg-red-600 text-white font-black text-[8px] px-2.5 py-1 rounded-lg uppercase tracking-wider transition flex items-center gap-1 cursor-pointer"
+                          >
+                            <LogOut className="w-2.5 h-2.5" />
+                            <span>Log Out</span>
+                          </button>
+                        </div>
+                      </div>
+
                       {/* Biometric random trigger simulation */}
                       <div className="border border-red-500/30 bg-red-500/5 p-3 rounded-2xl flex flex-col gap-2">
                         <div className="flex justify-between items-center">
@@ -6845,8 +7173,10 @@ export default function App() {
                   <span className="text-[8.5px] font-extrabold font-sans">Profile</span>
                 </button>
               </div>
+            </>
+          )}
 
-            </div>
+        </div>
 
             {/* Simulated Smartphone bottom screen safearea pill */}
             <div 

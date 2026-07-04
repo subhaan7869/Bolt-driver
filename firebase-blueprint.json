@@ -99,7 +99,7 @@
       "schema": "log_event",
       "description": "Simulated dispatcher tracking logs."
     },
-    "verification_codes/{email}": {
+    "verification_codes/{emailId}": {
       "schema": "verification_code",
       "description": "Short-lived OTP codes to secure driver logins and compliance."
     }

@@ -93,7 +93,7 @@ service cloud.firestore {
     }
 
     // Verification codes collection rules
-    match /verification_codes/{email} {
+    match /verification_codes/{emailId} {
       allow get, delete: if true;
       allow create, update: if isValidVerificationCode(incoming());
     }
