@@ -373,9 +373,7 @@ export default function App() {
   // OTP Compliance variables
   const [otpEmail, setOtpEmail] = useState<string>('hassennabeel9@gmail.com');
   const [otpCode, setOtpCode] = useState<string>('');
-  const [otpVerified, setOtpVerified] = useState<boolean>(() => {
-    return localStorage.getItem('swift_otp_verified') === 'true';
-  });
+  const [otpVerified, setOtpVerified] = useState<boolean>(true);
   const [otpLoading, setOtpLoading] = useState<boolean>(false);
   const [otpStatusMsg, setOtpStatusMsg] = useState<{ text: string; type: 'success' | 'error' | 'info' | null }>({ text: '', type: null });
   const [testOtpReceived, setTestOtpReceived] = useState<string | null>(null);
@@ -2050,12 +2048,6 @@ export default function App() {
   const handleSetOnline = (online: boolean) => {
     playSoundEffect('tap');
     if (online) {
-      if (!otpVerified) {
-        playSoundEffect('warn');
-        alert("🔒 Swift Security Compliance: Security Daily OTP Pass Code verification is required before you can toggle ONLINE.\n\nPlease complete daily email verification in your Profile tab first.");
-        setActiveTab('profile');
-        return;
-      }
       if (!faceVerified) {
         playSoundEffect('warn');
         alert("🔒 Swift Security Compliance: Biometric Face Verification selfie check is required before you can toggle ONLINE.\n\nLoading biometric camera viewport...");
@@ -5964,92 +5956,6 @@ export default function App() {
                             >
                               Scan Face selfie ➔
                             </button>
-                          </div>
-
-                          {/* Daily Identity OTP Verification card */}
-                          <div className={`p-3 rounded-2xl border text-left flex flex-col gap-1.5 ${darkMode ? 'bg-zinc-900 border-zinc-800 text-zinc-100' : 'bg-gray-50 border-gray-150 text-gray-850'}`}>
-                            <div className="flex items-center justify-between">
-                              <div className="flex items-center gap-1.5 font-black uppercase text-[8.5px] font-mono tracking-wider text-purple-500">
-                                <Mail className="w-3.5 h-3.5 text-purple-500" />
-                                <span>Daily Email Identity Pass</span>
-                              </div>
-                              <span className={`text-[7.5px] font-extrabold font-mono px-1.5 py-0.2 rounded-full ${otpVerified ? 'bg-emerald-100 text-emerald-700' : 'bg-purple-100 text-purple-705 animate-pulse'}`}>
-                                {otpVerified ? 'PASS ACTIVE ✓' : 'UNVERIFIED'}
-                              </span>
-                            </div>
-                            <p className="text-[9.2px] text-gray-400 leading-tight">
-                              Submit email identity verification daily to receive your secure 6-digit session key.
-                            </p>
-
-                            <div className="flex flex-col gap-1.5 mt-1 font-mono text-[8.5px]">
-                              <div>
-                                <span className="text-zinc-400 block text-[6.5px] uppercase font-bold">Driver Registry Email</span>
-                                <div className="flex gap-1.5 mt-0.5 font-sans">
-                                  <input 
-                                    type="email" 
-                                    value={otpEmail} 
-                                    onChange={(e) => setOtpEmail(e.target.value)}
-                                    placeholder="Enter registered email"
-                                    className="bg-white border text-zinc-805 rounded px-2 py-1 w-full text-[8.5px] font-extrabold" 
-                                  />
-                                  <button
-                                    onClick={handleRequestOtp}
-                                    disabled={otpLoading || !otpEmail.includes('@')}
-                                    className="px-2.5 bg-purple-600 text-white font-black text-[8px] uppercase tracking-wider rounded-lg hover:bg-purple-700 disabled:opacity-40 transition-colors cursor-pointer shrink-0"
-                                  >
-                                    Send
-                                  </button>
-                                </div>
-                              </div>
-
-                              {/* Simulator SMTP Bypass Option */}
-                              {testOtpReceived && (
-                                <div className="bg-amber-500/10 border border-amber-500/20 text-amber-600 p-1.5 rounded-lg text-[8px] leading-tight flex flex-col gap-0.5 font-sans">
-                                  <span className="font-extrabold uppercase">Simulator SMTP Bypass:</span>
-                                  <span>OTP Code: <strong className="font-black underline tracking-wide text-amber-700 font-mono">{testOtpReceived}</strong></span>
-                                </div>
-                              )}
-
-                              <div>
-                                <span className="text-zinc-400 block text-[6.5px] uppercase font-bold">6-Digit Verification Code</span>
-                                <div className="flex gap-1.5 mt-0.5">
-                                  <input 
-                                    type="text" 
-                                    maxLength={6}
-                                    placeholder="------"
-                                    value={otpCode} 
-                                    onChange={(e) => setOtpCode(e.target.value)}
-                                    className="bg-white border text-zinc-805 rounded px-2 py-1 w-full text-center tracking-widest text-[9.5px] font-mono font-black" 
-                                  />
-                                  <button
-                                    onClick={handleVerifyOtp}
-                                    disabled={otpLoading || otpCode.length < 4}
-                                    className="px-2.5 bg-[#13AA52] text-white font-black text-[8px] uppercase tracking-wider rounded-lg hover:bg-[#119949] disabled:opacity-40 transition-colors cursor-pointer shrink-0 font-sans"
-                                  >
-                                    Verify
-                                  </button>
-                                </div>
-                              </div>
-                            </div>
-
-                            {otpStatusMsg.text && (
-                              <div className={`text-[8.5px] leading-tight rounded-lg p-1.5 font-bold font-sans ${
-                                otpStatusMsg.type === 'success' ? 'bg-emerald-500/10 text-emerald-600' :
-                                otpStatusMsg.type === 'error' ? 'bg-rose-500/10 text-rose-600' :
-                                'bg-zinc-100 text-zinc-600'
-                              }`}>
-                                {otpStatusMsg.text}
-                              </div>
-                            )}
-
-                            {otpVerified && (
-                              <button
-                                onClick={() => { playSoundEffect('tap'); setOtpVerified(false); localStorage.setItem('swift_otp_verified', 'false'); }}
-                                className="w-full mt-1 py-1 bg-zinc-200 dark:bg-zinc-800 text-zinc-500 hover:bg-zinc-250 text-[8px] font-black uppercase tracking-wider text-center rounded font-sans"
-                              >
-                                Clear daily session token
-                              </button>
-                            )}
                           </div>
 
                           {/* Insurance policy cover */}
