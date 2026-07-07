@@ -314,25 +314,398 @@ const getCityAddresses = (city: string) => {
 };
 
 const INITIAL_TAXI_STATS: DriverStats = {
-  rating: 4.9,
+  rating: 4.88,
   acceptanceRate: 98,
   cancellationRate: 1,
-  todayEarnings: 156.40,
-  weeklyEarnings: 824.50,
+  todayEarnings: 124.00,
+  weeklyEarnings: 618.60,
   hoursOnline: 3.75, // 3h 45m
-  completedTripsCount: 4,
-  balance: 156.40,
+  completedTripsCount: 13,
+  balance: 124.00,
 };
 
 const INITIAL_FOOD_STATS: DriverStats = {
   rating: 5.0,
   acceptanceRate: 100,
   cancellationRate: 0,
-  todayEarnings: 84.20,
-  weeklyEarnings: 512.60,
+  todayEarnings: 68.40,
+  weeklyEarnings: 379.70,
   hoursOnline: 2.5, // 2h 30m
-  completedTripsCount: 3,
-  balance: 84.20,
+  completedTripsCount: 14,
+  balance: 68.40,
+};
+
+const getInitialTaxiTrips = (): CompletedTrip[] => {
+  return [
+    {
+      id: 'mock-t-1',
+      passengerName: 'Jasper Montgomery',
+      pickupAddress: 'Mayfair District Lounge',
+      dropoffAddress: 'Chelsea Pavilions Gate',
+      fare: 16.50,
+      tip: 4.50,
+      timestamp: 'Today, 10:24 AM',
+      ratingValue: 5,
+      surgeMultiplier: 1.4
+    },
+    {
+      id: 'mock-t-4',
+      passengerName: 'Olivia Vane',
+      pickupAddress: 'Covent Garden Opera House',
+      dropoffAddress: 'Kensington High Street',
+      fare: 24.00,
+      tip: 6.00,
+      timestamp: 'Today, 08:15 AM',
+      ratingValue: 5,
+      surgeMultiplier: 1.2
+    },
+    {
+      id: 'mock-t-5',
+      passengerName: 'Ethan Hunt',
+      pickupAddress: 'London City Airport Terminal 1',
+      dropoffAddress: 'Canary Wharf Business Suite',
+      fare: 42.00,
+      tip: 8.00,
+      timestamp: 'Today, 11:50 AM',
+      ratingValue: 5,
+      surgeMultiplier: 1.5
+    },
+    {
+      id: 'mock-t-6',
+      passengerName: 'Sophia Loren',
+      pickupAddress: 'Soho Townhouse Hotel',
+      dropoffAddress: 'Notting Hill Gate Residence',
+      fare: 18.00,
+      tip: 5.00,
+      timestamp: 'Today, 02:10 PM',
+      ratingValue: 5,
+      surgeMultiplier: 1.0
+    },
+    {
+      id: 'mock-t-2',
+      passengerName: 'Alistair Sterling',
+      pickupAddress: 'London City Airport Terminal 1',
+      dropoffAddress: 'Westminster Green',
+      fare: 34.00,
+      tip: 5.00,
+      timestamp: 'Yesterday, 05:45 PM',
+      ratingValue: 5,
+      surgeMultiplier: 1.0
+    },
+    {
+      id: 'mock-t-3',
+      passengerName: 'Penelope Thorne',
+      pickupAddress: 'Regent\'s Park North Coach',
+      dropoffAddress: 'Buckingham Palace East Gateway',
+      fare: 25.00,
+      tip: 6.60,
+      timestamp: 'Yesterday, 08:15 PM',
+      ratingValue: 5,
+      surgeMultiplier: 1.5
+    },
+    {
+      id: 'mock-t-7',
+      passengerName: 'Charlotte York',
+      pickupAddress: 'Harrods Department Store',
+      dropoffAddress: 'Belgravia Crescent',
+      fare: 40.00,
+      tip: 8.00,
+      timestamp: 'Yesterday, 11:30 AM',
+      ratingValue: 5,
+      surgeMultiplier: 1.3
+    },
+    {
+      id: 'mock-t-8',
+      passengerName: 'Arthur Pendragon',
+      pickupAddress: 'The British Museum',
+      dropoffAddress: 'Camelot Court Hotel',
+      fare: 50.00,
+      tip: 10.00,
+      timestamp: '2 days ago, 04:20 PM',
+      ratingValue: 5,
+      surgeMultiplier: 1.6
+    },
+    {
+      id: 'mock-t-9',
+      passengerName: 'Bruce Wayne',
+      pickupAddress: 'Gotham Heights Tower',
+      dropoffAddress: 'Arkham Manor Manor house',
+      fare: 80.00,
+      tip: 20.00,
+      timestamp: '3 days ago, 09:15 AM',
+      ratingValue: 5,
+      surgeMultiplier: 1.5
+    },
+    {
+      id: 'mock-t-10',
+      passengerName: 'Diana Prince',
+      pickupAddress: 'The Louvre Exhibit Hall',
+      dropoffAddress: 'Themyscira Embassy',
+      fare: 45.00,
+      tip: 8.00,
+      timestamp: '4 days ago, 02:40 PM',
+      ratingValue: 5,
+      surgeMultiplier: 1.2
+    },
+    {
+      id: 'mock-t-11',
+      passengerName: 'Barry Allen',
+      pickupAddress: 'S.T.A.R. Labs Facility',
+      dropoffAddress: 'Central City Court',
+      fare: 35.00,
+      tip: 6.00,
+      timestamp: '5 days ago, 06:10 PM',
+      ratingValue: 5,
+      surgeMultiplier: 1.4
+    },
+    {
+      id: 'mock-t-12',
+      passengerName: 'Clark Kent',
+      pickupAddress: 'Daily Planet Building',
+      dropoffAddress: 'Metropolis High Rise',
+      fare: 60.00,
+      tip: 12.00,
+      timestamp: '6 days ago, 08:30 PM',
+      ratingValue: 5,
+      surgeMultiplier: 1.8
+    },
+    {
+      id: 'mock-t-13',
+      passengerName: 'Hal Jordan',
+      pickupAddress: 'Ferris Aircraft Hangar',
+      dropoffAddress: 'Coast City Apartments',
+      fare: 40.00,
+      tip: 10.00,
+      timestamp: '6 days ago, 10:15 AM',
+      ratingValue: 5,
+      surgeMultiplier: 1.2
+    },
+    {
+      id: 'mock-t-m1',
+      passengerName: 'May 2026 Monthly Ledger Archive',
+      pickupAddress: 'Aggregated Monthly Rides',
+      dropoffAddress: 'Swift Central Clearinghouse',
+      fare: 3420.00,
+      tip: 200.00,
+      timestamp: 'May 2026',
+      ratingValue: 5,
+      surgeMultiplier: 1.0
+    },
+    {
+      id: 'mock-t-m2',
+      passengerName: 'April 2026 Monthly Ledger Archive',
+      pickupAddress: 'Aggregated Monthly Rides',
+      dropoffAddress: 'Swift Central Clearinghouse',
+      fare: 3350.00,
+      tip: 200.00,
+      timestamp: 'April 2026',
+      ratingValue: 5,
+      surgeMultiplier: 1.0
+    },
+    {
+      id: 'mock-t-m3',
+      passengerName: 'March 2026 Monthly Ledger Archive',
+      pickupAddress: 'Aggregated Monthly Rides',
+      dropoffAddress: 'Swift Central Clearinghouse',
+      fare: 3640.00,
+      tip: 200.00,
+      timestamp: 'March 2026',
+      ratingValue: 5,
+      surgeMultiplier: 1.0
+    }
+  ];
+};
+
+const getInitialFoodTrips = (): CompletedTrip[] => {
+  return [
+    {
+      id: 'mock-f-1',
+      passengerName: 'Fiona Gallagher',
+      pickupAddress: 'Gourmet Burger Kitchen',
+      dropoffAddress: 'Flat 4B, Bloomsbury Square',
+      fare: 8.50,
+      tip: 2.00,
+      timestamp: 'Today, 11:32 AM',
+      ratingValue: 5,
+      surgeMultiplier: 1.2
+    },
+    {
+      id: 'mock-f-4',
+      passengerName: 'Ian Gallagher',
+      pickupAddress: 'Pizza Express',
+      dropoffAddress: 'Flat 12C, Fitzrovia Court',
+      fare: 12.00,
+      tip: 3.00,
+      timestamp: 'Today, 01:15 PM',
+      ratingValue: 5,
+      surgeMultiplier: 1.4
+    },
+    {
+      id: 'mock-f-5',
+      passengerName: 'Lip Gallagher',
+      pickupAddress: 'Nando\'s Chicken Shop',
+      dropoffAddress: 'Marylebone Mansions',
+      fare: 15.00,
+      tip: 4.00,
+      timestamp: 'Today, 03:30 PM',
+      ratingValue: 5,
+      surgeMultiplier: 1.5
+    },
+    {
+      id: 'mock-f-6',
+      passengerName: 'Debbie Gallagher',
+      pickupAddress: 'Wagamama Plaza',
+      dropoffAddress: 'Paddington Green Estates',
+      fare: 18.00,
+      tip: 5.90,
+      timestamp: 'Today, 06:15 PM',
+      ratingValue: 5,
+      surgeMultiplier: 1.1
+    },
+    {
+      id: 'mock-f-2',
+      passengerName: 'Nigel Rutherford',
+      pickupAddress: 'Dishoom Indian Cuisine',
+      dropoffAddress: 'Soho Creative Studio Floor 3',
+      fare: 11.20,
+      tip: 3.50,
+      timestamp: 'Yesterday, 01:10 PM',
+      ratingValue: 5,
+      surgeMultiplier: 1.5
+    },
+    {
+      id: 'mock-f-3',
+      passengerName: 'Imogen Sinclair',
+      pickupAddress: 'Pizza Express Covent Garden',
+      dropoffAddress: 'King\'s College Dorm Room 51A',
+      fare: 10.00,
+      tip: 2.00,
+      timestamp: 'Yesterday, 07:40 PM',
+      ratingValue: 5,
+      surgeMultiplier: 1.2
+    },
+    {
+      id: 'mock-f-7',
+      passengerName: 'Frank Reynolds',
+      pickupAddress: 'Paddy\'s Irish Pub Grill',
+      dropoffAddress: 'Philadelphia Row Flats',
+      fare: 22.00,
+      tip: 4.10,
+      timestamp: 'Yesterday, 09:15 PM',
+      ratingValue: 5,
+      surgeMultiplier: 1.3
+    },
+    {
+      id: 'mock-f-8',
+      passengerName: 'Charlie Kelly',
+      pickupAddress: 'The Sewer Grate Bistro',
+      dropoffAddress: 'Under the Bridge Camp',
+      fare: 22.00,
+      tip: 5.00,
+      timestamp: '2 days ago, 01:30 PM',
+      ratingValue: 5,
+      surgeMultiplier: 1.4
+    },
+    {
+      id: 'mock-f-9',
+      passengerName: 'Dennis Reynolds',
+      pickupAddress: 'The Five Star Dining Club',
+      dropoffAddress: 'Paddy\'s Penthouse Suites',
+      fare: 25.00,
+      tip: 6.00,
+      timestamp: '2 days ago, 06:45 PM',
+      ratingValue: 5,
+      surgeMultiplier: 1.5
+    },
+    {
+      id: 'mock-f-10',
+      passengerName: 'Dee Reynolds',
+      pickupAddress: 'The Bird Cage Cafe',
+      dropoffAddress: 'South Philly Loft 202',
+      fare: 18.00,
+      tip: 4.50,
+      timestamp: '3 days ago, 12:15 PM',
+      ratingValue: 5,
+      surgeMultiplier: 1.2
+    },
+    {
+      id: 'mock-f-11',
+      passengerName: 'Mac McDonald',
+      pickupAddress: 'The Bodyguard Protein Shake',
+      dropoffAddress: 'Gym Locker Residence',
+      fare: 30.00,
+      tip: 8.00,
+      timestamp: '4 days ago, 07:10 PM',
+      ratingValue: 5,
+      surgeMultiplier: 1.6
+    },
+    {
+      id: 'mock-f-12',
+      passengerName: 'Liam Neeson',
+      pickupAddress: 'Taken Steakhouse Cafe',
+      dropoffAddress: 'Paris Safehouse Suite B',
+      fare: 35.00,
+      tip: 10.00,
+      timestamp: '5 days ago, 01:05 PM',
+      ratingValue: 5,
+      surgeMultiplier: 1.5
+    },
+    {
+      id: 'mock-f-13',
+      passengerName: 'Robert De Niro',
+      pickupAddress: 'Goodfellas Italian Grill',
+      dropoffAddress: 'Queens Apartment Floor 2',
+      fare: 40.00,
+      tip: 12.00,
+      timestamp: '6 days ago, 08:20 PM',
+      ratingValue: 5,
+      surgeMultiplier: 1.8
+    },
+    {
+      id: 'mock-f-14',
+      passengerName: 'Al Pacino',
+      pickupAddress: 'Scarface Club Lounge',
+      dropoffAddress: 'Miami Beach Estate Gate',
+      fare: 35.00,
+      tip: 8.00,
+      timestamp: '6 days ago, 11:30 AM',
+      ratingValue: 5,
+      surgeMultiplier: 1.3
+    },
+    {
+      id: 'mock-f-m1',
+      passengerName: 'May 2026 Monthly Ledger Archive',
+      pickupAddress: 'Aggregated Monthly Deliveries',
+      dropoffAddress: 'Swift Central Clearinghouse',
+      fare: 2150.00,
+      tip: 150.00,
+      timestamp: 'May 2026',
+      ratingValue: 5,
+      surgeMultiplier: 1.0
+    },
+    {
+      id: 'mock-f-m2',
+      passengerName: 'April 2026 Monthly Ledger Archive',
+      pickupAddress: 'Aggregated Monthly Deliveries',
+      dropoffAddress: 'Swift Central Clearinghouse',
+      fare: 2020.00,
+      tip: 140.00,
+      timestamp: 'April 2026',
+      ratingValue: 5,
+      surgeMultiplier: 1.0
+    },
+    {
+      id: 'mock-f-m3',
+      passengerName: 'March 2026 Monthly Ledger Archive',
+      pickupAddress: 'Aggregated Monthly Deliveries',
+      dropoffAddress: 'Swift Central Clearinghouse',
+      fare: 2280.00,
+      tip: 180.00,
+      timestamp: 'March 2026',
+      ratingValue: 5,
+      surgeMultiplier: 1.0
+    }
+  ];
 };
 
 export default function App() {
@@ -563,6 +936,35 @@ export default function App() {
   });
   const [workerTickCount, setWorkerTickCount] = useState<number>(0);
 
+  // Completed trips tracking (Persisted in LocalStorage, seeds default list if empty)
+  const [taxiTrips, setTaxiTrips] = useState<CompletedTrip[]>(() => {
+    try {
+      const saved = localStorage.getItem('swift_taxi_completed_trips');
+      if (saved) return JSON.parse(saved);
+    } catch (_) {}
+    return getInitialTaxiTrips();
+  });
+
+  const [foodTrips, setFoodTrips] = useState<CompletedTrip[]>(() => {
+    try {
+      const saved = localStorage.getItem('swift_food_completed_trips');
+      if (saved) return JSON.parse(saved);
+    } catch (_) {}
+    return getInitialFoodTrips();
+  });
+
+  const completedTrips = useMemo(() => {
+    return mode === 'taxi' ? taxiTrips : foodTrips;
+  }, [mode, taxiTrips, foodTrips]);
+
+  const setCompletedTrips = (updater: any) => {
+    if (mode === 'taxi') {
+      setTaxiTrips(updater);
+    } else {
+      setFoodTrips(updater);
+    }
+  };
+
   // Stats for both modes separately to support dynamic swapping!
   const [taxiStats, setTaxiStats] = useState<DriverStats>(() => {
     const saved = localStorage.getItem('bolt_sim_taxi_stats');
@@ -591,8 +993,29 @@ export default function App() {
   });
 
   const stats = useMemo(() => {
-    return mode === 'taxi' ? taxiStats : foodStats;
-  }, [mode, taxiStats, foodStats]);
+    const activeStats = mode === 'taxi' ? taxiStats : foodStats;
+    const activeTrips = mode === 'taxi' ? taxiTrips : foodTrips;
+
+    // Calculate real numbers from actual trips list
+    const nonMonthlyTrips = activeTrips.filter(t => !t.id.includes('-m'));
+    const todayTrips = activeTrips.filter(t => t.timestamp.includes('Today'));
+    const weeklyTrips = activeTrips.filter(t => 
+      t.timestamp.includes('Today') || 
+      t.timestamp.includes('Yesterday') || 
+      t.timestamp.includes('days ago')
+    );
+
+    const realTodayEarnings = todayTrips.reduce((sum, t) => sum + t.fare + t.tip, 0);
+    const realWeeklyEarnings = weeklyTrips.reduce((sum, t) => sum + t.fare + t.tip, 0);
+    const realCompletedCount = nonMonthlyTrips.length;
+
+    return {
+      ...activeStats,
+      todayEarnings: realTodayEarnings,
+      weeklyEarnings: realWeeklyEarnings,
+      completedTripsCount: realCompletedCount,
+    };
+  }, [mode, taxiStats, foodStats, taxiTrips, foodTrips]);
 
   const setStats = useCallback((updater: (s: DriverStats) => DriverStats) => {
     if (mode === 'taxi') {
@@ -621,101 +1044,6 @@ export default function App() {
   }, [mode]);
 
   // Completed trips tracking (Persisted in LocalStorage, seeds default list if empty)
-  const [taxiTrips, setTaxiTrips] = useState<CompletedTrip[]>(() => {
-    try {
-      const saved = localStorage.getItem('swift_taxi_completed_trips');
-      if (saved) return JSON.parse(saved);
-    } catch (_) {}
-    return [
-      {
-        id: 'mock-t-1',
-        passengerName: 'Jasper Montgomery',
-        pickupAddress: 'Mayfair District Lounge',
-        dropoffAddress: 'Chelsea Pavilions Gate',
-        fare: 16.50,
-        tip: 4.50,
-        timestamp: 'Today, 10:24 AM',
-        ratingValue: 5,
-        surgeMultiplier: 1.4
-      },
-      {
-        id: 'mock-t-2',
-        passengerName: 'Alistair Sterling',
-        pickupAddress: 'London City Airport Terminal 1',
-        dropoffAddress: 'Westminster Green',
-        fare: 34.00,
-        tip: 5.00,
-        timestamp: 'Yesterday, 05:45 PM',
-        ratingValue: 5,
-        surgeMultiplier: 1.0
-      },
-      {
-        id: 'mock-t-3',
-        passengerName: 'Penelope Thorne',
-        pickupAddress: 'Regent\'s Park North Coach',
-        dropoffAddress: 'Buckingham Palace East Gateway',
-        fare: 18.20,
-        tip: 3.00,
-        timestamp: 'Yesterday, 08:15 PM',
-        ratingValue: 5,
-        surgeMultiplier: 1.8
-      }
-    ];
-  });
-
-  const [foodTrips, setFoodTrips] = useState<CompletedTrip[]>(() => {
-    try {
-      const saved = localStorage.getItem('swift_food_completed_trips');
-      if (saved) return JSON.parse(saved);
-    } catch (_) {}
-    return [
-      {
-        id: 'mock-f-1',
-        passengerName: 'Fiona Gallagher',
-        pickupAddress: 'Gourmet Burger Kitchen',
-        dropoffAddress: 'Flat 4B, Bloomsbury Square',
-        fare: 8.50,
-        tip: 2.00,
-        timestamp: 'Today, 11:32 AM',
-        ratingValue: 5,
-        surgeMultiplier: 1.2
-      },
-      {
-        id: 'mock-f-2',
-        passengerName: 'Nigel Rutherford',
-        pickupAddress: 'Dishoom Indian Cuisine',
-        dropoffAddress: 'Soho Creative Studio Floor 3',
-        fare: 11.20,
-        tip: 3.50,
-        timestamp: 'Yesterday, 01:10 PM',
-        ratingValue: 5,
-        surgeMultiplier: 1.5
-      },
-      {
-        id: 'mock-f-3',
-        passengerName: 'Imogen Sinclair',
-        pickupAddress: 'Pizza Express Covent Garden',
-        dropoffAddress: 'King\'s College Dorm Room 51A',
-        fare: 7.20,
-        tip: 1.50,
-        timestamp: 'Yesterday, 07:40 PM',
-        ratingValue: 5,
-        surgeMultiplier: 1.0
-      }
-    ];
-  });
-
-  const completedTrips = useMemo(() => {
-    return mode === 'taxi' ? taxiTrips : foodTrips;
-  }, [mode, taxiTrips, foodTrips]);
-
-  const setCompletedTrips = (updater: any) => {
-    if (mode === 'taxi') {
-      setTaxiTrips(updater);
-    } else {
-      setFoodTrips(updater);
-    }
-  };
 
   const [isOnline, setIsOnline] = useState<boolean>(false);
   const [isSideMenuOpen, setIsSideMenuOpen] = useState<boolean>(false);
@@ -5216,37 +5544,56 @@ export default function App() {
                   </div>
 
                   {(() => {
-                    let grossEarnings = stats.todayEarnings;
-                    let ridesCount = stats.completedTripsCount;
+                    const todayTripsList = completedTrips.filter(t => t.timestamp.includes('Today'));
+                    const weekTripsList = completedTrips.filter(t => 
+                      t.timestamp.includes('Today') || 
+                      t.timestamp.includes('Yesterday') || 
+                      t.timestamp.includes('days ago')
+                    );
+                    const monthTripsList = completedTrips.filter(t => 
+                      !t.id.includes('-m') // Exclude monthly ledger archives
+                    );
+                    const yearTripsList = completedTrips;
+
+                    let activeTripsForPeriod = todayTripsList;
+                    let baseFare = todayTripsList.reduce((sum, t) => sum + t.fare, 0);
+                    let bonusFare = todayTripsList.reduce((sum, t) => sum + t.tip, 0);
+                    let ridesCount = todayTripsList.length;
                     let onlineTime = mode === 'taxi' ? '3h 45m' : '2h 30m';
-                    let pointsStr = mode === 'taxi' ? '120' : '90';
-                    let baseFare = stats.todayEarnings;
-                    let bonusFare = mode === 'taxi' ? 15.00 : 6.50;
+                    let pointsStr = `${ridesCount * 25}`;
                     let titleLabel = "Today";
 
                     if (earningsPeriod === 'week') {
-                      grossEarnings = stats.weeklyEarnings;
-                      ridesCount = stats.completedTripsCount + 22;
-                      onlineTime = mode === 'taxi' ? '24h 15m' : '18h 45m';
-                      pointsStr = mode === 'taxi' ? '740' : '620';
-                      baseFare = stats.weeklyEarnings;
-                      bonusFare = mode === 'taxi' ? 75.00 : 35.00;
+                      activeTripsForPeriod = weekTripsList;
+                      baseFare = weekTripsList.reduce((sum, t) => sum + t.fare, 0);
+                      bonusFare = weekTripsList.reduce((sum, t) => sum + t.tip, 0);
+                      ridesCount = weekTripsList.length;
+                      const hours = stats.hoursOnline * 5.4;
+                      onlineTime = `${Math.floor(hours)}h ${Math.round((hours % 1) * 60)}m`;
+                      pointsStr = `${ridesCount * 25}`;
                       titleLabel = "This Week";
                     } else if (earningsPeriod === 'month') {
-                      grossEarnings = stats.weeklyEarnings * 4.2 + 120.00;
-                      ridesCount = stats.completedTripsCount + 94;
-                      onlineTime = mode === 'taxi' ? '98h 30m' : '76h 15m';
-                      pointsStr = mode === 'taxi' ? '3,120' : '2,480';
-                      baseFare = stats.weeklyEarnings * 4.2 + 120.00;
-                      bonusFare = mode === 'taxi' ? 320.00 : 160.00;
+                      activeTripsForPeriod = monthTripsList;
+                      baseFare = monthTripsList.reduce((sum, t) => sum + t.fare, 0);
+                      bonusFare = monthTripsList.reduce((sum, t) => sum + t.tip, 0);
+                      ridesCount = monthTripsList.length;
+                      const hours = stats.hoursOnline * 24.5;
+                      onlineTime = `${Math.floor(hours)}h ${Math.round((hours % 1) * 60)}m`;
+                      pointsStr = `${ridesCount * 25}`;
                       titleLabel = "This Month";
                     } else if (earningsPeriod === 'year') {
-                      grossEarnings = stats.weeklyEarnings * 52.1 + 840.00;
-                      ridesCount = stats.completedTripsCount + 1240;
-                      onlineTime = mode === 'taxi' ? '1,240h' : '980h';
-                      pointsStr = mode === 'taxi' ? '41,500' : '32,400';
-                      baseFare = stats.weeklyEarnings * 52.1 + 840.00;
-                      bonusFare = mode === 'taxi' ? 4200.00 : 2100.00;
+                      activeTripsForPeriod = yearTripsList;
+                      baseFare = yearTripsList.reduce((sum, t) => sum + t.fare, 0);
+                      bonusFare = yearTripsList.reduce((sum, t) => sum + t.tip, 0);
+                      ridesCount = yearTripsList.reduce((sum, t) => {
+                        if (t.id.includes('-m')) {
+                          return sum + 140;
+                        }
+                        return sum + 1;
+                      }, 0);
+                      const hours = stats.hoursOnline * 24.5 + 410; // Add previous months online representation
+                      onlineTime = `${Math.floor(hours)}h`;
+                      pointsStr = `${ridesCount * 25}`;
                       titleLabel = "This Year";
                     }
 
@@ -5437,7 +5784,7 @@ export default function App() {
                           <div className="space-y-2.5">
                             <div className="flex items-center justify-between px-1">
                               <span className="text-[9.5px] text-gray-400 font-bold uppercase tracking-wider block">Completed Trip Receipts ({mode})</span>
-                              <span className="text-[8px] text-gray-400 font-bold">{completedTrips.length} entries</span>
+                              <span className="text-[8px] text-gray-400 font-bold">{activeTripsForPeriod.length} entries</span>
                             </div>
 
                             {/* Search bar and Filter row */}
@@ -5489,7 +5836,7 @@ export default function App() {
 
                             {(() => {
                               // Perform logical match and filter passes
-                              let items = [...completedTrips];
+                              let items = [...activeTripsForPeriod];
                               
                               if (tripSearchText.trim()) {
                                 const q = tripSearchText.toLowerCase();
