@@ -2656,7 +2656,7 @@ export default function App() {
     
     sendRealNotification(
       mode === 'food' ? "🍕 New Swift Eats Order!" : "🚕 New Swift Ride Match!",
-      `Match: ${finalRide.passengerName} (★${finalRide.passengerRating}) • Distance: ${finalRide.distance}km • Est Fare: £${(finalRide.fare * multiplier).toFixed(2)}`
+      `Match: ${finalRide.passengerName} (★${finalRide.passengerRating}) • Distance: ${finalRide.distance}km • Est Fare: £${(finalRide.fare * multiplier).toFixed(2)} • Pay: ${finalRide.qualityScore}`
     );
   }, [isOnline, isOnBreak, tripProgress.stage, surgeLevel, mode, appendLog, soundEnabled, playSoundEffect, currentCity]);
 
@@ -2695,6 +2695,8 @@ export default function App() {
 
     const multiplier = surgeLevel === 'high' ? 2.2 : surgeLevel === 'medium' ? 1.4 : 1.0;
     const finalFare = booking.fare;
+    const revenuePerKm = (finalFare * multiplier) / 5.4;
+    const computedQuality: 'Excellent' | 'Good' | 'Fair' = revenuePerKm >= 3.0 ? 'Excellent' : revenuePerKm >= 1.8 ? 'Good' : 'Fair';
     
     const prebookedRide: RideRequest = {
       id: `prebooked-${Date.now()}`,
@@ -2710,6 +2712,7 @@ export default function App() {
       tipAmount: +(3.00 + Math.random() * 5.00).toFixed(2),
       estimatedMinutes: 10,
       category: booking.category || 'Swift Premier',
+      qualityScore: computedQuality,
     };
 
     setTripProgress({
@@ -2726,7 +2729,7 @@ export default function App() {
     
     sendRealNotification(
       "📅 Scheduled Ride Dispatch!",
-      `Reserved Fare from ${prebookedRide.passengerName} is ready starting now! Payout: £${(prebookedRide.fare * multiplier).toFixed(2)}`
+      `Reserved Fare from ${prebookedRide.passengerName} is ready starting now! Payout: £${(prebookedRide.fare * multiplier).toFixed(2)} • Pay: ${prebookedRide.qualityScore}`
     );
   }, [isOnline, isOnBreak, tripProgress.stage, surgeLevel, playSoundEffect, appendLog, sendRealNotification]);
 
@@ -2809,7 +2812,7 @@ export default function App() {
     
     sendRealNotification(
       mode === 'food' ? "🍕 Hot Demand order!" : "🚕 Hot Zone Surge Match!",
-      `Match from ${areaName} (★${generated.passengerRating}) • Distance: ${generated.distance}km • Est Fare: £${(finalFare * multiplier).toFixed(2)}`
+      `Match from ${areaName} (★${generated.passengerRating}) • Distance: ${generated.distance}km • Est Fare: £${(finalFare * multiplier).toFixed(2)} • Pay: ${generated.qualityScore}`
     );
   };
 
@@ -4411,6 +4414,108 @@ export default function App() {
                       {currentTimeStr}
                     </span>
                   </div>
+
+                  {/* Apple WidgetKit / ActivityKit - Lock Screen Live Activity Widget */}
+                  {isOnline && (
+                    <motion.div 
+                      initial={{ opacity: 0, y: 15, scale: 0.95 }}
+                      animate={{ opacity: 1, y: 0, scale: 1 }}
+                      transition={{ type: 'spring', stiffness: 260, damping: 20 }}
+                      className="mt-4 mx-1 p-3 rounded-2xl bg-zinc-950/85 border border-zinc-800/60 backdrop-blur-md text-left flex flex-col gap-2 shadow-[0_12px_25px_rgba(0,0,0,0.4)] relative overflow-hidden"
+                    >
+                      {/* Ambient Glowing border pulse representing continuous background tracking */}
+                      <div className="absolute top-0 left-0 right-0 h-[2px] bg-gradient-to-r from-emerald-500/0 via-[#13AA52]/45 to-blue-500/0 animate-pulse" />
+                      
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-1.5">
+                          <div className="w-5 h-5 rounded-md bg-[#13AA52] flex items-center justify-center shadow-md">
+                            <Navigation className="w-3 text-white fill-white rotate-45" />
+                          </div>
+                          <div>
+                            <span className="text-[8.5px] font-black text-white tracking-wide uppercase block">Swift Live Activity</span>
+                            <span className="text-[6.5px] text-zinc-400 font-mono flex items-center gap-1">
+                              <span className="inline-block w-1 h-1 rounded-full bg-emerald-500 animate-ping shrink-0" />
+                              CoreLocation • Background Active
+                            </span>
+                          </div>
+                        </div>
+                        {tripProgress.currentRide ? (
+                          <span className="bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 text-[6.5px] font-black font-mono px-1.5 py-0.2 rounded uppercase tracking-wider">
+                            {tripProgress.currentRide.qualityScore || 'Standard'} Pay
+                          </span>
+                        ) : (
+                          <span className="bg-blue-500/10 text-blue-400 border border-blue-500/20 text-[6.5px] font-black font-mono px-1.5 py-0.2 rounded uppercase tracking-wider animate-pulse">
+                            Searching
+                          </span>
+                        )}
+                      </div>
+
+                      {tripProgress.currentRide ? (
+                        <div className="flex flex-col gap-1">
+                          <div className="flex items-baseline justify-between">
+                            <span className="text-[10px] font-extrabold text-white truncate max-w-[130px]">
+                              {tripProgress.currentRide.passengerName}
+                            </span>
+                            <span className="text-[9.5px] font-black text-emerald-400 font-mono">
+                              ETA {tripProgress.etaMinutes}m
+                            </span>
+                          </div>
+
+                          {/* Mini MapKit Track Indicator */}
+                          <div className="flex items-center gap-1 text-[7.5px] text-zinc-350">
+                            <div className="w-2 h-2 rounded-full bg-blue-500 border border-zinc-950 shrink-0" />
+                            <span className="truncate max-w-[200px]">
+                              {tripProgress.stage === 'to_pickup' || tripProgress.stage === 'arrived_pickup'
+                                ? `Pickup: ${tripProgress.currentRide.pickupAddress}`
+                                : `Dropoff: ${tripProgress.currentRide.dropoffAddress}`
+                              }
+                            </span>
+                          </div>
+
+                          {/* Navigation Progress bar */}
+                          <div className="space-y-0.5 mt-0.5">
+                            <div className="w-full h-1 bg-zinc-900 border border-zinc-800/55 rounded-full overflow-hidden p-[1px]">
+                              <div 
+                                className="h-full bg-gradient-to-r from-emerald-500 to-blue-500 rounded-full transition-all duration-300 shadow-[0_0_8px_#10b981]"
+                                style={{ width: `${tripProgress.navigationProgress}%` }}
+                              />
+                            </div>
+                            <div className="flex justify-between text-[6px] font-mono text-zinc-500 uppercase font-bold tracking-wider leading-none">
+                              <span>Start</span>
+                              <span>MapKit Engine {Math.round(tripProgress.navigationProgress)}%</span>
+                              <span>Dest</span>
+                            </div>
+                          </div>
+                        </div>
+                      ) : (
+                        <div className="flex flex-col gap-1 py-0.5">
+                          <div className="flex items-center justify-between text-zinc-200">
+                            <span className="text-[8.5px] font-bold">Scanning Central London grid...</span>
+                            <span className="text-[8px] font-black text-emerald-400 font-mono animate-pulse">
+                              {useRealGPS ? 'GPS locked' : 'Simulating'}
+                            </span>
+                          </div>
+                          
+                          {/* Mini stats row */}
+                          <div className="grid grid-cols-2 gap-1.5 mt-0.5 border-t border-zinc-900/60 pt-1">
+                            <div>
+                              <span className="text-[5.5px] text-zinc-500 font-mono uppercase block font-bold leading-none">APNs Link</span>
+                              <span className="text-[7.5px] font-black text-zinc-300 flex items-center gap-1">
+                                <span className="w-1 h-1 rounded-full bg-emerald-500 shrink-0" />
+                                Connected
+                              </span>
+                            </div>
+                            <div>
+                              <span className="text-[5.5px] text-zinc-500 font-mono uppercase block font-bold leading-none">GPS LAT/LON</span>
+                              <span className="text-[7.5px] font-mono font-bold text-zinc-350 block leading-none truncate">
+                                {realCoords ? `${realCoords.lat.toFixed(4)}N, ${realCoords.lon.toFixed(4)}W` : '51.5074° N, 0.1278° W'}
+                              </span>
+                            </div>
+                          </div>
+                        </div>
+                      )}
+                    </motion.div>
+                  )}
 
                   {/* iOS Style Icons Grid */}
                   <div className="grid grid-cols-4 gap-x-3 gap-y-5 px-1 mt-6 flex-1 items-start content-start">
@@ -6057,6 +6162,7 @@ export default function App() {
                         {menuSubScreen === 'categories' && 'Ride Tiers'}
                         {menuSubScreen === 'quests' && 'Driver Quests'}
                         {menuSubScreen === 'about' && 'About Simulator'}
+                        {menuSubScreen === 'apple-kits' && 'iOS Apple Kits'}
                         {menuSubScreen === 'notifications' && 'Notifications Inbox'}
                         {menuSubScreen === 'help' && 'Driver Help & Chatbot'}
                       </span>
@@ -6254,6 +6360,24 @@ export default function App() {
                             </div>
                           </div>
                           <ChevronRight className="w-3.5 h-3.5 text-gray-300" />
+                        </button>
+
+                        {/* iOS Apple Kits Integration button */}
+                        <button 
+                          onClick={() => { playSoundEffect('tap'); setMenuSubScreen('apple-kits'); }}
+                          className={`flex items-center justify-between py-3 px-2.5 rounded-xl transition text-left text-[11px] font-extrabold ${darkMode ? 'hover:bg-zinc-900 text-zinc-100' : 'hover:bg-gray-100 text-gray-800'}`}
+                        >
+                          <div className="flex items-center gap-3">
+                            <Smartphone className="w-4 h-4 text-blue-500" />
+                            <div className="flex flex-col">
+                              <span>iOS Apple Kits Integration</span>
+                              <span className="text-[7.5px] text-gray-400 font-medium font-bold">CoreLocation, ActivityKit, APNs</span>
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-1 text-blue-500 font-mono text-[8.5px]">
+                            <span className="bg-blue-500/10 text-blue-600 text-[8px] font-black px-1.5 py-0.2 rounded font-mono uppercase">ACTIVE</span>
+                            <ChevronRight className="w-3.5 h-3.5 text-gray-300" />
+                          </div>
                         </button>
 
                         {/* 6. About Swift Driver */}
@@ -6993,6 +7117,162 @@ export default function App() {
 
                       <div className="p-3 text-[9.5px] text-gray-400 text-center leading-relaxed">
                         Built for ultimate driver simulation on London and worldwide routes. Features include custom surge controls, full offline telemetry state persistence, and multiple Eats order queues.
+                      </div>
+                    </div>
+                  )}
+
+                  {/* SUB-SCREEN: APPLE KITS INTEGRATION */}
+                  {menuSubScreen === 'apple-kits' && (
+                    <div className="flex-1 overflow-y-auto p-4 flex flex-col gap-4 animate-in fade-in slide-in-from-right duration-250 text-left">
+                      <div>
+                        <h3 className="text-sm font-black tracking-tight mb-1">Apple Kits & Core Services</h3>
+                        <p className="text-[10px] text-gray-400 font-semibold leading-normal">
+                          View the operational telemetry of native iOS background services powering continuous dispatches, live navigation overlays, and real-time widget synchronization.
+                        </p>
+                      </div>
+
+                      {/* 1. CORE LOCATION STATUS */}
+                      <div className={`p-3.5 rounded-2xl border flex flex-col gap-2.5 ${darkMode ? 'bg-zinc-900 border-zinc-800' : 'bg-gray-50 border-gray-150'}`}>
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-2">
+                            <Compass className="w-4 h-4 text-emerald-500 animate-spin-slow" />
+                            <span className="text-[11px] font-black uppercase tracking-wider">Core Location Service</span>
+                          </div>
+                          <span className="bg-emerald-100 text-emerald-800 text-[7px] font-black font-mono px-1.5 py-0.2 rounded-full">CONTINUOUS</span>
+                        </div>
+                        <div className="space-y-1.5 text-[10px]">
+                          <div className="flex justify-between items-center border-b border-gray-105/5 pb-1.5">
+                            <span className="text-zinc-400">Background GPS updates</span>
+                            <span className="font-bold text-[#13AA52]">✓ Enabled (Continuous)</span>
+                          </div>
+                          <div className="flex justify-between items-center border-b border-gray-105/5 pb-1.5">
+                            <span className="text-zinc-400">Signal Accuracy</span>
+                            <span className="font-bold font-mono">Horizontal: ±5m (Excellent)</span>
+                          </div>
+                          <div className="flex justify-between items-center pb-0.5">
+                            <span className="text-zinc-400">Current Geolocation coords</span>
+                            <span className="font-mono font-bold text-zinc-350">
+                              {realCoords ? `${realCoords.lat.toFixed(6)}N, ${realCoords.lon.toFixed(6)}W` : '51.507351 N, -0.127758 W'}
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* 2. MAPKIT STATUS */}
+                      <div className={`p-3.5 rounded-2xl border flex flex-col gap-2.5 ${darkMode ? 'bg-zinc-900 border-zinc-800' : 'bg-gray-50 border-gray-150'}`}>
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-2">
+                            <Map className="w-4 h-4 text-blue-500" />
+                            <span className="text-[11px] font-black uppercase tracking-wider">MapKit Vector Engine</span>
+                          </div>
+                          <span className="bg-blue-100 text-blue-800 text-[7px] font-black font-mono px-1.5 py-0.2 rounded-full">ACTIVE</span>
+                        </div>
+                        <div className="space-y-1.5 text-[10px]">
+                          <div className="flex justify-between items-center border-b border-gray-105/5 pb-1.5">
+                            <span className="text-zinc-400">Vector Terrain Tile Renderer</span>
+                            <span className="font-bold text-[#007AFF]">Metal API GPU Accelerated</span>
+                          </div>
+                          <div className="flex justify-between items-center border-b border-gray-105/5 pb-1.5">
+                            <span className="text-zinc-400">Turn-by-turn Navigation buffer</span>
+                            <span className="font-bold">20Hz coordinate smoothing</span>
+                          </div>
+                          <div className="flex justify-between items-center pb-0.5">
+                            <span className="text-zinc-400">Route Geometry Engine</span>
+                            <span className="font-mono text-[9px] font-bold text-[#13AA52]">✓ Online (Swift Routing API)</span>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* 3. ACTIVITYKIT & WIDGETKIT */}
+                      <div className={`p-3.5 rounded-2xl border flex flex-col gap-2.5 ${darkMode ? 'bg-zinc-900 border-zinc-800' : 'bg-gray-50 border-gray-150'}`}>
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-2">
+                            <Award className="w-4 h-4 text-purple-500" />
+                            <span className="text-[11px] font-black uppercase tracking-wider">ActivityKit & WidgetKit</span>
+                          </div>
+                          <span className="bg-purple-100 text-purple-800 text-[7px] font-black font-mono px-1.5 py-0.2 rounded-full">SYNCED</span>
+                        </div>
+                        <div className="space-y-1.5 text-[10px]">
+                          <div className="flex justify-between items-center border-b border-gray-105/5 pb-1.5">
+                            <span className="text-zinc-400">Live Activity Session ID</span>
+                            <span className="font-mono text-[8.5px] font-bold text-purple-400">la_sess_8f92a4b8901c0d45</span>
+                          </div>
+                          <div className="flex justify-between items-center border-b border-gray-105/5 pb-1.5">
+                            <span className="text-zinc-400">Lock Screen widget (WidgetKit)</span>
+                            <span className="font-bold text-[#13AA52]">Rendered (Compact/Expanded)</span>
+                          </div>
+                          <div className="flex justify-between items-center pb-0.5">
+                            <span className="text-zinc-400">Dynamic Island Presenter</span>
+                            <span className="font-bold text-amber-500 flex items-center gap-1 animate-pulse">
+                              ● Connected (Minimal & Minimal)
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* 4. BACKGROUND MODES & APNS REGISTRY */}
+                      <div className={`p-3.5 rounded-2xl border flex flex-col gap-2.5 ${darkMode ? 'bg-zinc-900 border-zinc-800' : 'bg-gray-50 border-gray-150'}`}>
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-2">
+                            <Globe className="w-4 h-4 text-amber-500" />
+                            <span className="text-[11px] font-black uppercase tracking-wider">APNs & Background Capabilities</span>
+                          </div>
+                          <span className="bg-amber-100 text-amber-800 text-[7px] font-black font-mono px-1.5 py-0.2 rounded-full">SECURE</span>
+                        </div>
+                        <div className="space-y-1.5 text-[10px]">
+                          <div className="flex justify-between items-center border-b border-gray-105/5 pb-1.5">
+                            <span className="text-zinc-400">Target Background Modes</span>
+                            <span className="font-bold text-emerald-400 font-mono text-[8.5px]">audio, location, remote-notification</span>
+                          </div>
+                          <div className="flex justify-between items-center border-b border-gray-105/5 pb-1.5">
+                            <span className="text-zinc-400">APNs push token registration</span>
+                            <span className="font-mono text-[8px] truncate max-w-[155px]">apns_token_712ab9f546c1e3d0fa85</span>
+                          </div>
+                          <div className="flex justify-between items-center pb-0.5">
+                            <span className="text-zinc-400">APNs connection state</span>
+                            <span className="font-bold text-[#13AA52]">✓ Connected (SSL Handshake complete)</span>
+                          </div>
+                        </div>
+
+                        {/* Interactive Remote Push Simulation Action */}
+                        <button
+                          onClick={() => {
+                            playSoundEffect('offer');
+                            appendLog("📡 [APNs Push] Remote server sent background push payload to update Live Activity widgets.", "success");
+                            sendRealNotification(
+                              "💎 Premium Dispatch Offer (APNs Push)!", 
+                              "Match: Royal Albert Hall Premier Rider • Distance: 4.8km • Est Fare: £34.50 • Pay: Excellent"
+                            );
+                            // Also spawn a premium ride offering in the simulator!
+                            const mockOfferId = `apns-offer-${Date.now()}`;
+                            setTripProgress({
+                              stage: 'offering',
+                              currentRide: {
+                                id: mockOfferId,
+                                passengerName: 'Tessa Churchill (VIP)',
+                                passengerRating: 4.95,
+                                pickupAddress: 'Royal Albert Hall Entrance',
+                                dropoffAddress: 'Chelsea Waterfront Residences',
+                                fare: 34.50,
+                                distance: 4.8,
+                                surgeMultiplier: 1.8,
+                                pickupCoordinate: { x: 120, y: 190 },
+                                dropoffCoordinate: { x: 260, y: 110 },
+                                tipAmount: 10.00,
+                                estimatedMinutes: 14,
+                                category: mode === 'taxi' ? 'Swift Premier' : undefined,
+                                qualityScore: 'Excellent',
+                              },
+                              offerTimeRemaining: 15,
+                              totalOfferTime: 15,
+                              navigationProgress: 0,
+                              etaMinutes: 4,
+                            });
+                          }}
+                          className="w-full mt-1.5 py-2 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white rounded-xl text-[9px] font-black uppercase tracking-wider text-center cursor-pointer shadow-md transition-all active:scale-[0.98]"
+                        >
+                          Trigger Remote APNs Push Update 📡
+                        </button>
                       </div>
                     </div>
                   )}
