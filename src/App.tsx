@@ -3429,7 +3429,7 @@ export default function App() {
   };
 
   return (
-    <div className="fixed inset-0 bg-zinc-950 flex flex-col items-center justify-center font-sans select-none overflow-hidden touch-none">
+    <div className="fixed inset-0 bg-zinc-950 flex flex-col items-center justify-center font-sans select-none overflow-hidden touch-pan-y">
       
       {/* Smartphone Hardware Frame Body Shell */}
       <div className="w-full h-full md:max-w-[390px] md:h-[844px] md:rounded-[50px] md:shadow-[0_25px_60px_rgba(0,0,0,0.85)] md:border-[11px] md:border-zinc-800 bg-white relative flex flex-col overflow-hidden">
@@ -4824,25 +4824,25 @@ export default function App() {
 
                     {/* Floating stats header inside Home map when online and searching */}
                     {isOnline && tripProgress.stage === 'idle' && activeEatsJobs.length === 0 && (
-                      <div className={`absolute top-3 left-3 right-3 backdrop-blur-md border rounded-xl p-2 flex items-center justify-between shadow-md z-15 animate-in fade-in duration-300 ${darkMode ? 'bg-zinc-900/95 border-zinc-800 text-zinc-100' : 'bg-white/95 border-gray-100 text-gray-950'}`}>
-                        <div className={`text-center flex-1 border-r ${darkMode ? 'border-zinc-800' : 'border-gray-100'}`}>
-                          <span className="text-[7px] text-gray-400 dark:text-zinc-450 uppercase font-bold block leading-none">Accept Rate</span>
-                          <span className={`text-[10px] font-bold font-mono tracking-tight ${darkMode ? 'text-zinc-100' : 'text-gray-900'}`}>{stats.acceptanceRate}%</span>
+                      <div className={`absolute top-2 sm:top-3 left-2 sm:left-3 right-2 sm:right-3 backdrop-blur-md border rounded-xl p-1.5 sm:p-2 flex items-center justify-between shadow-md z-15 animate-in fade-in duration-300 gap-1 ${darkMode ? 'bg-zinc-900/95 border-zinc-800 text-zinc-100' : 'bg-white/95 border-gray-100 text-gray-950'}`}>
+                        <div className={`text-center flex-1 min-w-0 border-r px-0.5 ${darkMode ? 'border-zinc-800' : 'border-gray-100'}`}>
+                          <span className="text-[6.5px] sm:text-[7.5px] text-gray-400 dark:text-zinc-450 uppercase font-bold block leading-none truncate">Accept Rate</span>
+                          <span className={`text-[9px] sm:text-[10px] font-bold font-mono tracking-tight block mt-0.5 ${darkMode ? 'text-zinc-100' : 'text-gray-900'}`}>{stats.acceptanceRate}%</span>
                         </div>
-                        <div className={`text-center flex-1 border-r ${darkMode ? 'border-zinc-800' : 'border-gray-100'}`}>
-                          <span className="text-[7px] text-gray-400 dark:text-zinc-450 uppercase font-bold block leading-none">Rating Stars</span>
-                          <span className="text-[10px] font-bold font-mono text-amber-500 flex items-center justify-center gap-0.5 leading-none">
+                        <div className={`text-center flex-1 min-w-0 border-r px-0.5 ${darkMode ? 'border-zinc-800' : 'border-gray-100'}`}>
+                          <span className="text-[6.5px] sm:text-[7.5px] text-gray-400 dark:text-zinc-450 uppercase font-bold block leading-none truncate">Rating Stars</span>
+                          <span className="text-[9px] sm:text-[10px] font-bold font-mono text-amber-500 flex items-center justify-center gap-0.5 leading-none mt-0.5">
                             {stats.rating.toFixed(1)} <Star className="w-2 h-2 text-amber-500 fill-amber-500 animate-pulse" />
                           </span>
                         </div>
-                        <div className={`text-center flex-1 border-r ${darkMode ? 'border-zinc-800' : 'border-gray-100'}`}>
-                          <span className="text-[7px] text-gray-400 dark:text-zinc-450 uppercase font-bold block leading-none">Today's Total</span>
-                          <span className="text-[10px] font-bold font-mono text-[#13AA52] block leading-none">£{stats.todayEarnings.toFixed(2)}</span>
-                          <span className="text-[6.5px] text-gray-400/80 font-bold block mt-0.5 font-sans leading-none">Goal £{dailyEarningsGoal}</span>
+                        <div className={`text-center flex-1 min-w-0 border-r px-0.5 ${darkMode ? 'border-zinc-800' : 'border-gray-100'}`}>
+                          <span className="text-[6.5px] sm:text-[7.5px] text-gray-400 dark:text-zinc-450 uppercase font-bold block leading-none truncate">Today's Total</span>
+                          <span className="text-[9px] sm:text-[10px] font-bold font-mono text-[#13AA52] block leading-none mt-0.5 truncate">£{stats.todayEarnings.toFixed(2)}</span>
+                          <span className="text-[6px] sm:text-[6.5px] text-gray-400/80 font-bold block mt-0.5 font-sans leading-none truncate">Goal £{dailyEarningsGoal}</span>
                         </div>
-                        <div className="text-center flex-1">
-                          <span className="text-[7px] text-gray-400 dark:text-zinc-450 uppercase font-bold block leading-none">Badge Level</span>
-                          <span className="text-[10px] font-extrabold font-sans text-emerald-600 dark:text-emerald-400 flex items-center justify-center gap-0.5 leading-none mt-0.5">
+                        <div className="text-center flex-1 min-w-0 px-0.5">
+                          <span className="text-[6.5px] sm:text-[7.5px] text-gray-400 dark:text-zinc-450 uppercase font-bold block leading-none truncate">Badge Level</span>
+                          <span className="text-[8.5px] sm:text-[10px] font-extrabold font-sans text-emerald-600 dark:text-emerald-400 flex items-center justify-center gap-0.5 leading-none mt-0.5 truncate">
                             {driverLevel.medal} {driverLevel.name}
                           </span>
                         </div>
@@ -7665,7 +7665,9 @@ export default function App() {
               )}
 
               {/* PERSISTENT TAB NAVBAR NAVIGATION AT THE BOTTOM (Matches Swift layout precisely!) */}
-              <div className="h-12 bg-white border-t border-gray-100 flex items-center justify-around shrink-0 z-20">
+              <div className={`h-12 border-t flex items-center justify-around shrink-0 z-20 ${
+                darkMode ? 'bg-zinc-950 border-zinc-900 text-zinc-100' : 'bg-white border-gray-100 text-gray-900'
+              }`}>
                 <button
                   onClick={() => { playSoundEffect('tap'); setActiveTab('home'); }}
                   className={`flex flex-col items-center justify-center gap-0.5 flex-1 h-full transition-colors ${
