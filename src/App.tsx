@@ -13,7 +13,7 @@ import {
   Navigation, Star, Zap, Clock, Landmark, Sparkles, Compass, MessageSquare, 
   AlertTriangle, CheckCircle, Smartphone, Wifi, Battery, Menu, Bell, 
   ChevronRight, ChevronLeft, Info, Car, HelpCircle, Settings, LogOut, Check, ArrowRight, X, Phone, User, Calendar, Coffee,
-  Globe, Lock, ShieldAlert, Video, WifiOff, Sun, Moon, Sliders, Mail, Award, Target, TrendingUp, Search, Map, Flame
+  Globe, Lock, ShieldAlert, Video, WifiOff, Sun, Moon, Sliders, Mail, Award, Target, TrendingUp, Search, Map, Flame, Volume2, ShieldCheck
 } from 'lucide-react';
 
 // Live Firebase client and authentications
@@ -6163,6 +6163,7 @@ export default function App() {
                         {menuSubScreen === 'quests' && 'Driver Quests'}
                         {menuSubScreen === 'about' && 'About Simulator'}
                         {menuSubScreen === 'apple-kits' && 'iOS Apple Kits'}
+                        {menuSubScreen === 'background-help' && 'Background Execution Guide'}
                         {menuSubScreen === 'notifications' && 'Notifications Inbox'}
                         {menuSubScreen === 'help' && 'Driver Help & Chatbot'}
                       </span>
@@ -6376,6 +6377,24 @@ export default function App() {
                           </div>
                           <div className="flex items-center gap-1 text-blue-500 font-mono text-[8.5px]">
                             <span className="bg-blue-500/10 text-blue-600 text-[8px] font-black px-1.5 py-0.2 rounded font-mono uppercase">ACTIVE</span>
+                            <ChevronRight className="w-3.5 h-3.5 text-gray-300" />
+                          </div>
+                        </button>
+
+                        {/* Background Execution Guide button */}
+                        <button 
+                          onClick={() => { playSoundEffect('tap'); setMenuSubScreen('background-help'); }}
+                          className={`flex items-center justify-between py-3 px-2.5 rounded-xl transition text-left text-[11px] font-extrabold ${darkMode ? 'hover:bg-zinc-900 text-zinc-100' : 'hover:bg-gray-100 text-gray-800'}`}
+                        >
+                          <div className="flex items-center gap-3">
+                            <Zap className="w-4 h-4 text-[#13AA52]" />
+                            <div className="flex flex-col">
+                              <span>Background App Execution</span>
+                              <span className="text-[7.5px] text-gray-400 font-medium font-bold">PWA, Push Sync, Audio & Wake Lock</span>
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-1 text-[#13AA52] font-mono text-[8.5px]">
+                            <span className="bg-emerald-500/10 text-emerald-600 text-[8px] font-black px-1.5 py-0.2 rounded font-mono uppercase">GUIDE</span>
                             <ChevronRight className="w-3.5 h-3.5 text-gray-300" />
                           </div>
                         </button>
@@ -7117,6 +7136,113 @@ export default function App() {
 
                       <div className="p-3 text-[9.5px] text-gray-400 text-center leading-relaxed">
                         Built for ultimate driver simulation on London and worldwide routes. Features include custom surge controls, full offline telemetry state persistence, and multiple Eats order queues.
+                      </div>
+
+                      {/* Quick link button to Background Execution Guide */}
+                      <button
+                        onClick={() => { playSoundEffect('tap'); setMenuSubScreen('background-help'); }}
+                        className="w-full py-2.5 px-3 bg-[#13AA52]/10 hover:bg-[#13AA52]/20 border border-[#13AA52]/30 rounded-xl text-[#13AA52] text-[10px] font-black uppercase tracking-wider flex items-center justify-between cursor-pointer transition"
+                      >
+                        <div className="flex items-center gap-2">
+                          <Zap className="w-3.5 h-3.5" />
+                          <span>How Web Apps Stay Active in Background</span>
+                        </div>
+                        <ChevronRight className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
+                  )}
+
+                  {/* SUB-SCREEN: BACKGROUND EXECUTION GUIDE */}
+                  {menuSubScreen === 'background-help' && (
+                    <div className="flex-1 overflow-y-auto p-4 flex flex-col gap-3.5 animate-in fade-in slide-in-from-right duration-250 text-left">
+                      <div className="flex items-center gap-2.5 border-b border-gray-100 dark:border-zinc-800 pb-3">
+                        <div className="w-9 h-9 rounded-xl bg-emerald-500/10 text-[#13AA52] flex items-center justify-center font-black shrink-0">
+                          <Zap className="w-5 h-5 text-[#13AA52]" />
+                        </div>
+                        <div>
+                          <h3 className="text-xs font-black tracking-tight text-gray-900 dark:text-zinc-100 uppercase">How Web Applications Stay Active in the Background</h3>
+                          <span className="text-[8.5px] font-mono text-zinc-400 block">Browser Background Execution & PWA Architecture</span>
+                        </div>
+                      </div>
+
+                      <p className="text-[10px] text-gray-600 dark:text-zinc-300 font-medium leading-relaxed">
+                        Standard browser security models pause JavaScript execution or throttle timers when a web browser tab or mobile web view is minimized or put in the background. However, web apps utilize several strategies and browser APIs to remain active or notify drivers in the background:
+                      </p>
+
+                      {/* 1. Installing as a PWA */}
+                      <div className={`p-3.5 rounded-2xl border flex flex-col gap-2 ${darkMode ? 'bg-zinc-900 border-zinc-800' : 'bg-gray-50 border-gray-200'}`}>
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-2">
+                            <Smartphone className="w-4 h-4 text-blue-500 shrink-0" />
+                            <span className="text-[10.5px] font-black uppercase text-gray-900 dark:text-zinc-100">1. Installing as a PWA (Home Screen Shortcut)</span>
+                          </div>
+                          <span className="bg-blue-500/10 text-blue-600 dark:text-blue-400 text-[7px] font-black font-mono px-1.5 py-0.5 rounded shrink-0">RECOMMENDED</span>
+                        </div>
+                        <div className="space-y-1.5 text-[10px] text-gray-600 dark:text-zinc-300 leading-normal mt-1">
+                          <div className="p-2 rounded-xl bg-white dark:bg-zinc-950 border border-gray-150 dark:border-zinc-800">
+                            <span className="font-bold text-gray-800 dark:text-zinc-200 block mb-0.5">iOS (Safari):</span>
+                            Tap the <span className="font-bold text-blue-500">Share</span> button ➔ <span className="font-bold text-blue-500">Add to Home Screen</span>.
+                          </div>
+                          <div className="p-2 rounded-xl bg-white dark:bg-zinc-950 border border-gray-150 dark:border-zinc-800">
+                            <span className="font-bold text-gray-800 dark:text-zinc-200 block mb-0.5">Android (Chrome):</span>
+                            Tap the <span className="font-bold text-emerald-500">3 dots menu</span> ➔ <span className="font-bold text-emerald-500">Add to Home Screen / Install App</span>.
+                          </div>
+                          <p className="text-[9.5px] text-gray-500 dark:text-zinc-400 italic pt-1">
+                            Running the app standalone from your Home Screen gives it higher OS execution priority and prevents Safari/Chrome from aggressively killing tab memory when switching apps.
+                          </p>
+                        </div>
+                      </div>
+
+                      {/* 2. Web Push & Browser Background Sync */}
+                      <div className={`p-3.5 rounded-2xl border flex flex-col gap-2 ${darkMode ? 'bg-zinc-900 border-zinc-800' : 'bg-gray-50 border-gray-200'}`}>
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-2">
+                            <Globe className="w-4 h-4 text-purple-500 shrink-0" />
+                            <span className="text-[10.5px] font-black uppercase text-gray-900 dark:text-zinc-100">2. Web Push & Browser Background Sync</span>
+                          </div>
+                          <span className="bg-purple-500/10 text-purple-600 dark:text-purple-400 text-[7px] font-black font-mono px-1.5 py-0.5 rounded shrink-0">SERVICE WORKER</span>
+                        </div>
+                        <p className="text-[10px] text-gray-600 dark:text-zinc-300 leading-relaxed mt-0.5">
+                          When minimized, the app uses Service Workers and Web Push Notifications to trigger alerts (e.g. sound pings, trip dispatch alerts, or pre-booking notifications) even if the app screen is hidden.
+                        </p>
+                      </div>
+
+                      {/* 3. Background Audio Keep-Alive Channel */}
+                      <div className={`p-3.5 rounded-2xl border flex flex-col gap-2 ${darkMode ? 'bg-zinc-900 border-zinc-800' : 'bg-gray-50 border-gray-200'}`}>
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-2">
+                            <Volume2 className="w-4 h-4 text-amber-500 shrink-0" />
+                            <span className="text-[10.5px] font-black uppercase text-gray-900 dark:text-zinc-100">3. Background Audio Keep-Alive Channel</span>
+                          </div>
+                          <span className="bg-amber-500/10 text-amber-600 dark:text-amber-400 text-[7px] font-black font-mono px-1.5 py-0.5 rounded shrink-0">CARPLAY / BT</span>
+                        </div>
+                        <p className="text-[10px] text-gray-600 dark:text-zinc-300 leading-relaxed mt-0.5">
+                          Drivers often play subtle low-frequency background audio or system alerts. As long as media playback or audio context is active (or connected via Bluetooth/CarPlay), mobile OS engines (iOS & Android) maintain background process execution for dispatch timers.
+                        </p>
+                      </div>
+
+                      {/* 4. Screen Wake Lock & Persistent GPS */}
+                      <div className={`p-3.5 rounded-2xl border flex flex-col gap-2 ${darkMode ? 'bg-zinc-900 border-zinc-800' : 'bg-gray-50 border-gray-200'}`}>
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-2">
+                            <ShieldCheck className="w-4 h-4 text-[#13AA52] shrink-0" />
+                            <span className="text-[10.5px] font-black uppercase text-gray-900 dark:text-zinc-100">4. Screen Wake Lock & Persistent GPS</span>
+                          </div>
+                          <span className="bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 text-[7px] font-black font-mono px-1.5 py-0.5 rounded shrink-0">COMMAND CENTRE</span>
+                        </div>
+                        <div className="space-y-1.5 text-[10px] text-gray-600 dark:text-zinc-300 mt-0.5">
+                          <p className="font-bold text-gray-800 dark:text-zinc-200">
+                            Under <span className="text-[#13AA52] font-black">Settings / Command Centre</span> in the app:
+                          </p>
+                          <div className="p-2 rounded-xl bg-white dark:bg-zinc-950 border border-gray-150 dark:border-zinc-800 flex flex-col gap-0.5">
+                            <span className="font-bold text-gray-800 dark:text-zinc-200">Screen Keep-Awake (Wake Lock API):</span>
+                            <span>Keeps the display from dimming or locking while mounted in your vehicle.</span>
+                          </div>
+                          <div className="p-2 rounded-xl bg-white dark:bg-zinc-950 border border-gray-150 dark:border-zinc-800 flex flex-col gap-0.5">
+                            <span className="font-bold text-gray-800 dark:text-zinc-200">Continuous Background Location (GPS Tick):</span>
+                            <span>Continuous GPS tracking prevents the device from suspending location events while driving between stops.</span>
+                          </div>
+                        </div>
                       </div>
                     </div>
                   )}
