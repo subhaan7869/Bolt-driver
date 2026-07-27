@@ -4824,7 +4824,7 @@ export default function App() {
 
                     {/* Floating stats header inside Home map when online and searching */}
                     {isOnline && tripProgress.stage === 'idle' && activeEatsJobs.length === 0 && (
-                      <div className={`absolute top-2 sm:top-3 left-2 sm:left-3 right-2 sm:right-3 backdrop-blur-md border rounded-xl p-1.5 sm:p-2 flex items-center justify-between shadow-md z-15 animate-in fade-in duration-300 gap-1 ${darkMode ? 'bg-zinc-900/95 border-zinc-800 text-zinc-100' : 'bg-white/95 border-gray-100 text-gray-950'}`}>
+                      <div className={`absolute top-12 sm:top-15 left-2 sm:left-3 right-2 sm:right-3 backdrop-blur-md border rounded-xl p-1.5 sm:p-2 flex items-center justify-between shadow-md z-15 animate-in fade-in duration-300 gap-1 ${darkMode ? 'bg-zinc-900/95 border-zinc-800 text-zinc-100' : 'bg-white/95 border-gray-100 text-gray-950'}`}>
                         <div className={`text-center flex-1 min-w-0 border-r px-0.5 ${darkMode ? 'border-zinc-800' : 'border-gray-100'}`}>
                           <span className="text-[6.5px] sm:text-[7.5px] text-gray-400 dark:text-zinc-450 uppercase font-bold block leading-none truncate">Accept Rate</span>
                           <span className={`text-[9px] sm:text-[10px] font-bold font-mono tracking-tight block mt-0.5 ${darkMode ? 'text-zinc-100' : 'text-gray-900'}`}>{stats.acceptanceRate}%</span>

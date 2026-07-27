@@ -437,10 +437,20 @@ export const MapSimulator: React.FC<MapSimulatorProps> = ({
 
     // Tile pattern selector matching Light vs Dark mode styling
     const tileUrl = darkMode
-      ? 'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png'
-      : 'https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png';
+      ? 'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}.png'
+      : 'https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}.png';
 
-    const tileLayer = L.tileLayer(tileUrl, { maxZoom: 19 }).addTo(initialMap);
+    const tileLayer = L.tileLayer(tileUrl, { 
+      maxZoom: 19, 
+      subdomains: 'abcd',
+      attribution: '&copy; CartoDB &copy; OpenStreetMap' 
+    }).addTo(initialMap);
+
+    // Fallback to OpenStreetMap if Carto tile fails
+    tileLayer.on('tileerror', () => {
+      tileLayer.setUrl('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png');
+    });
+
     tileLayerRef.current = tileLayer;
 
     // Custom driver car marker initialized inside leaf map
@@ -484,11 +494,36 @@ export const MapSimulator: React.FC<MapSimulatorProps> = ({
     if (!mapRef.current || !tileLayerRef.current) return;
     
     const tileUrl = darkMode
-      ? 'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png'
-      : 'https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png';
+      ? 'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}.png'
+      : 'https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}.png';
 
     tileLayerRef.current.setUrl(tileUrl);
   }, [darkMode]);
+
+  // Ensure Leaflet resizes correctly whenever online status changes or viewport adjusts
+  useEffect(() => {
+    if (!mapRef.current) return;
+
+    const t1 = setTimeout(() => { mapRef.current?.invalidateSize(); }, 50);
+    const t2 = setTimeout(() => { mapRef.current?.invalidateSize(); }, 300);
+    const t3 = setTimeout(() => { mapRef.current?.invalidateSize(); }, 600);
+
+    return () => {
+      clearTimeout(t1);
+      clearTimeout(t2);
+      clearTimeout(t3);
+    };
+  }, [isOnline]);
+
+  // ResizeObserver to continuously handle map container dimension shifts
+  useEffect(() => {
+    if (!mapElementRef.current) return;
+    const observer = new ResizeObserver(() => {
+      mapRef.current?.invalidateSize();
+    });
+    observer.observe(mapElementRef.current);
+    return () => observer.disconnect();
+  }, []);
 
   // Pan Map and Sync Driver Marker position when GPS coordinates or path shifts
   useEffect(() => {
@@ -863,7 +898,7 @@ export const MapSimulator: React.FC<MapSimulatorProps> = ({
         {/* Leaflet DOM Node Element Container */}
         <div 
           ref={mapElementRef} 
-          className="w-full h-full z-0 pointer-events-auto" 
+          className="w-full h-full z-0 pointer-events-auto bg-[#e8ece9] dark:bg-[#12131a]" 
         />
 
         {/* Floating overlays ONLY when online */}
